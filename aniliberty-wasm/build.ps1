@@ -1,0 +1,71 @@
+param(
+    [string]$OutputName = "ani-liberty-0.1.0.zip",
+    [string]$PackageUrl = "",
+    [string]$RepositoryIndexPath = ""
+)
+
+$ErrorActionPreference = "Stop"
+$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot ".")).Path
+$artifactDirectory = Join-Path $projectRoot "..\artifacts"
+$stagingDirectory = Join-Path $projectRoot "..\.package-staging"
+$wasmPath = Join-Path $projectRoot "target\wasm32-wasip1\release\aniliberty_wasm.wasm"
+$archivePath = Join-Path $artifactDirectory $OutputName
+
+New-Item -ItemType Directory -Force -Path $artifactDirectory | Out-Null
+if ([System.IO.Directory]::Exists($stagingDirectory)) {
+    [System.IO.Directory]::Delete($stagingDirectory, $true)
+}
+New-Item -ItemType Directory -Force -Path $stagingDirectory | Out-Null
+
+cargo build --manifest-path (Join-Path $projectRoot "Cargo.toml") --target wasm32-wasip1 --release
+Copy-Item (Join-Path $projectRoot "package\manifest.json") (Join-Path $stagingDirectory "manifest.json")
+Copy-Item $wasmPath (Join-Path $stagingDirectory "source.wasm")
+
+if ($PackageUrl) {
+    $parsedUri = $null
+    if (-not [Uri]::TryCreate($PackageUrl, [UriKind]::Absolute, [ref]$parsedUri) -or
+        -not $PackageUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "PackageUrl must be an absolute HTTPS URL"
+    }
+    $packageManifestPath = Join-Path $stagingDirectory "manifest.json"
+    $packageManifest = Get-Content -Raw -LiteralPath $packageManifestPath | ConvertFrom-Json
+    $packageManifest.packageUrl = $PackageUrl
+    $packageManifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $packageManifestPath -Encoding utf8
+}
+$publishedManifest = Get-Content -Raw -LiteralPath (Join-Path $stagingDirectory "manifest.json")
+
+if ([System.IO.File]::Exists($archivePath)) {
+    [System.IO.File]::Delete($archivePath)
+}
+Compress-Archive `
+    -Path (Join-Path $stagingDirectory "manifest.json"), (Join-Path $stagingDirectory "source.wasm") `
+    -DestinationPath $archivePath `
+    -CompressionLevel Optimal
+[System.IO.Directory]::Delete($stagingDirectory, $true)
+
+$artifact = Get-Item -LiteralPath $archivePath
+$hash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+Write-Output "artifact=$($artifact.FullName)"
+Write-Output "artifactSizeBytes=$($artifact.Length)"
+Write-Output "sha256=$hash"
+
+if ($RepositoryIndexPath) {
+    if (-not $PackageUrl) {
+        throw "PackageUrl is required when RepositoryIndexPath is specified"
+    }
+    $manifest = $publishedManifest | ConvertFrom-Json
+    $manifest.sha256 = $hash
+    $manifest.artifactSizeBytes = $artifact.Length
+    $index = [ordered]@{
+        apiVersion = 1
+        sources = @($manifest)
+    }
+    $indexPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $RepositoryIndexPath))
+    New-Item -ItemType Directory -Force -Path ([System.IO.Path]::GetDirectoryName($indexPath)) | Out-Null
+    $index | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $indexPath -Encoding utf8
+    Write-Output "repositoryIndex=$indexPath"
+}
+
+if ([System.IO.Directory]::Exists($stagingDirectory)) {
+    [System.IO.Directory]::Delete($stagingDirectory, $true)
+}

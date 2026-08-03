@@ -1,0 +1,395 @@
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+
+const RUNTIME_PROTOCOL_VERSION: u32 = 1;
+const HOST_PROTOCOL_VERSION: u32 = 1;
+const DEFAULT_BASE_URL: &str = "https://anilibria.top/api/v1";
+const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
+
+#[derive(Deserialize)]
+enum RuntimeOperation {
+    #[serde(rename = "SEARCH")]
+    Search,
+    #[serde(rename = "DETAILS")]
+    Details,
+    #[serde(rename = "PLAYBACK_GROUPS")]
+    PlaybackGroups,
+    #[serde(rename = "PLAYER_LINKS")]
+    PlayerLinks,
+}
+
+#[derive(Deserialize)]
+struct RuntimeRequest {
+    #[serde(rename = "requestId")]
+    request_id: String,
+    operation: RuntimeOperation,
+    payload: Value,
+}
+
+#[derive(Serialize)]
+struct RuntimeResponse {
+    #[serde(rename = "requestId")]
+    request_id: String,
+    payload: Option<Value>,
+    #[serde(rename = "errorCode")]
+    error_code: Option<&'static str>,
+    #[serde(rename = "errorMessage")]
+    error_message: Option<String>,
+    #[serde(rename = "protocolVersion")]
+    protocol_version: u32,
+}
+
+#[derive(Serialize)]
+struct HostRequest {
+    #[serde(rename = "requestId")]
+    request_id: String,
+    operation: &'static str,
+    payload: Value,
+    #[serde(rename = "protocolVersion")]
+    protocol_version: u32,
+}
+
+fn runtime_error(request_id: String, message: impl Into<String>) -> Vec<u8> {
+    serde_json::to_vec(&RuntimeResponse {
+        request_id,
+        payload: None,
+        error_code: Some("SOURCE_FAILURE"),
+        error_message: Some(message.into()),
+        protocol_version: RUNTIME_PROTOCOL_VERSION,
+    })
+    .unwrap_or_else(|_| b"{\"requestId\":\"guest-error\",\"payload\":null,\"errorCode\":\"RUNTIME_FAILURE\",\"errorMessage\":\"serialization failed\",\"protocolVersion\":1}".to_vec())
+}
+
+fn host_http(request_id: &str, url: String) -> Result<String, String> {
+    let request = HostRequest {
+        request_id: format!("{request_id}-http"),
+        operation: "HTTP_REQUEST",
+        payload: json!({
+            "method": "GET",
+            "url": url,
+            "headers": { "Accept": "application/json" },
+            "body": null,
+            "timeoutMillis": 30_000,
+            "maxResponseBytes": MAX_RESPONSE_BYTES
+        }),
+        protocol_version: HOST_PROTOCOL_VERSION,
+    };
+    let request_bytes = serde_json::to_vec(&request).map_err(|error| error.to_string())?;
+    let packed = unsafe { host_call(request_bytes.as_ptr(), request_bytes.len() as i32) };
+    if packed < 0 {
+        return Err("host HTTP request failed".to_owned());
+    }
+    let response_ptr = (packed as u64 >> 32) as usize;
+    let response_len = (packed as u64 & u32::MAX as u64) as usize;
+    let response = unsafe { core::slice::from_raw_parts(response_ptr as *const u8, response_len) };
+    let response: Value = serde_json::from_slice(response).map_err(|error| error.to_string())?;
+    if let Some(error) = response.get("errorMessage").and_then(Value::as_str) {
+        return Err(error.to_owned());
+    }
+    response
+        .pointer("/payload/body")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| "host HTTP response did not contain a body".to_owned())
+}
+
+fn api_url(path: &str) -> String {
+    format!("{DEFAULT_BASE_URL}/{path}")
+}
+
+fn encode_query(value: &str) -> String {
+    value
+        .bytes()
+        .flat_map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                vec![byte as char]
+            }
+            byte => format!("%{byte:02X}").chars().collect(),
+        })
+        .collect()
+}
+
+fn title(value: &Value) -> Option<Value> {
+    let id = value.get("id")?.to_string_value()?;
+    let names = value.get("name").and_then(Value::as_object)?;
+    let main_name = names.get("main").and_then(Value::as_str)?.to_owned();
+    let english_name = names.get("english").and_then(Value::as_str);
+    let poster = value.get("poster").and_then(Value::as_object);
+    let poster_path = poster
+        .and_then(|poster| poster.get("optimized"))
+        .and_then(Value::as_object)
+        .and_then(|optimized| optimized.get("src"))
+        .and_then(Value::as_str)
+        .or_else(|| {
+            poster
+                .and_then(|poster| poster.get("src"))
+                .and_then(Value::as_str)
+        });
+    Some(json!({
+        "id": id,
+        "russianName": main_name,
+        "englishName": english_name,
+        "originalName": english_name.unwrap_or(&main_name),
+        "japaneseName": null,
+        "synonyms": names.get("alternative").and_then(Value::as_str).unwrap_or("").split(',').map(str::trim).filter(|value| !value.is_empty()).collect::<Vec<_>>(),
+        "year": value.get("year").and_then(Value::as_i64),
+        "type": value.get("type").and_then(|value| value.get("value")).and_then(Value::as_str),
+        "episodeCount": value.get("episodes_total").and_then(Value::as_i64),
+        "posterUrl": poster_path.map(|path| if path.starts_with("http") { path.to_owned() } else { format!("https://anilibria.top{path}") }),
+        "status": value.get("is_ongoing").and_then(Value::as_bool).map(|ongoing| if ongoing { "ongoing" } else { "released" }),
+        "description": value.get("description").and_then(Value::as_str),
+        "nextEpisodeAt": null,
+        "genres": value.get("genres").and_then(Value::as_array).map(|genres| genres.iter().filter_map(|genre| genre.get("name").or_else(|| genre.get("description"))).filter_map(Value::as_str).collect::<Vec<_>>()).unwrap_or_default(),
+        "ratings": [], "ageRating": null, "viewCount": null, "screenshots": [], "trailer": null,
+        "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [],
+        "franchiseAnime": [], "relatedAnime": [], "season": null, "availableEpisodeCount": null,
+        "posterFallbackUrl": null
+    }))
+}
+
+fn release_value(body: &str) -> Result<Value, String> {
+    let value: Value = serde_json::from_str(body).map_err(|error| error.to_string())?;
+    Ok(value.get("data").cloned().unwrap_or(value))
+}
+
+fn release(request_id: &str, id: &str) -> Result<Value, String> {
+    host_http(request_id, api_url(&format!("anime/releases/{id}")))
+        .and_then(|body| release_value(&body))
+}
+
+fn episode_value<'a>(release: &'a Value, episode_id: &str) -> Result<&'a Value, String> {
+    release
+        .get("episodes")
+        .and_then(Value::as_array)
+        .and_then(|episodes| {
+            episodes
+                .iter()
+                .find(|episode| episode.get("id").and_then(Value::as_str) == Some(episode_id))
+        })
+        .ok_or_else(|| format!("AniLiberty episode was not found: {episode_id}"))
+}
+
+fn episode_number(value: &Value) -> Option<f64> {
+    value.get("ordinal").and_then(Value::as_f64)
+}
+
+fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
+    let release = release(request_id, title_id)?;
+    let episodes = release
+        .get("episodes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|episode| {
+            let id = episode.get("id")?.to_string_value()?;
+            let number = episode_number(&episode)?;
+            (number > 0.0).then(|| {
+                json!({
+                    "id": id,
+                    "number": number,
+                    "title": episode.get("name").and_then(Value::as_str)
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+    if episodes.is_empty() {
+        Ok(json!({ "groups": [] }))
+    } else {
+        Ok(json!({
+            "groups": [{
+                "id": title_id,
+                "title": "AniLiberty",
+                "qualityLabel": "HLS",
+                "episodes": episodes
+            }]
+        }))
+    }
+}
+
+fn player_links(request_id: &str, title_id: &str, episode_id: &str) -> Result<Value, String> {
+    let release = release(request_id, title_id)?;
+    let episode = episode_value(&release, episode_id)?;
+    let mut links = Vec::new();
+    for (field, quality) in [
+        ("hls_1080", "1080p"),
+        ("hls_720", "720p"),
+        ("hls_480", "480p"),
+        ("hls_360", "360p"),
+        ("hls_240", "240p"),
+    ] {
+        if let Some(url) = episode
+            .get(field)
+            .and_then(Value::as_str)
+            .filter(|url| !url.is_empty())
+        {
+            links.push(json!({
+                "url": url,
+                "type": "DIRECT_HLS",
+                "quality": quality,
+                "headers": { "Referer": "https://anilibria.top/" },
+                "playerName": "AniLiberty",
+                "translation": "AniLiberty",
+                "segments": episode_segments(episode)
+            }));
+        }
+    }
+    Ok(json!({ "links": links }))
+}
+
+fn episode_segments(episode: &Value) -> Vec<Value> {
+    let duration = episode.get("duration").and_then(Value::as_i64);
+    [("opening", "OPENING"), ("ending", "ENDING")]
+        .into_iter()
+        .filter_map(|(field, segment_type)| {
+            let segment = episode.get(field)?.as_object()?;
+            let start = segment.get("start")?.as_i64()?.max(0);
+            let raw_end = segment.get("stop")?.as_i64()?;
+            let end = duration.map_or(raw_end, |value| raw_end.min(value));
+            (end > start).then(|| {
+                json!({
+                    "type": segment_type,
+                    "startMs": start * 1000,
+                    "endMs": end * 1000
+                })
+            })
+        })
+        .collect()
+}
+
+trait ValueString {
+    fn to_string_value(&self) -> Option<String>;
+}
+
+impl ValueString for Value {
+    fn to_string_value(&self) -> Option<String> {
+        self.as_str()
+            .map(str::to_owned)
+            .or_else(|| self.as_i64().map(|value| value.to_string()))
+    }
+}
+
+fn execute(request: RuntimeRequest) -> Vec<u8> {
+    let result = match request.operation {
+        RuntimeOperation::Search => {
+            let query = request
+                .payload
+                .get("query")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let page = request
+                .payload
+                .get("offset")
+                .and_then(Value::as_i64)
+                .unwrap_or(0)
+                / 20
+                + 1;
+            let url = format!(
+                "{}?page={page}&limit=20&f[search]={}",
+                api_url("anime/catalog/releases"),
+                encode_query(query)
+            );
+            host_http(&request.request_id, url).and_then(|body| {
+                let value: Value =
+                    serde_json::from_str(&body).map_err(|error| error.to_string())?;
+                let items = value
+                    .get("data")
+                    .or_else(|| value.get("items"))
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
+            })
+        }
+        RuntimeOperation::Details => {
+            let id = request
+                .payload
+                .get("id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "details id is missing".to_owned());
+            id.and_then(|id| {
+                release(&request.request_id, id).and_then(|value| {
+                    title(&value).ok_or_else(|| "AniLiberty returned an invalid release".to_owned())
+                })
+            })
+        }
+        RuntimeOperation::PlaybackGroups => {
+            let title_id = request
+                .payload
+                .get("titleId")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "playback titleId is missing".to_owned());
+            title_id.and_then(|id| playback_groups(&request.request_id, id))
+        }
+        RuntimeOperation::PlayerLinks => {
+            let title_id = request
+                .payload
+                .get("titleId")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "player links titleId is missing".to_owned());
+            let episode_id = request
+                .payload
+                .get("episodeId")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "player links episodeId is missing".to_owned());
+            title_id.and_then(|title_id| {
+                episode_id
+                    .and_then(|episode_id| player_links(&request.request_id, title_id, episode_id))
+            })
+        }
+    };
+    match result {
+        Ok(payload) => serde_json::to_vec(&RuntimeResponse {
+            request_id: request.request_id,
+            payload: Some(payload),
+            error_code: None,
+            error_message: None,
+            protocol_version: RUNTIME_PROTOCOL_VERSION,
+        })
+        .unwrap(),
+        Err(error) => runtime_error(request.request_id, error),
+    }
+}
+
+static mut HEAP: usize = 4096;
+
+#[no_mangle]
+pub extern "C" fn beakokit_reset() {
+    unsafe {
+        HEAP = 4096;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn beakokit_alloc(length: i32) -> i32 {
+    unsafe {
+        let pointer = HEAP;
+        HEAP += length.max(0) as usize;
+        pointer as i32
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
+    let request =
+        unsafe { core::slice::from_raw_parts(pointer as *const u8, length.max(0) as usize) };
+    let response = match serde_json::from_slice::<RuntimeRequest>(request) {
+        Ok(request) => execute(request),
+        Err(error) => runtime_error("invalid-request".to_owned(), error.to_string()),
+    };
+    let response_pointer = beakokit_alloc(response.len() as i32) as usize;
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            response.as_ptr(),
+            response_pointer as *mut u8,
+            response.len(),
+        );
+    }
+    ((response_pointer as u64) << 32 | response.len() as u64) as i64
+}
+
+#[link(wasm_import_module = "host")]
+extern "C" {
+    #[link_name = "call"]
+    fn host_call(pointer: *const u8, length: i32) -> i64;
+}

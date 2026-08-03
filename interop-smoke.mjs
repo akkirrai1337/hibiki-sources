@@ -1,0 +1,124 @@
+import fs from "node:fs";
+
+const modules = [
+  ["rust", "aniliberty-wasm/target/wasm32-wasip1/release/aniliberty_wasm.wasm"],
+  ["kotlin", "kotlin-wasm-reference/build/compileSync/wasmWasi/main/productionExecutable/kotlin/beakokit-kotlin-wasm-reference.wasm"],
+];
+
+const episode = {
+  id: "episode-1",
+  ordinal: 1,
+  name: "Episode 1",
+  hls_720: "https://cache.libria.fun/videos/episode-1/720.m3u8",
+  duration: 1400,
+  opening: { start: 1, stop: 100 },
+  ending: { start: null, stop: null },
+};
+
+const release = {
+  id: 413,
+  name: { main: "Naruto", english: "Naruto", alternative: null },
+  year: 2007,
+  type: { value: "TV" },
+  episodes_total: 1,
+  is_ongoing: false,
+  description: "Fixture release",
+  poster: { src: "/storage/poster.jpg" },
+  genres: [{ name: "Action" }],
+  episodes: [episode],
+};
+
+function hostBody(url) {
+  if (url.includes("anime/catalog/releases")) return JSON.stringify({ data: [release] });
+  if (url.includes("anime/releases/")) return JSON.stringify({ data: release });
+  throw new Error(`Unexpected host URL: ${url}`);
+}
+
+function wasiImports(getMemory) {
+    return {
+      environ_sizes_get: (count, bufferSize) => {
+      const memory = getMemory();
+      memory.buffer.slice(count, count + 4).fill(0);
+      memory.buffer.slice(bufferSize, bufferSize + 4).fill(0);
+      return 0;
+    },
+    environ_get: () => 0,
+    fd_write: (fd, iovs, iovsLen, written) => {
+      const memory = getMemory();
+      new DataView(memory.buffer).setUint32(written, 0, true);
+      return 0;
+    },
+    proc_exit: (code) => { throw new Error(`WASI proc_exit(${code})`); },
+    random_get: (pointer, length) => {
+      const memory = getMemory();
+      new Uint8Array(memory.buffer, pointer, length).fill(0);
+      return 0;
+    },
+  };
+}
+
+async function loadModule(name, relativePath) {
+  const bytes = fs.readFileSync(new URL(relativePath, import.meta.url));
+  let instance;
+  const imports = {
+    wasi_snapshot_preview1: {},
+    host: {
+      call(pointer, length) {
+        const memory = instance.exports.memory;
+        const request = JSON.parse(new TextDecoder().decode(new Uint8Array(memory.buffer, pointer, length)));
+        const body = hostBody(request.payload.url);
+        const response = JSON.stringify({
+          requestId: request.requestId,
+          payload: { statusCode: 200, headers: {}, body },
+          errorCode: null,
+          errorMessage: null,
+          protocolVersion: 1,
+        });
+        const encoded = new TextEncoder().encode(response);
+        const responsePointer = instance.exports.beakokit_alloc(encoded.length);
+        new Uint8Array(memory.buffer, responsePointer, encoded.length).set(encoded);
+        return (BigInt(responsePointer) << 32n) | BigInt(encoded.length);
+      },
+    },
+  };
+  const temporaryMemory = new WebAssembly.Memory({ initial: 32 });
+  let activeMemory = temporaryMemory;
+  Object.assign(imports.wasi_snapshot_preview1, wasiImports(() => activeMemory));
+  const result = await WebAssembly.instantiate(bytes, imports);
+  instance = result.instance;
+  const memory = instance.exports.memory;
+  activeMemory = memory;
+  if (memory.buffer.byteLength === 0) memory.grow(1);
+  return { name, instance, memory };
+}
+
+function call(module, operation, payload) {
+  const { instance, memory } = module;
+  instance.exports.beakokit_reset();
+  const request = JSON.stringify({ requestId: `${module.name}-${operation}`, operation, payload, protocolVersion: 1 });
+  const input = new TextEncoder().encode(request);
+  const pointer = instance.exports.beakokit_alloc(input.length);
+  if (pointer < 0 || pointer + input.length > memory.buffer.byteLength) {
+    throw new Error(`${module.name}: allocator returned ${pointer} for ${input.length} bytes with memory ${memory.buffer.byteLength}`);
+  }
+  new Uint8Array(memory.buffer, pointer, input.length).set(input);
+  const packed = instance.exports.beakokit_call(pointer, input.length);
+  const responsePointer = Number((packed >> 32n) & 0xffffffffn);
+  const responseLength = Number(packed & 0xffffffffn);
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(memory.buffer, responsePointer, responseLength)));
+}
+
+for (const [name, path] of modules) {
+  const module = await loadModule(name, path);
+  const search = call(module, "SEARCH", { query: "naruto", limit: 20, offset: 0 });
+  const details = call(module, "DETAILS", { id: "413" });
+  const groups = call(module, "PLAYBACK_GROUPS", { titleId: "413" });
+  const links = call(module, "PLAYER_LINKS", {
+    titleId: "413", groupId: "413", episodeId: "episode-1", episodeNumber: 1,
+  });
+  if (!search.payload?.items?.length) throw new Error(`${name}: search failed`);
+  if (details.payload?.id !== "413") throw new Error(`${name}: details failed`);
+  if (!groups.payload?.groups?.[0]?.episodes?.length) throw new Error(`${name}: groups failed`);
+  if (!links.payload?.links?.[0]?.url?.includes("720.m3u8")) throw new Error(`${name}: links failed`);
+  console.log(`${name}: SEARCH, DETAILS, PLAYBACK_GROUPS, PLAYER_LINKS passed`);
+}

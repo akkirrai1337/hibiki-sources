@@ -1,0 +1,19 @@
+# Rust compiler output
+**/target/
+
+# Kotlin/Gradle compiler output
+**/build/
+.gradle/
+
+# Temporary package staging
+**/.package-staging/
+
+# Keep only the release artifact publishable from the repository.
+artifacts/*
+!artifacts/ani-liberty-0.1.0.zip
+
+# Local/reproducibility variants are never repository inputs.
+artifacts/*-current.zip
+artifacts/*-local.zip
+artifacts/*-playback*.zip
+artifacts/*-reproducible.zip
