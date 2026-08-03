@@ -1,0 +1,40 @@
+﻿{
+    "apiVersion":  1,
+    "sources":  [
+                    {
+                        "manifestFormatVersion":  1,
+                        "sourceId":  "ani-liberty",
+                        "packageVersion":  "0.1.0",
+                        "sourceInfo":  {
+                                           "displayName":  "AniLiberty",
+                                           "languages":  [
+                                                             "RUSSIAN"
+                                                         ],
+                                           "primaryLanguage":  "RUSSIAN",
+                                           "website":  "https://anilibria.top"
+                                       },
+                        "apiVersion":  1,
+                        "hostApiVersion":  1,
+                        "runtime":  {
+                                        "id":  "wasm",
+                                        "abi":  "wasm32-wasi-preview1"
+                                    },
+                        "entrypoint":  "source.wasm",
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-0.1.0.zip",
+                        "sha256":  "145918450f917391f43a66a09b38e6c97a569fa7e3e39427061814b6753c4d1b",
+                        "artifactSizeBytes":  93981,
+                        "minClientVersion":  0,
+                        "capabilities":  [
+                                             "PLAYBACK"
+                                         ],
+                        "hostCapabilities":  [
+                                                 "NETWORK"
+                                             ],
+                        "hostNetworkPolicy":  {
+                                                  "allowedHosts":  [
+                                                                       "anilibria.top"
+                                                                   ]
+                                              }
+                    }
+                ]
+}
