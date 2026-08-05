@@ -8,9 +8,9 @@
                         "sourceInfo":  {
                                            "displayName":  "AniLiberty",
                                            "languages":  [
-                                                             "RUSSIAN"
+                                                             "ru"
                                                          ],
-                                           "primaryLanguage":  "RUSSIAN",
+                                           "primaryLanguage":  "ru",
                                            "website":  "https://anilibria.top"
                                        },
                         "apiVersion":  1,
@@ -21,8 +21,8 @@
                                     },
                         "entrypoint":  "source.wasm",
                         "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-0.1.0.zip",
-                        "sha256":  "145918450f917391f43a66a09b38e6c97a569fa7e3e39427061814b6753c4d1b",
-                        "artifactSizeBytes":  93981,
+                        "sha256":  "ef92fde6f4c14391b3b51608e36affe6af1ea81da6592d386a4e0f590b4de06b",
+                        "artifactSizeBytes":  93966,
                         "minClientVersion":  0,
                         "capabilities":  [
                                              "PLAYBACK"

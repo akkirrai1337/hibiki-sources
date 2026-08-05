@@ -30,7 +30,11 @@ if ($PackageUrl) {
     $packageManifestPath = Join-Path $stagingDirectory "manifest.json"
     $packageManifest = Get-Content -Raw -LiteralPath $packageManifestPath | ConvertFrom-Json
     $packageManifest.packageUrl = $PackageUrl
-    $packageManifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $packageManifestPath -Encoding utf8
+    [System.IO.File]::WriteAllText(
+        $packageManifestPath,
+        ($packageManifest | ConvertTo-Json -Depth 20),
+        [System.Text.UTF8Encoding]::new($false)
+    )
 }
 $publishedManifest = Get-Content -Raw -LiteralPath (Join-Path $stagingDirectory "manifest.json")
 
@@ -62,7 +66,11 @@ if ($RepositoryIndexPath) {
     }
     $indexPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $RepositoryIndexPath))
     New-Item -ItemType Directory -Force -Path ([System.IO.Path]::GetDirectoryName($indexPath)) | Out-Null
-    $index | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $indexPath -Encoding utf8
+    [System.IO.File]::WriteAllText(
+        $indexPath,
+        ($index | ConvertTo-Json -Depth 20),
+        [System.Text.UTF8Encoding]::new($false)
+    )
     Write-Output "repositoryIndex=$indexPath"
 }
 

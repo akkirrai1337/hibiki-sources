@@ -4,8 +4,8 @@
   "packageVersion": "0.1.0",
   "sourceInfo": {
     "displayName": "AniLiberty",
-    "languages": ["RUSSIAN"],
-    "primaryLanguage": "RUSSIAN",
+    "languages": ["ru"],
+    "primaryLanguage": "ru",
     "website": "https://anilibria.top"
   },
   "apiVersion": 1,
