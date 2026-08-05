@@ -21,8 +21,8 @@
                                     },
                         "entrypoint":  "source.wasm",
                         "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-0.1.0.zip",
-                        "sha256":  "ef92fde6f4c14391b3b51608e36affe6af1ea81da6592d386a4e0f590b4de06b",
-                        "artifactSizeBytes":  93966,
+                        "sha256":  "f9aaf4ec2e372e5f0fea123aa14a178c62eeec2b10ad24cb87cb764ce08473d3",
+                        "artifactSizeBytes":  94024,
                         "minClientVersion":  0,
                         "capabilities":  [
                                              "PLAYBACK"

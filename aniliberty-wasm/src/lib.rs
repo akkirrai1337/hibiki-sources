@@ -112,8 +112,17 @@ fn encode_query(value: &str) -> String {
 fn title(value: &Value) -> Option<Value> {
     let id = value.get("id")?.to_string_value()?;
     let names = value.get("name").and_then(Value::as_object)?;
-    let main_name = names.get("main").and_then(Value::as_str)?.to_owned();
-    let english_name = names.get("english").and_then(Value::as_str);
+    let main_name = names
+        .get("main")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|name| !name.is_empty())?;
+    let english_name = names
+        .get("english")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|name| !name.is_empty());
+    let original_name = english_name.unwrap_or(main_name);
     let poster = value.get("poster").and_then(Value::as_object);
     let poster_path = poster
         .and_then(|poster| poster.get("optimized"))
@@ -129,7 +138,7 @@ fn title(value: &Value) -> Option<Value> {
         "id": id,
         "russianName": main_name,
         "englishName": english_name,
-        "originalName": english_name.unwrap_or(&main_name),
+        "originalName": original_name,
         "japaneseName": null,
         "synonyms": names.get("alternative").and_then(Value::as_str).unwrap_or("").split(',').map(str::trim).filter(|value| !value.is_empty()).collect::<Vec<_>>(),
         "year": value.get("year").and_then(Value::as_i64),
@@ -284,10 +293,22 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
                 .unwrap_or(0)
                 / 20
                 + 1;
+            let sorting = match request
+                .payload
+                .get("sort")
+                .and_then(Value::as_str)
+                .unwrap_or("RELEVANCE")
+            {
+                "RATING" => "RATING_DESC",
+                "YEAR" => "YEAR_DESC",
+                "TITLE" => "FRESH_AT_DESC",
+                _ => "FRESH_AT_DESC",
+            };
             let url = format!(
-                "{}?page={page}&limit=20&f[search]={}",
+                "{}?page={page}&limit=20&f[search]={}&f[sorting]={}",
                 api_url("anime/catalog/releases"),
-                encode_query(query)
+                encode_query(query),
+                encode_query(sorting),
             );
             host_http(&request.request_id, url).and_then(|body| {
                 let value: Value =
