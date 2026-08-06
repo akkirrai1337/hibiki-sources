@@ -71,6 +71,14 @@ fn scalar(value: &Value) -> Option<String> {
     value.as_str().map(str::to_owned).or_else(|| value.as_i64().map(|v| v.to_string()))
 }
 
+fn normalized_url(value: &str) -> String {
+    if value.starts_with("//") {
+        format!("https:{value}")
+    } else {
+        value.to_owned()
+    }
+}
+
 fn envelope(body: &str) -> Result<Value, String> {
     let value: Value = serde_json::from_str(body).map_err(|e| e.to_string())?;
     Ok(value.get("response").cloned().unwrap_or(value))
@@ -83,7 +91,12 @@ fn title(value: &Value) -> Option<Value> {
     let original = value.get("title_orig").or_else(|| value.get("title_original")).and_then(Value::as_str).or_else(|| english.or(russian));
     let poster = value.get("poster").or_else(|| value.get("image"));
     let poster_url = poster.and_then(|p| {
-        p.as_str().map(str::to_owned).or_else(|| p.get("original").or_else(|| p.get("large")).or_else(|| p.get("medium")).and_then(Value::as_str).map(str::to_owned))
+        p.as_str().map(normalized_url).or_else(|| {
+            ["fullsize", "mega", "huge", "big", "medium", "small", "original", "preview", "thumbnail", "url"]
+                .iter()
+                .find_map(|key| p.get(*key).and_then(Value::as_str).filter(|v| !v.trim().is_empty()))
+                .map(normalized_url)
+        })
     });
     let type_alias = value.get("type").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str);
     let status = value.get("anime_status").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str).or_else(|| value.get("status").and_then(Value::as_str));
@@ -94,7 +107,11 @@ fn title(value: &Value) -> Option<Value> {
         "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
         "synonyms": value.get("synonyms").or_else(|| value.get("aliases")).cloned().unwrap_or_else(|| json!([])),
         "year": value.get("year"), "type": type_alias, "episodeCount": value.get("episodes_count"),
-        "posterUrl": poster_url, "status": status, "description": value.get("description"),
+        "posterUrl": poster_url, "status": status,
+        "description": value.get("description").and_then(Value::as_str)
+            .filter(|v| !v.trim().is_empty())
+            .or_else(|| russian.or(english).or(original))
+            .unwrap_or("Описание отсутствует"),
         "nextEpisodeAt": null, "genres": genres, "ratings": [], "ageRating": age_rating,
         "viewCount": value.get("views"), "screenshots": [], "trailer": null, "sourceMaterial": null,
         "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [],
@@ -118,9 +135,12 @@ fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
     let mut names: Vec<String> = items.iter().filter_map(dubbing).collect();
     names.sort(); names.dedup();
     for name in names {
+        let mut seen = Vec::new();
         let episodes = items.iter().filter(|v| dubbing(v).as_deref() == Some(&name)).filter_map(|v| {
-            let episode_id = v.get("number").and_then(Value::as_str)?;
-            let episode_number = number(episode_id)?;
+            let episode_id = scalar(v.get("number")?)?;
+            if seen.iter().any(|id: &String| id == &episode_id) { return None; }
+            let episode_number = number(&episode_id)?;
+            seen.push(episode_id.clone());
             Some(json!({ "id": episode_id, "number": episode_number, "title": v.get("title") }))
         }).collect::<Vec<_>>();
         if !episodes.is_empty() { groups.push(json!({ "id": name, "title": name, "qualityLabel": null, "episodes": episodes })); }
@@ -129,7 +149,7 @@ fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
 }
 
 fn player_links(request_id: &str, id: &str, episode_id: &str) -> Result<Value, String> {
-    let links = videos(request_id, id)?.into_iter().filter(|v| v.get("number").and_then(Value::as_str) == Some(episode_id)).filter_map(|v| {
+    let links = videos(request_id, id)?.into_iter().filter(|v| scalar(v.get("number").unwrap_or(&Value::Null)).as_deref() == Some(episode_id)).filter_map(|v| {
         let url = v.get("iframe_url").and_then(Value::as_str)?.to_owned();
         let player = v.pointer("/data/player").and_then(Value::as_str).unwrap_or("YummyAnime").trim_start_matches("Плеер ").trim().to_owned();
         let translation = dubbing(&v).unwrap_or_else(|| "YummyAnime".to_owned());
