@@ -1,5 +1,5 @@
 param(
-    [string]$OutputName = "yummyanime-0.1.0.zip",
+    [string]$OutputName = "yummyanime-0.1.1.zip",
     [string]$PackageUrl = "",
     [string]$RepositoryIndexPath = ""
 )
