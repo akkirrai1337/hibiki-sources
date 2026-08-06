@@ -1,6 +1,6 @@
 # BeakoKit external sources
 
-The first real external source package is AniLiberty.
+The external source packages are AniLiberty and YummyAnime.
 
 Build it from `aniliberty-wasm` with:
 
@@ -21,6 +21,16 @@ source.wasm
 `source.wasm` uses the BeakoKit guest ABI and requests AniLiberty data through
 the host `HTTP_REQUEST` capability. It implements `SEARCH`, `DETAILS`,
 `PLAYBACK_GROUPS`, and `PLAYER_LINKS`.
+
+YummyAnime is built from `yummyanime-wasm` with:
+
+```powershell
+.\build.ps1 -PackageUrl "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummyanime-0.1.0.zip"
+```
+
+It follows the old YummyAnime source behavior: catalog search and filters,
+details, latest releases, dubbing groups, and embedded player links from the
+YummyAnime API.
 
 The generated archive is placed in `artifacts/` and may be committed when the
 repository itself is used as the package host. Do not publish a repository

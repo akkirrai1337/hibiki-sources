@@ -1,0 +1,204 @@
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+
+const RUNTIME_PROTOCOL_VERSION: u32 = 1;
+const HOST_PROTOCOL_VERSION: u32 = 1;
+const BASE_URL: &str = "https://api.yani.tv";
+const APPLICATION_TOKEN: &str = "wawegr8j13it4rdw";
+const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
+
+#[derive(Deserialize)]
+enum RuntimeOperation {
+    #[serde(rename = "SEARCH")] Search,
+    #[serde(rename = "FILTER_CATALOG")] FilterCatalog,
+    #[serde(rename = "LATEST")] Latest,
+    #[serde(rename = "DETAILS")] Details,
+    #[serde(rename = "PLAYBACK_GROUPS")] PlaybackGroups,
+    #[serde(rename = "PLAYER_LINKS")] PlayerLinks,
+}
+
+#[derive(Deserialize)]
+struct RuntimeRequest { #[serde(rename = "requestId")] request_id: String, operation: RuntimeOperation, payload: Value }
+
+#[derive(Serialize)]
+struct RuntimeResponse {
+    #[serde(rename = "requestId")] request_id: String,
+    payload: Option<Value>,
+    #[serde(rename = "errorCode")] error_code: Option<&'static str>,
+    #[serde(rename = "errorMessage")] error_message: Option<String>,
+    #[serde(rename = "protocolVersion")] protocol_version: u32,
+}
+
+#[derive(Serialize)]
+struct HostRequest {
+    #[serde(rename = "requestId")] request_id: String,
+    operation: &'static str,
+    payload: Value,
+    #[serde(rename = "protocolVersion")] protocol_version: u32,
+}
+
+fn error(request_id: String, message: impl Into<String>) -> Vec<u8> {
+    serde_json::to_vec(&RuntimeResponse { request_id, payload: None, error_code: Some("SOURCE_FAILURE"), error_message: Some(message.into()), protocol_version: RUNTIME_PROTOCOL_VERSION }).unwrap()
+}
+
+fn http(request_id: &str, path: &str, query: &str) -> Result<String, String> {
+    let url = if query.is_empty() { format!("{BASE_URL}{path}") } else { format!("{BASE_URL}{path}?{query}") };
+    let request = HostRequest {
+        request_id: format!("{request_id}-http"), operation: "HTTP_REQUEST", protocol_version: HOST_PROTOCOL_VERSION,
+        payload: json!({ "method": "GET", "url": url, "headers": {
+            "Accept": "application/json", "Lang": "ru", "X-Application": APPLICATION_TOKEN
+        }, "body": null, "timeoutMillis": 30_000, "maxResponseBytes": MAX_RESPONSE_BYTES }),
+    };
+    let bytes = serde_json::to_vec(&request).map_err(|e| e.to_string())?;
+    let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
+    if packed < 0 { return Err("YummyAnime host HTTP request failed".to_owned()); }
+    let ptr = (packed as u64 >> 32) as usize;
+    let len = (packed as u64 & u32::MAX as u64) as usize;
+    let raw = unsafe { core::slice::from_raw_parts(ptr as *const u8, len) };
+    let response: Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
+    if let Some(message) = response.get("errorMessage").and_then(Value::as_str) { return Err(message.to_owned()); }
+    response.pointer("/payload/body").and_then(Value::as_str).map(str::to_owned).ok_or_else(|| "YummyAnime response did not contain a body".to_owned())
+}
+
+fn enc(value: &str) -> String {
+    value.bytes().flat_map(|b| match b {
+        b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => vec![b as char],
+        b => format!("%{b:02X}").chars().collect(),
+    }).collect()
+}
+
+fn scalar(value: &Value) -> Option<String> {
+    value.as_str().map(str::to_owned).or_else(|| value.as_i64().map(|v| v.to_string()))
+}
+
+fn envelope(body: &str) -> Result<Value, String> {
+    let value: Value = serde_json::from_str(body).map_err(|e| e.to_string())?;
+    Ok(value.get("response").cloned().unwrap_or(value))
+}
+
+fn title(value: &Value) -> Option<Value> {
+    let id = value.get("anime_id").and_then(scalar)?;
+    let russian = value.get("title").and_then(Value::as_str).filter(|v| !v.trim().is_empty());
+    let english = value.get("title_en").or_else(|| value.get("title_english")).and_then(Value::as_str).filter(|v| !v.trim().is_empty());
+    let original = value.get("title_orig").or_else(|| value.get("title_original")).and_then(Value::as_str).or_else(|| english.or(russian));
+    let poster = value.get("poster").or_else(|| value.get("image"));
+    let poster_url = poster.and_then(|p| {
+        p.as_str().map(str::to_owned).or_else(|| p.get("original").or_else(|| p.get("large")).or_else(|| p.get("medium")).and_then(Value::as_str).map(str::to_owned))
+    });
+    let type_alias = value.get("type").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str);
+    let status = value.get("anime_status").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str).or_else(|| value.get("status").and_then(Value::as_str));
+    let age_rating = value.get("min_age").and_then(|v| v.get("title").or_else(|| v.get("title_long")).or(Some(v))).and_then(Value::as_str);
+    let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("alias").or_else(|| v.get("name")).or_else(|| v.get("title")).and_then(Value::as_str).map(str::to_owned)).collect::<Vec<_>>()).unwrap_or_default();
+    Some(json!({
+        "id": id, "russianName": russian, "englishName": english, "originalName": original,
+        "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
+        "synonyms": value.get("synonyms").or_else(|| value.get("aliases")).cloned().unwrap_or_else(|| json!([])),
+        "year": value.get("year"), "type": type_alias, "episodeCount": value.get("episodes_count"),
+        "posterUrl": poster_url, "status": status, "description": value.get("description"),
+        "nextEpisodeAt": null, "genres": genres, "ratings": [], "ageRating": age_rating,
+        "viewCount": value.get("views"), "screenshots": [], "trailer": null, "sourceMaterial": null,
+        "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [],
+        "relatedAnime": [], "season": value.get("season"), "availableEpisodeCount": null, "posterFallbackUrl": null
+    }))
+}
+
+fn array(body: &str) -> Result<Vec<Value>, String> { Ok(envelope(body)?.as_array().cloned().unwrap_or_default()) }
+
+fn videos(request_id: &str, id: &str) -> Result<Vec<Value>, String> { array(&http(request_id, &format!("/anime/{id}/videos"), "")?) }
+
+fn number(value: &str) -> Option<f64> { value.replace(',', ".").parse::<f64>().ok() }
+
+fn dubbing(video: &Value) -> Option<String> {
+    video.pointer("/data/dubbing").and_then(Value::as_str).map(|v| v.trim_start_matches("Озвучка ").trim().to_owned()).filter(|v| !v.is_empty())
+}
+
+fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
+    let mut groups = Vec::new();
+    let items = videos(request_id, id)?;
+    let mut names: Vec<String> = items.iter().filter_map(dubbing).collect();
+    names.sort(); names.dedup();
+    for name in names {
+        let episodes = items.iter().filter(|v| dubbing(v).as_deref() == Some(&name)).filter_map(|v| {
+            let episode_id = v.get("number").and_then(Value::as_str)?;
+            let episode_number = number(episode_id)?;
+            Some(json!({ "id": episode_id, "number": episode_number, "title": v.get("title") }))
+        }).collect::<Vec<_>>();
+        if !episodes.is_empty() { groups.push(json!({ "id": name, "title": name, "qualityLabel": null, "episodes": episodes })); }
+    }
+    Ok(json!({ "groups": groups }))
+}
+
+fn player_links(request_id: &str, id: &str, episode_id: &str) -> Result<Value, String> {
+    let links = videos(request_id, id)?.into_iter().filter(|v| v.get("number").and_then(Value::as_str) == Some(episode_id)).filter_map(|v| {
+        let url = v.get("iframe_url").and_then(Value::as_str)?.to_owned();
+        let player = v.pointer("/data/player").and_then(Value::as_str).unwrap_or("YummyAnime").trim_start_matches("Плеер ").trim().to_owned();
+        let translation = dubbing(&v).unwrap_or_else(|| "YummyAnime".to_owned());
+        let mut segments = Vec::new();
+        for (field, kind) in [("opening", "OPENING"), ("ending", "ENDING")] {
+            if let Some(skip) = v.get("skips").and_then(|s| s.get(field)).and_then(Value::as_object) {
+                let start = skip.get("time").and_then(Value::as_i64).unwrap_or(-1);
+                let length = skip.get("length").and_then(Value::as_i64).unwrap_or(0);
+                if start >= 0 && length > 0 { segments.push(json!({ "type": kind, "startMs": start * 1000, "endMs": (start + length) * 1000 })); }
+            }
+        }
+        Some(json!({ "url": url, "type": "EMBED", "quality": null, "headers": { "Referer": "https://ru.yummyani.me/" }, "playerName": player, "translation": translation, "segments": segments, "videoId": v.get("video_id") }))
+    }).collect::<Vec<_>>();
+    Ok(json!({ "links": links }))
+}
+
+fn filters() -> Value {
+    let option = |id: &str| json!({ "id": id, "title": id });
+    let sorts = ["relevance", "top", "title", "year", "votes", "views", "comments"].iter().map(|v| option(v)).collect::<Vec<_>>();
+    let types = ["tv", "movie", "short_movie", "ova", "special", "short_serial", "ona"].iter().map(|v| option(v)).collect::<Vec<_>>();
+    let statuses = ["released", "ongoing", "announcement"].iter().map(|v| option(v)).collect::<Vec<_>>();
+    json!({ "sortOptions": sorts, "typeOptions": types, "statusOptions": statuses, "genreOptions": [] })
+}
+
+fn execute(request: RuntimeRequest) -> Result<Value, String> {
+    match request.operation {
+        RuntimeOperation::FilterCatalog => Ok(filters()),
+        RuntimeOperation::Latest => {
+            let items = array(&http(&request.request_id, "/anime/schedule", "")?)?;
+            Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
+        }
+        RuntimeOperation::Search => {
+            let p = &request.payload; let offset = p.get("offset").and_then(Value::as_i64).unwrap_or(0); let limit = p.get("limit").and_then(Value::as_i64).unwrap_or(20);
+            let mut q = format!("limit={limit}&offset={offset}");
+            if let Some(value) = p.get("query").and_then(Value::as_str).filter(|v| !v.trim().is_empty()) { q.push_str(&format!("&q={}", enc(value))); }
+            if let Some(sort) = p.get("sort").and_then(Value::as_str) {
+                let sort = match sort { "TITLE" => "title", "YEAR" => "year", "VOTES" => "votes", "VIEWS" => "views", "COMMENTS" => "comments", _ => "top" };
+                q.push_str(&format!("&sort={sort}"));
+            }
+            for (field, key) in [("yearFrom", "year_from"), ("yearTo", "year_to")] { if let Some(v) = p.get(field).and_then(|v| v.as_str().map(str::to_owned).or_else(|| v.as_i64().map(|n| n.to_string()))) { q.push_str(&format!("&{key}={}", enc(&v))); } }
+            for (field, key) in [("typeAliases", "types"), ("statusAliases", "statuses"), ("includedGenreAliases", "genres"), ("excludedGenreAliases", "genres_exclude")] { if let Some(values) = p.get(field).and_then(Value::as_array) { let joined = values.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","); if !joined.is_empty() { q.push_str(&format!("&{key}={}", enc(&joined))); } } }
+            let items = array(&http(&request.request_id, "/anime", &q)?)?;
+            Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
+        }
+        RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; let body = http(&request.request_id, &format!("/anime/{id}"), "")?; let value = envelope(&body)?; title(&value).ok_or_else(|| "YummyAnime returned an invalid title".to_owned()) }
+        RuntimeOperation::PlaybackGroups => { let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("playback titleId is missing")?; playback_groups(&request.request_id, id) }
+        RuntimeOperation::PlayerLinks => { let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("player links titleId is missing")?; let episode = request.payload.get("episodeId").and_then(Value::as_str).ok_or("player links episodeId is missing")?; player_links(&request.request_id, id, episode) }
+    }
+}
+
+static mut HEAP: usize = 4096;
+#[no_mangle] pub extern "C" fn beakokit_reset() { unsafe { HEAP = 4096; } }
+#[no_mangle] pub extern "C" fn beakokit_alloc(length: i32) -> i32 { unsafe { let ptr = HEAP; HEAP += length.max(0) as usize; ptr as i32 } }
+#[no_mangle] pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
+    let input = unsafe { core::slice::from_raw_parts(pointer as *const u8, length.max(0) as usize) };
+    let response = match serde_json::from_slice::<RuntimeRequest>(input) {
+        Ok(request) => {
+            let request_id = request.request_id.clone();
+            match execute(request) {
+                Ok(payload) => serde_json::to_vec(&RuntimeResponse { request_id, payload: Some(payload), error_code: None, error_message: None, protocol_version: RUNTIME_PROTOCOL_VERSION }).unwrap(),
+                Err(message) => error(request_id, message),
+            }
+        }
+        Err(e) => error("invalid-request".to_owned(), e.to_string()),
+    };
+    let ptr = beakokit_alloc(response.len() as i32) as usize;
+    unsafe { core::ptr::copy_nonoverlapping(response.as_ptr(), ptr as *mut u8, response.len()); }
+    ((ptr as u64) << 32 | response.len() as u64) as i64
+}
+
+#[link(wasm_import_module = "host")]
+extern "C" { #[link_name = "call"] fn host_call(pointer: *const u8, length: i32) -> i64; }
