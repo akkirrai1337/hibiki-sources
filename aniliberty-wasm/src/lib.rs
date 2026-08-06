@@ -10,6 +10,8 @@ const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 enum RuntimeOperation {
     #[serde(rename = "SEARCH")]
     Search,
+    #[serde(rename = "FILTER_CATALOG")]
+    FilterCatalog,
     #[serde(rename = "DETAILS")]
     Details,
     #[serde(rename = "PLAYBACK_GROUPS")]
@@ -182,6 +184,49 @@ fn episode_number(value: &Value) -> Option<f64> {
     value.get("ordinal").and_then(Value::as_f64)
 }
 
+fn reference_options(request_id: &str, reference: &str) -> Result<Value, String> {
+    let body = host_http(request_id, api_url(&format!("anime/catalog/references/{reference}")))?;
+    let value: Value = serde_json::from_str(&body).map_err(|error| error.to_string())?;
+    let items = value
+        .get("data")
+        .or_else(|| value.get("items"))
+        .and_then(Value::as_array)
+        .or_else(|| value.as_array())
+        .cloned()
+        .unwrap_or_default();
+    Ok(Value::Array(
+        items
+            .iter()
+            .filter_map(|item| {
+                let object = item.as_object()?;
+                let id = object
+                    .get("id")
+                    .or_else(|| object.get("value"))
+                    .and_then(ValueString::to_string_value)?;
+                let title = object
+                    .get("name")
+                    .or_else(|| object.get("description"))
+                    .and_then(Value::as_str)
+                    .unwrap_or(&id);
+                Some(json!({ "id": id, "title": title }))
+            })
+            .collect(),
+    ))
+}
+
+fn filter_catalog(request_id: &str) -> Result<Value, String> {
+    Ok(json!({
+        "sortOptions": [
+            { "id": "relevance", "title": "Relevance" },
+            { "id": "rating", "title": "Rating" },
+            { "id": "year", "title": "Year" }
+        ],
+        "typeOptions": reference_options(request_id, "types")?,
+        "statusOptions": reference_options(request_id, "publish-statuses")?,
+        "genreOptions": reference_options(request_id, "genres")?
+    }))
+}
+
 fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
     let release = release(request_id, title_id)?;
     let episodes = release
@@ -304,12 +349,33 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
                 "TITLE" => "FRESH_AT_DESC",
                 _ => "FRESH_AT_DESC",
             };
-            let url = format!(
-                "{}?page={page}&limit=20&f[search]={}&f[sorting]={}",
-                api_url("anime/catalog/releases"),
-                encode_query(query),
-                encode_query(sorting),
-            );
+            let mut parameters = format!("page={page}&limit=20&f[sorting]={}", encode_query(sorting));
+            if !query.trim().is_empty() {
+                parameters.push_str(&format!("&f[search]={}", encode_query(query)));
+            }
+            for (field, key) in [
+                ("typeAliases", "f[types]"),
+                ("statusAliases", "f[publish_statuses]"),
+                ("includedGenreAliases", "f[genres]"),
+            ] {
+                if let Some(values) = request.payload.get(field).and_then(Value::as_array) {
+                    let value = values
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .filter(|value| !value.trim().is_empty())
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    if !value.is_empty() {
+                        parameters.push_str(&format!("&{key}={}", encode_query(&value)));
+                    }
+                }
+            }
+            for (field, key) in [("yearFrom", "f[years][from_year]"), ("yearTo", "f[years][to_year]")] {
+                if let Some(value) = request.payload.get(field).and_then(Value::as_i64) {
+                    parameters.push_str(&format!("&{key}={value}"));
+                }
+            }
+            let url = format!("{}?{parameters}", api_url("anime/catalog/releases"));
             host_http(&request.request_id, url).and_then(|body| {
                 let value: Value =
                     serde_json::from_str(&body).map_err(|error| error.to_string())?;
@@ -322,6 +388,7 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
                 Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
             })
         }
+        RuntimeOperation::FilterCatalog => filter_catalog(&request.request_id),
         RuntimeOperation::Details => {
             let id = request
                 .payload
