@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, normalize_status, normalize_type, parse_year, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
-const HOST_PROTOCOL_VERSION: u32 = 1;
 const BASE_URL: &str = "https://api.yani.tv";
 const APPLICATION_TOKEN: &str = "wawegr8j13it4rdw";
 const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
@@ -30,26 +29,15 @@ struct RuntimeResponse {
     #[serde(rename = "protocolVersion")] protocol_version: u32,
 }
 
-#[derive(Serialize)]
-struct HostRequest {
-    #[serde(rename = "requestId")] request_id: String,
-    operation: &'static str,
-    payload: Value,
-    #[serde(rename = "protocolVersion")] protocol_version: u32,
-}
-
 fn error(request_id: String, message: impl Into<String>) -> Vec<u8> {
     serde_json::to_vec(&RuntimeResponse { request_id, payload: None, error_code: Some("SOURCE_FAILURE"), error_message: Some(message.into()), protocol_version: RUNTIME_PROTOCOL_VERSION }).unwrap()
 }
 
 fn http(request_id: &str, path: &str, query: &str) -> Result<String, String> {
     let url = if query.is_empty() { format!("{BASE_URL}{path}") } else { format!("{BASE_URL}{path}?{query}") };
-    let request = HostRequest {
-        request_id: format!("{request_id}-http"), operation: "HTTP_REQUEST", protocol_version: HOST_PROTOCOL_VERSION,
-        payload: json!({ "method": "GET", "url": url, "headers": {
-            "Accept": "application/json", "Lang": "ru", "X-Application": APPLICATION_TOKEN
-        }, "body": null, "timeoutMillis": 30_000, "maxResponseBytes": MAX_RESPONSE_BYTES }),
-    };
+    let request = host_get_request(request_id, url, json!({
+        "Accept": "application/json", "Lang": "ru", "X-Application": APPLICATION_TOKEN
+    }), MAX_RESPONSE_BYTES);
     let bytes = serde_json::to_vec(&request).map_err(|e| e.to_string())?;
     let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
     if packed < 0 { return Err("YummyAnime host HTTP request failed".to_owned()); }
@@ -57,10 +45,9 @@ fn http(request_id: &str, path: &str, query: &str) -> Result<String, String> {
     let len = (packed as u64 & u32::MAX as u64) as usize;
     let raw = unsafe { core::slice::from_raw_parts(ptr as *const u8, len) };
     let response: Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
-    if let Some(message) = response.get("errorMessage").and_then(Value::as_str) { return Err(message.to_owned()); }
-    let status = response.pointer("/payload/statusCode").and_then(Value::as_u64).unwrap_or(200);
-    if !(200..300).contains(&status) { return Err(format!("YummyAnime host HTTP request returned status {status}")); }
-    response.pointer("/payload/body").and_then(Value::as_str).map(str::to_owned).ok_or_else(|| "YummyAnime response did not contain a body".to_owned())
+    HostResponse::from_value_limited(&response, "YummyAnime", MAX_RESPONSE_BYTES as usize)
+        .map(|response| response.body().to_owned())
+        .map_err(|error| format!("YummyAnime HTTP response invalid: {error:?}"))
 }
 
 fn enc(value: &str) -> String {
@@ -107,15 +94,18 @@ fn title(value: &Value) -> Option<Value> {
                 .map(normalized_url)
         })
     });
-    let type_alias = value.get("type").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str);
-    let status = value.get("anime_status").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str).or_else(|| value.get("status").and_then(Value::as_str));
+    let raw_type = value.get("type").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str);
+    let type_alias = raw_type.and_then(normalize_type).or_else(|| raw_type.map(str::to_owned));
+    let raw_status = value.get("anime_status").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str).or_else(|| value.get("status").and_then(Value::as_str));
+    let status = raw_status.and_then(normalize_status).or_else(|| raw_status.map(str::to_owned));
+    let year = value.get("year").and_then(|year| year.as_i64().or_else(|| year.as_str().and_then(parse_year)));
     let age_rating = value.get("min_age").and_then(|v| v.get("title").or_else(|| v.get("title_long")).or(Some(v))).and_then(Value::as_str);
     let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("alias").or_else(|| v.get("name")).or_else(|| v.get("title")).and_then(Value::as_str).map(str::to_owned)).collect::<Vec<_>>()).unwrap_or_default();
     Some(json!({
         "id": id, "russianName": russian, "englishName": english, "originalName": original,
         "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
         "synonyms": value.get("synonyms").or_else(|| value.get("aliases")).cloned().unwrap_or_else(|| json!([])),
-        "year": value.get("year"), "type": type_alias, "episodeCount": value.get("episodes_count"),
+        "year": year, "type": type_alias, "episodeCount": value.get("episodes_count"),
         "posterUrl": poster_url, "status": status,
         "description": value.get("description").and_then(Value::as_str)
             .filter(|v| !v.trim().is_empty())
@@ -159,7 +149,8 @@ fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
 
 fn player_links(request_id: &str, id: &str, episode_id: &str) -> Result<Value, String> {
     let links = videos(request_id, id)?.into_iter().filter(|v| scalar(v.get("number").unwrap_or(&Value::Null)).as_deref() == Some(episode_id)).filter_map(|v| {
-        let url = v.get("iframe_url").and_then(Value::as_str)?.to_owned();
+        let url = normalized_url(v.get("iframe_url").and_then(Value::as_str)?);
+        if !is_http_url(&url) { return None; }
         let player = v.pointer("/data/player").and_then(Value::as_str).unwrap_or("YummyAnime").trim_start_matches("Плеер ").trim().to_owned();
         let translation = dubbing(&v).unwrap_or_else(|| "YummyAnime".to_owned());
         let mut segments = Vec::new();

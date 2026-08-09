@@ -1,6 +1,9 @@
 import fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
-const wasmPath = new URL("./target/wasm32-wasip1/release/animego_wasm.wasm", import.meta.url);
+const wasmPath = process.env.ANIMEGO_WASM_PATH
+  ? pathToFileURL(process.env.ANIMEGO_WASM_PATH)
+  : new URL("./target/wasm32-wasip1/release/animego_wasm.wasm", import.meta.url);
 const catalogFixture = fs.readFileSync(new URL("./tests/fixtures/catalog-card.html", import.meta.url), "utf8");
 const detailsFixture = fs.readFileSync(new URL("./tests/fixtures/details.html", import.meta.url), "utf8");
 const filterFixture = `

@@ -2,6 +2,137 @@ pub use scraper::{ElementRef, Html, Selector};
 use serde_json::Value;
 
 pub const DEFAULT_MAX_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
+pub const HOST_PROTOCOL_VERSION: u32 = 1;
+pub const DEFAULT_HTTP_TIMEOUT_MILLIS: u64 = 30_000;
+
+/// Build the common host request envelope used by external sources.
+/// Keeping this in the SDK prevents individual packages from drifting in
+/// protocol version, timeout, or response-size handling.
+pub fn host_get_request(
+    request_id: &str,
+    url: impl Into<String>,
+    headers: Value,
+    max_response_bytes: u64,
+) -> Value {
+    serde_json::json!({
+        "requestId": format!("{request_id}-http"),
+        "operation": "HTTP_REQUEST",
+        "payload": {
+            "method": "GET",
+            "url": url.into(),
+            "headers": headers,
+            "body": null,
+            "timeoutMillis": DEFAULT_HTTP_TIMEOUT_MILLIS,
+            "maxResponseBytes": max_response_bytes
+        },
+        "protocolVersion": HOST_PROTOCOL_VERSION
+    })
+}
+
+pub fn parse_year(value: &str) -> Option<i64> {
+    let year_token = value
+        .split(|character: char| !character.is_ascii_digit())
+        .find(|token| token.len() >= 4)?;
+    let year = year_token[..4].parse::<i64>().ok()?;
+    (1900..=2100).contains(&year).then_some(year)
+}
+
+pub fn normalize_type(value: &str) -> Option<String> {
+    match value.trim().to_lowercase().as_str() {
+        "tv" | "tvseries" | "tv series" | "serial" | "сериал" => Some("tv".to_owned()),
+        "movie" | "film" | "фильм" => Some("movie".to_owned()),
+        "ova" => Some("ova".to_owned()),
+        "ona" => Some("ona".to_owned()),
+        _ => None,
+    }
+}
+
+pub fn normalize_status(value: &str) -> Option<String> {
+    match value.trim().to_lowercase().as_str() {
+        "released" | "completed" | "finished" | "вышел" => Some("released".to_owned()),
+        "ongoing" | "airing" | "releasing" | "онгоинг" | "выходит" => Some("ongoing".to_owned()),
+        "announcement" | "announced" | "анонс" => Some("announcement".to_owned()),
+        _ => None,
+    }
+}
+
+pub fn is_http_url(value: &str) -> bool {
+    value.starts_with("http://") || value.starts_with("https://")
+}
+
+/// Return the first non-empty attribute from a fallback list.
+pub fn first_attribute(element: ElementRef<'_>, attributes: &[&str]) -> Option<String> {
+    attributes.iter().find_map(|attribute| {
+        element.value().attr(attribute)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+    })
+}
+
+pub fn attribute(element: ElementRef<'_>, name: &str) -> Option<String> {
+    element.value().attr(name).map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned)
+}
+
+#[derive(Debug)]
+pub struct HtmlCard<'document> {
+    pub element: ElementRef<'document>,
+    pub url: Option<String>,
+    pub title: Option<String>,
+    pub image_url: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum HttpSdkError {
+    Remote { source: String, message: String },
+    Status { source: String, status: u16 },
+    MissingBody { source: String },
+    BodyTooLarge { source: String, actual: usize, maximum: usize },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct HostResponse {
+    pub status_code: u16,
+    body: String,
+}
+
+impl HostResponse {
+    pub fn from_value(value: &Value, source: impl Into<String>) -> Result<Self, HttpSdkError> {
+        let source = source.into();
+        if let Some(message) = value.get("errorMessage").and_then(Value::as_str) {
+            return Err(HttpSdkError::Remote { source, message: message.to_owned() });
+        }
+        let status_code = value.pointer("/payload/statusCode")
+            .and_then(Value::as_u64)
+            .unwrap_or(200)
+            .min(u16::MAX as u64) as u16;
+        if !(200..300).contains(&status_code) {
+            return Err(HttpSdkError::Status { source, status: status_code });
+        }
+        let body = value.pointer("/payload/body")
+            .and_then(Value::as_str)
+            .ok_or_else(|| HttpSdkError::MissingBody { source })?;
+        Ok(Self { status_code, body: body.to_owned() })
+    }
+
+    pub fn body(&self) -> &str { &self.body }
+
+    pub fn from_value_limited(
+        value: &Value,
+        source: impl Into<String> + Clone,
+        maximum_bytes: usize,
+    ) -> Result<Self, HttpSdkError> {
+        let response = Self::from_value(value, source.clone())?;
+        if response.body.len() > maximum_bytes {
+            return Err(HttpSdkError::BodyTooLarge {
+                source: source.into(),
+                actual: response.body.len(),
+                maximum: maximum_bytes,
+            });
+        }
+        Ok(response)
+    }
+}
 
 #[derive(Debug)]
 pub struct HtmlDocument {
@@ -49,6 +180,19 @@ impl HtmlDocument {
         Ok(self.select(selector)?.into_iter().next())
     }
 
+    pub fn select_any<'document>(
+        &'document self,
+        selectors: &[&str],
+    ) -> Result<Vec<ElementRef<'document>>, HtmlSdkError> {
+        for selector in selectors {
+            let elements = self.select(selector)?;
+            if !elements.is_empty() {
+                return Ok(elements);
+            }
+        }
+        Ok(Vec::new())
+    }
+
     pub fn text(&self, selector: &str) -> Result<Vec<String>, HtmlSdkError> {
         Ok(self.select(selector)?.into_iter().filter_map(clean_element_text).collect())
     }
@@ -84,6 +228,10 @@ impl HtmlDocument {
         }).collect())
     }
 
+    pub fn first_attribute_any(&self, selector: &str, attributes: &[&str]) -> Result<Option<String>, HtmlSdkError> {
+        Ok(self.select_first(selector)?.and_then(|element| first_attribute(element, attributes)))
+    }
+
     pub fn required_attribute(
         &self,
         selector: &str,
@@ -114,6 +262,69 @@ impl HtmlDocument {
         }).collect())
     }
 
+    pub fn first_image_url(&self, selector: &str) -> Result<Option<String>, HtmlSdkError> {
+        Ok(self.select(selector)?.into_iter().find_map(|element| {
+            let value = first_attribute(element, &["src", "data-src", "data-original"])
+                .or_else(|| element.value().attr("srcset").and_then(srcset_first).map(str::to_owned))?;
+            Some(self.absolute_url(&value))
+        }))
+    }
+
+    /// Extract cards represented by links, retaining the parent DOM element
+    /// so callers can read source-specific metadata from the same card.
+    pub fn linked_cards<'document>(
+        &'document self,
+        link_selector: &str,
+        title_selectors: &[&str],
+        image_selector: &str,
+    ) -> Result<Vec<HtmlCard<'document>>, HtmlSdkError> {
+        let link_selector = Selector::parse(link_selector)
+            .map_err(|_| HtmlSdkError::InvalidSelector(link_selector.to_owned()))?;
+        let image_selector = Selector::parse(image_selector)
+            .map_err(|_| HtmlSdkError::InvalidSelector(image_selector.to_owned()))?;
+        let title_selectors = title_selectors.iter().map(|selector| {
+            Selector::parse(selector)
+                .map_err(|_| HtmlSdkError::InvalidSelector((*selector).to_owned()))
+        }).collect::<Result<Vec<_>, _>>()?;
+
+        Ok(self.document.select(&link_selector).filter_map(|link| {
+            let card = link.parent().and_then(ElementRef::wrap).unwrap_or(link);
+            let url = first_attribute(link, &["href"])
+                .map(|value| self.absolute_url(&value));
+            let title = first_attribute(link, &["title", "data-title"])
+                .and_then(|value| clean_text(&value))
+                .or_else(|| title_selectors.iter().find_map(|selector| {
+                    card.select(selector).find_map(clean_element_text)
+                }))
+                .or_else(|| clean_element_text(link));
+            let image_url = card.select(&image_selector).find_map(|image| {
+                let value = first_attribute(image, &["src", "data-src", "data-original"])
+                    .or_else(|| image.value().attr("srcset").and_then(srcset_first).map(str::to_owned))?;
+                self.absolute_http_url(&value)
+            });
+            Some(HtmlCard { element: card, url, title, image_url })
+        }).collect())
+    }
+
+    /// Read the value from a two-column row such as `<div><label>Type</label>
+    /// <span>TV</span></div>`. Matching is based on normalized label text,
+    /// not on the exact HTML formatting.
+    pub fn labeled_text(&self, row_selector: &str, label: &str) -> Result<Option<String>, HtmlSdkError> {
+        let row_selector = Selector::parse(row_selector)
+            .map_err(|_| HtmlSdkError::InvalidSelector(row_selector.to_owned()))?;
+        let label = clean_text(label).unwrap_or_default();
+        for row in self.document.select(&row_selector) {
+            let cells = row.select(&Selector::parse(":scope > *").expect("valid scope selector"))
+                .collect::<Vec<_>>();
+            for (index, cell) in cells.iter().enumerate() {
+                if clean_element_text(*cell).as_deref() == Some(label.as_str()) {
+                    return Ok(cells.get(index + 1).and_then(|value| clean_element_text(*value)));
+                }
+            }
+        }
+        Ok(None)
+    }
+
     pub fn absolute_url(&self, value: &str) -> String {
         let value = value.trim();
         if value.is_empty() || value.starts_with('#') || value.starts_with("data:") || value.starts_with("javascript:") {
@@ -130,10 +341,20 @@ impl HtmlDocument {
         }
         format!("{base}/{value}")
     }
+
+    pub fn absolute_http_url(&self, value: &str) -> Option<String> {
+        let url = self.absolute_url(value);
+        is_http_url(&url).then_some(url)
+    }
 }
 
 pub fn clean_element_text(element: ElementRef<'_>) -> Option<String> {
     let value = element.text().collect::<String>();
+    let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    (!value.is_empty()).then_some(value)
+}
+
+fn clean_text(value: &str) -> Option<String> {
     let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
     (!value.is_empty()).then_some(value)
 }
@@ -147,6 +368,7 @@ pub struct JsonDocument { value: Value }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum JsonSdkError {
+    EmptyDocument,
     InvalidJson(String),
     MissingValue { path: String },
     ExpectedString { path: String },
@@ -158,6 +380,9 @@ pub enum JsonSdkError {
 
 impl JsonDocument {
     pub fn parse(body: &str) -> Result<Self, JsonSdkError> {
+        if body.trim().is_empty() {
+            return Err(JsonSdkError::EmptyDocument);
+        }
         serde_json::from_str(body).map(|value| Self { value })
             .map_err(|error| JsonSdkError::InvalidJson(error.to_string()))
     }
@@ -179,6 +404,16 @@ impl JsonDocument {
             .ok_or_else(|| JsonSdkError::ExpectedString { path: path.to_owned() })
     }
 
+    pub fn string_any(&self, paths: &[&str]) -> Result<String, JsonSdkError> {
+        for path in paths {
+            if let Some(value) = self.value(path) {
+                return value.as_str().map(str::to_owned)
+                    .ok_or_else(|| JsonSdkError::ExpectedString { path: (*path).to_owned() });
+            }
+        }
+        Err(JsonSdkError::MissingValue { path: paths.join(" | ") })
+    }
+
     pub fn int(&self, path: &str) -> Result<i64, JsonSdkError> {
         let value = self.value(path).ok_or_else(|| JsonSdkError::MissingValue { path: path.to_owned() })?;
         value.as_i64().ok_or_else(|| JsonSdkError::ExpectedInteger { path: path.to_owned() })
@@ -196,13 +431,36 @@ impl JsonDocument {
 
     pub fn html(&self, path: &str, base_url: impl Into<String>) -> Result<HtmlDocument, JsonSdkError> {
         let html = self.string(path)?;
-        Ok(HtmlDocument::parse(&html, base_url))
+        HtmlDocument::parse_limited(&html, base_url, DEFAULT_MAX_DOCUMENT_BYTES)
+            .map_err(|error| match error {
+                HtmlSdkError::DocumentTooLarge { actual, maximum } => JsonSdkError::DocumentTooLarge { actual, maximum },
+                other => JsonSdkError::InvalidJson(format!("embedded HTML parse failed: {other:?}")),
+            })
+    }
+
+    pub fn html_any(&self, paths: &[&str], base_url: impl Into<String>) -> Result<HtmlDocument, JsonSdkError> {
+        let html = self.string_any(paths)?;
+        HtmlDocument::parse_limited(&html, base_url, DEFAULT_MAX_DOCUMENT_BYTES)
+            .map_err(|error| match error {
+                HtmlSdkError::DocumentTooLarge { actual, maximum } => JsonSdkError::DocumentTooLarge { actual, maximum },
+                other => JsonSdkError::InvalidJson(format!("embedded HTML parse failed: {other:?}")),
+            })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError};
+    use super::{attribute, first_attribute, host_get_request, is_http_url, normalize_status, normalize_type, parse_year, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION};
+
+    #[test]
+    fn builds_a_stable_host_get_request() {
+        let request = host_get_request("search-1", "https://example.org", serde_json::json!({ "Accept": "application/json" }), 4096);
+        assert_eq!(request["requestId"], "search-1-http");
+        assert_eq!(request["operation"], "HTTP_REQUEST");
+        assert_eq!(request["protocolVersion"], HOST_PROTOCOL_VERSION);
+        assert_eq!(request["payload"]["timeoutMillis"], DEFAULT_HTTP_TIMEOUT_MILLIS);
+        assert_eq!(request["payload"]["maxResponseBytes"], 4096);
+    }
 
     #[test]
     fn parses_cards_and_resolves_urls() {
@@ -211,11 +469,41 @@ mod tests {
             "https://example.org/catalog",
         );
         assert_eq!(document.text(".card a").unwrap(), ["Test show"]);
+        assert_eq!(document.select_any(&[".missing", ".card a"]).unwrap().len(), 1);
         assert_eq!(document.links(".card a").unwrap(), ["https://example.org/anime/test"]);
         assert_eq!(document.image_urls(".card img").unwrap(), ["https://cdn.example/test.jpg"]);
         assert_eq!(document.attributes_any(".card img", &["data-missing", "data-src"]).unwrap(), ["//cdn.example/test.jpg"]);
         let srcset = HtmlDocument::parse(r#"<img srcset="/small.jpg 480w, /large.jpg 960w">"#, "https://example.org");
         assert_eq!(srcset.image_urls("img").unwrap(), ["https://example.org/small.jpg"]);
+        assert_eq!(srcset.absolute_http_url("javascript:alert(1)"), None);
+        let image = HtmlDocument::parse(r#"<img data-src="/poster.webp">"#, "https://example.org");
+        assert_eq!(image.first_attribute_any("img", &["src", "data-src"]).unwrap(), Some("/poster.webp".to_owned()));
+        assert_eq!(image.first_image_url("img").unwrap(), Some("https://example.org/poster.webp".to_owned()));
+        let element = image.select_first("img").unwrap().unwrap();
+        assert_eq!(first_attribute(element, &["missing", "data-src"]), Some("/poster.webp".to_owned()));
+        assert_eq!(attribute(element, "data-src"), Some("/poster.webp".to_owned()));
+    }
+
+    #[test]
+    fn extracts_linked_cards_with_fallbacks() {
+        let document = HtmlDocument::parse(
+            r#"<article class="card"><a href="/anime/demo"><img data-original="/poster.jpg"><span class="name">Demo title</span></a><span class="genre">Action</span></article>"#,
+            "https://example.org",
+        );
+        let cards = document.linked_cards("a[href*='/anime/']", &[".missing", ".name"], "img").unwrap();
+        assert_eq!(cards.len(), 1);
+        assert_eq!(cards[0].url.as_deref(), Some("https://example.org/anime/demo"));
+        assert_eq!(cards[0].title.as_deref(), Some("Demo title"));
+        assert_eq!(cards[0].image_url.as_deref(), Some("https://example.org/poster.jpg"));
+        let genre_selector = Selector::parse(".genre").unwrap();
+        assert_eq!(cards[0].element.select(&genre_selector).count(), 1);
+
+        let unsafe_document = HtmlDocument::parse(
+            r#"<article><a href="/anime/unsafe"><img src="javascript:alert(1)"></a></article>"#,
+            "https://example.org",
+        );
+        let unsafe_cards = unsafe_document.linked_cards("a[href*='/anime/']", &[], "img").unwrap();
+        assert_eq!(unsafe_cards[0].image_url, None);
     }
 
     #[test]
@@ -238,7 +526,21 @@ mod tests {
         assert!(document.boolean("/data/enabled").unwrap());
         assert_eq!(document.array("/data/items").unwrap().len(), 1);
         assert_eq!(document.string("/data/missing"), Err(JsonSdkError::MissingValue { path: "/data/missing".to_owned() }));
+        assert_eq!(document.string_any(&["/data/missing", "/data/content"]).unwrap(), "<div class=\"result\">OK</div>");
+        assert_eq!(document.html_any(&["/data/missing", "/data/content"], "https://example.org").unwrap().text(".result").unwrap(), ["OK"]);
         assert_eq!(document.int("/data/missing"), Err(JsonSdkError::MissingValue { path: "/data/missing".to_owned() }));
+        assert!(matches!(JsonDocument::parse("  \n"), Err(JsonSdkError::EmptyDocument)));
+    }
+
+    #[test]
+    fn limits_html_extracted_from_json_envelope() {
+        let content = "x".repeat(DEFAULT_MAX_DOCUMENT_BYTES + 1);
+        let body = serde_json::json!({ "data": { "content": content } }).to_string();
+        let document = JsonDocument::parse(&body).unwrap();
+        assert!(matches!(
+            document.html("/data/content", "https://example.org"),
+            Err(JsonSdkError::DocumentTooLarge { .. })
+        ));
     }
 
     #[test]
@@ -251,5 +553,28 @@ mod tests {
             JsonDocument::parse_limited("12345", 4).unwrap_err(),
             JsonSdkError::DocumentTooLarge { actual: 5, maximum: 4 }
         );
+    }
+
+    #[test]
+    fn validates_host_http_response_once() {
+        let response = serde_json::json!({ "payload": { "statusCode": 200, "body": "{}" } });
+        let parsed = HostResponse::from_value(&response, "fixture").unwrap();
+        assert_eq!(parsed.status_code, 200);
+        assert_eq!(parsed.body(), "{}");
+        assert_eq!(HostResponse::from_value(&serde_json::json!({ "payload": { "statusCode": 503 } }), "fixture"), Err(HttpSdkError::Status { source: "fixture".to_owned(), status: 503 }));
+        assert_eq!(HostResponse::from_value_limited(&serde_json::json!({ "payload": { "statusCode": 200, "body": "12345" } }), "fixture", 4), Err(HttpSdkError::BodyTooLarge { source: "fixture".to_owned(), actual: 5, maximum: 4 }));
+    }
+
+    #[test]
+    fn normalizes_metadata_without_accepting_corrupt_years() {
+        assert_eq!(parse_year("1999"), Some(1999));
+        assert_eq!(parse_year("1999-06-30"), Some(1999));
+        assert_eq!(parse_year("30 июня 1999"), Some(1999));
+        assert_eq!(parse_year("2430"), None);
+        assert_eq!(parse_year("unknown"), None);
+        assert_eq!(normalize_type("TVSERIES"), Some("tv".to_owned()));
+        assert_eq!(normalize_status("вышел"), Some("released".to_owned()));
+        assert!(is_http_url("https://example.org/video"));
+        assert!(!is_http_url("javascript:alert(1)"));
     }
 }

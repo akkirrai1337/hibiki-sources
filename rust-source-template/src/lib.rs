@@ -1,11 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-pub use beakokit_html_sdk::{HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError};
+pub use beakokit_html_sdk::{host_get_request, normalize_status, normalize_type, parse_year, HostResponse, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, HttpSdkError};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
 #[allow(dead_code)]
-const HOST_PROTOCOL_VERSION: u32 = 1;
 
 #[derive(Deserialize)]
 enum RuntimeOperation {
@@ -40,33 +39,10 @@ struct RuntimeResponse {
     protocol_version: u32,
 }
 
-#[allow(dead_code)]
-#[derive(Serialize)]
-struct HostRequest {
-    #[serde(rename = "requestId")]
-    request_id: String,
-    operation: &'static str,
-    payload: Value,
-    #[serde(rename = "protocolVersion")]
-    protocol_version: u32,
-}
-
 /// Perform an HTTPS request through the host permission boundary.
 #[allow(dead_code)]
 fn host_http(request_id: &str, url: &str) -> Result<String, String> {
-    let request = HostRequest {
-        request_id: format!("{request_id}-http"),
-        operation: "HTTP_REQUEST",
-        payload: json!({
-            "method": "GET",
-            "url": url,
-            "headers": { "Accept": "application/json" },
-            "body": null,
-            "timeoutMillis": 30_000,
-            "maxResponseBytes": 8 * 1024 * 1024
-        }),
-        protocol_version: HOST_PROTOCOL_VERSION,
-    };
+    let request = host_get_request(request_id, url, json!({ "Accept": "application/json" }), 8 * 1024 * 1024);
     let bytes = serde_json::to_vec(&request).map_err(|error| error.to_string())?;
     let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
     if packed < 0 {
@@ -76,14 +52,9 @@ fn host_http(request_id: &str, url: &str) -> Result<String, String> {
     let length = (packed as u64 & u32::MAX as u64) as usize;
     let response = unsafe { core::slice::from_raw_parts(pointer as *const u8, length) };
     let response: Value = serde_json::from_slice(response).map_err(|error| error.to_string())?;
-    if let Some(message) = response.get("errorMessage").and_then(Value::as_str) {
-        return Err(message.to_owned());
-    }
-    response
-        .pointer("/payload/body")
-        .and_then(Value::as_str)
-        .map(str::to_owned)
-        .ok_or_else(|| "host response did not contain a body".to_owned())
+    HostResponse::from_value_limited(&response, "template source", 8 * 1024 * 1024)
+        .map(|response| response.body().to_owned())
+        .map_err(|error| format!("template HTTP response invalid: {error:?}"))
 }
 
 fn execute(request: RuntimeRequest) -> Result<Value, String> {

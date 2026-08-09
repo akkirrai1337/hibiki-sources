@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, normalize_type, parse_year, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
-const HOST_PROTOCOL_VERSION: u32 = 1;
 const DEFAULT_BASE_URL: &str = "https://anilibria.top/api/v1";
 const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 
@@ -42,16 +41,6 @@ struct RuntimeResponse {
     protocol_version: u32,
 }
 
-#[derive(Serialize)]
-struct HostRequest {
-    #[serde(rename = "requestId")]
-    request_id: String,
-    operation: &'static str,
-    payload: Value,
-    #[serde(rename = "protocolVersion")]
-    protocol_version: u32,
-}
-
 fn runtime_error(request_id: String, message: impl Into<String>) -> Vec<u8> {
     serde_json::to_vec(&RuntimeResponse {
         request_id,
@@ -64,19 +53,7 @@ fn runtime_error(request_id: String, message: impl Into<String>) -> Vec<u8> {
 }
 
 fn host_http(request_id: &str, url: String) -> Result<String, String> {
-    let request = HostRequest {
-        request_id: format!("{request_id}-http"),
-        operation: "HTTP_REQUEST",
-        payload: json!({
-            "method": "GET",
-            "url": url,
-            "headers": { "Accept": "application/json" },
-            "body": null,
-            "timeoutMillis": 30_000,
-            "maxResponseBytes": MAX_RESPONSE_BYTES
-        }),
-        protocol_version: HOST_PROTOCOL_VERSION,
-    };
+    let request = host_get_request(request_id, url, json!({ "Accept": "application/json" }), MAX_RESPONSE_BYTES);
     let request_bytes = serde_json::to_vec(&request).map_err(|error| error.to_string())?;
     let packed = unsafe { host_call(request_bytes.as_ptr(), request_bytes.len() as i32) };
     if packed < 0 {
@@ -86,18 +63,9 @@ fn host_http(request_id: &str, url: String) -> Result<String, String> {
     let response_len = (packed as u64 & u32::MAX as u64) as usize;
     let response = unsafe { core::slice::from_raw_parts(response_ptr as *const u8, response_len) };
     let response: Value = serde_json::from_slice(response).map_err(|error| error.to_string())?;
-    if let Some(error) = response.get("errorMessage").and_then(Value::as_str) {
-        return Err(error.to_owned());
-    }
-    let status = response.pointer("/payload/statusCode").and_then(Value::as_u64).unwrap_or(200);
-    if !(200..300).contains(&status) {
-        return Err(format!("AniLiberty host HTTP request returned status {status}"));
-    }
-    response
-        .pointer("/payload/body")
-        .and_then(Value::as_str)
-        .map(str::to_owned)
-        .ok_or_else(|| "host HTTP response did not contain a body".to_owned())
+    HostResponse::from_value_limited(&response, "AniLiberty", MAX_RESPONSE_BYTES as usize)
+        .map(|response| response.body().to_owned())
+        .map_err(|error| format!("AniLiberty HTTP response invalid: {error:?}"))
 }
 
 fn api_url(path: &str) -> String {
@@ -141,6 +109,9 @@ fn title(value: &Value) -> Option<Value> {
                 .and_then(|poster| poster.get("src"))
                 .and_then(Value::as_str)
         });
+    let raw_type = value.get("type").and_then(|value| value.get("value")).and_then(Value::as_str);
+    let type_alias = raw_type.and_then(normalize_type).or_else(|| raw_type.map(str::to_owned));
+    let year = value.get("year").and_then(|year| year.as_i64().or_else(|| year.as_str().and_then(parse_year)));
     Some(json!({
         "id": id,
         "russianName": main_name,
@@ -148,8 +119,8 @@ fn title(value: &Value) -> Option<Value> {
         "originalName": original_name,
         "japaneseName": null,
         "synonyms": names.get("alternative").and_then(Value::as_str).unwrap_or("").split(',').map(str::trim).filter(|value| !value.is_empty()).collect::<Vec<_>>(),
-        "year": value.get("year").and_then(Value::as_i64),
-        "type": value.get("type").and_then(|value| value.get("value")).and_then(Value::as_str),
+        "year": year,
+        "type": type_alias,
         "episodeCount": value.get("episodes_total").and_then(Value::as_i64),
         "posterUrl": poster_path.map(|path| if path.starts_with("http") { path.to_owned() } else { format!("https://anilibria.top{path}") }),
         "status": value.get("is_ongoing").and_then(Value::as_bool).map(|ongoing| if ongoing { "ongoing" } else { "released" }),
@@ -240,6 +211,7 @@ fn filter_catalog(request_id: &str) -> Result<Value, String> {
 
 fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
     let release = release(request_id, title_id)?;
+    let mut seen_ids = Vec::new();
     let episodes = release
         .get("episodes")
         .and_then(Value::as_array)
@@ -248,6 +220,8 @@ fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
         .into_iter()
         .filter_map(|episode| {
             let id = episode.get("id")?.to_string_value()?;
+            if seen_ids.iter().any(|seen| seen == &id) { return None; }
+            seen_ids.push(id.clone());
             let number = episode_number(&episode)?;
             (number > 0.0).then(|| {
                 json!({
@@ -288,6 +262,7 @@ fn player_links(request_id: &str, title_id: &str, episode_id: &str) -> Result<Va
             .and_then(Value::as_str)
             .filter(|url| !url.is_empty())
         {
+            if !is_http_url(url) { continue; }
             links.push(json!({
                 "url": url,
                 "type": "DIRECT_HLS",

@@ -54,10 +54,14 @@ repository itself is used as the package host. Do not publish a repository
 index with placeholder URLs or checksums: the client validates all three
 artifact fields before installation.
 
-`interop-smoke.mjs` runs the mocked host protocol against the Rust and Kotlin
-references. `animego-wasm/interop-smoke.mjs` runs the packaged AnimeGo WASM
+`interop-smoke.mjs` runs the mocked host protocol against AniLiberty,
+YummyAnime, and the Kotlin reference. `animego-wasm/interop-smoke.mjs` runs the packaged AnimeGo WASM
 module through the same host bridge and checks SEARCH, FILTER_CATALOG,
 DETAILS, PLAYBACK_GROUPS, and PLAYER_LINKS against captured HTML/AJAX fixtures.
+`animego-wasm/package-smoke.ps1` additionally builds and unpacks the ZIP first,
+so the same checks run against the exact `source.wasm` shipped to the client.
+`package-smoke.ps1` performs the same package-level check for AniLiberty,
+YummyAnime, and AnimeGo together.
 The production host bridge provisions guest memory when a module starts with
 zero pages, which is required by the current Kotlin/Wasm reference as well as
 supported Rust packages.

@@ -1,7 +1,9 @@
 import fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const modules = [
-  ["rust", "aniliberty-wasm/target/wasm32-wasip1/release/aniliberty_wasm.wasm"],
+  ["rust", process.env.ANILIBERTY_WASM_PATH || "aniliberty-wasm/target/wasm32-wasip1/release/aniliberty_wasm.wasm"],
+  ["yummy", process.env.YUMMYANIME_WASM_PATH || "yummyanime-wasm/target/wasm32-wasip1/release/yummyanime_wasm.wasm"],
   ["kotlin", "kotlin-wasm-reference/build/compileSync/wasmWasi/main/productionExecutable/kotlin/beakokit-kotlin-wasm-reference.wasm"],
 ];
 
@@ -13,6 +15,7 @@ const episode = {
   duration: 1400,
   opening: { start: 1, stop: 100 },
   ending: { start: null, stop: null },
+  hls_1080: "javascript:alert(1)",
 };
 
 const release = {
@@ -28,9 +31,44 @@ const release = {
   episodes: [episode],
 };
 
-function hostBody(url) {
-  if (url.includes("anime/catalog/releases")) return JSON.stringify({ data: [release] });
-  if (url.includes("anime/releases/")) return JSON.stringify({ data: release });
+const yummyTitle = {
+  anime_id: 100,
+  title: "Yummy fixture",
+  title_en: "Yummy Fixture",
+  title_orig: "Yummy Fixture Original",
+  poster: "//cdn.example/yummy.jpg",
+  type: "tv",
+  anime_status: "released",
+  episodes_count: 1,
+  description: "Yummy fixture description",
+  genres: [{ alias: "action" }],
+};
+
+const yummyVideo = {
+  number: "1",
+  title: "Episode 1",
+  iframe_url: "https://player.example/yummy/episode-1",
+  data: { dubbing: "Fixture dubbing", player: "Fixture player" },
+  video_id: "yummy-video-1",
+  skips: { opening: { time: 10, length: 20 } },
+};
+
+const yummyInvalidVideo = {
+  ...yummyVideo,
+  iframe_url: "javascript:alert(1)",
+};
+
+function hostBody(url, sourceName) {
+  if (url.startsWith("https://api.yani.tv")) {
+    if (url.includes("/anime/100/videos")) return JSON.stringify({ response: [yummyInvalidVideo, yummyVideo] });
+    if (url.includes("/anime/100")) return JSON.stringify({ response: yummyTitle });
+    return JSON.stringify({ response: [yummyTitle] });
+  }
+  const sourceRelease = sourceName === "rust"
+    ? release
+    : { ...release, episodes: [{ ...episode, hls_1080: undefined }] };
+  if (url.includes("anime/catalog/releases")) return JSON.stringify({ data: [sourceRelease] });
+  if (url.includes("anime/releases/")) return JSON.stringify({ data: sourceRelease });
   throw new Error(`Unexpected host URL: ${url}`);
 }
 
@@ -58,7 +96,10 @@ function wasiImports(getMemory) {
 }
 
 async function loadModule(name, relativePath) {
-  const bytes = fs.readFileSync(new URL(relativePath, import.meta.url));
+  const moduleUrl = /^[A-Za-z]:[\\/]/.test(relativePath) || relativePath.startsWith("/")
+    ? pathToFileURL(relativePath)
+    : new URL(relativePath, import.meta.url);
+  const bytes = fs.readFileSync(moduleUrl);
   let instance;
   const imports = {
     wasi_snapshot_preview1: {},
@@ -66,7 +107,7 @@ async function loadModule(name, relativePath) {
       call(pointer, length) {
         const memory = instance.exports.memory;
         const request = JSON.parse(new TextDecoder().decode(new Uint8Array(memory.buffer, pointer, length)));
-        const body = hostBody(request.payload.url);
+        const body = hostBody(request.payload.url, name);
         const response = JSON.stringify({
           requestId: request.requestId,
           payload: { statusCode: 200, headers: {}, body },
@@ -110,15 +151,17 @@ function call(module, operation, payload) {
 
 for (const [name, path] of modules) {
   const module = await loadModule(name, path);
-  const search = call(module, "SEARCH", { query: "naruto", limit: 20, offset: 0 });
-  const details = call(module, "DETAILS", { id: "413" });
-  const groups = call(module, "PLAYBACK_GROUPS", { titleId: "413" });
+  const sourceId = name === "yummy" ? "100" : "413";
+  const search = call(module, "SEARCH", { query: name === "yummy" ? "fixture" : "naruto", limit: 20, offset: 0 });
+  const details = call(module, "DETAILS", { id: sourceId });
+  const groups = call(module, "PLAYBACK_GROUPS", { titleId: sourceId });
   const links = call(module, "PLAYER_LINKS", {
-    titleId: "413", groupId: "413", episodeId: "episode-1", episodeNumber: 1,
+    titleId: sourceId, groupId: sourceId, episodeId: name === "yummy" ? "1" : "episode-1", episodeNumber: 1,
   });
   if (!search.payload?.items?.length) throw new Error(`${name}: search failed`);
-  if (details.payload?.id !== "413") throw new Error(`${name}: details failed`);
+  if (details.payload?.id !== sourceId) throw new Error(`${name}: details failed`);
   if (!groups.payload?.groups?.[0]?.episodes?.length) throw new Error(`${name}: groups failed`);
-  if (!links.payload?.links?.[0]?.url?.includes("720.m3u8")) throw new Error(`${name}: links failed`);
+  const expectedLink = name === "yummy" ? "player.example/yummy" : "720.m3u8";
+  if (!links.payload?.links?.[0]?.url?.includes(expectedLink)) throw new Error(`${name}: links failed`);
   console.log(`${name}: SEARCH, DETAILS, PLAYBACK_GROUPS, PLAYER_LINKS passed`);
 }

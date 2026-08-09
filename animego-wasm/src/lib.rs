@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{ElementRef, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, normalize_status, normalize_type, parse_year, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
-const HOST_PROTOCOL_VERSION: u32 = 1;
 const BASE_URL: &str = "https://animego.me";
 const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 
@@ -38,16 +37,6 @@ struct RuntimeResponse {
     protocol_version: u32,
 }
 
-#[derive(Serialize)]
-struct HostRequest {
-    #[serde(rename = "requestId")]
-    request_id: String,
-    operation: &'static str,
-    payload: Value,
-    #[serde(rename = "protocolVersion")]
-    protocol_version: u32,
-}
-
 fn error(request_id: String, message: impl Into<String>) -> Vec<u8> {
     let message = message.into().replace(['\r', '\n'], " ");
     serde_json::to_vec(&RuntimeResponse {
@@ -60,19 +49,7 @@ fn error(request_id: String, message: impl Into<String>) -> Vec<u8> {
 }
 
 fn http(request_id: &str, path: &str, headers: Value) -> Result<String, String> {
-    let request = HostRequest {
-        request_id: format!("{request_id}-http"),
-        operation: "HTTP_REQUEST",
-        payload: json!({
-            "method": "GET",
-            "url": format!("{}{}", BASE_URL, path),
-            "headers": headers,
-            "body": null,
-            "timeoutMillis": 30_000,
-            "maxResponseBytes": MAX_RESPONSE_BYTES
-        }),
-        protocol_version: HOST_PROTOCOL_VERSION,
-    };
+    let request = host_get_request(request_id, format!("{}{}", BASE_URL, path), headers, MAX_RESPONSE_BYTES);
     let bytes = serde_json::to_vec(&request).map_err(|e| e.to_string())?;
     let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
     if packed < 0 { return Err("AnimeGo host HTTP request failed".to_owned()); }
@@ -80,17 +57,9 @@ fn http(request_id: &str, path: &str, headers: Value) -> Result<String, String> 
     let len = (packed as u64 & u32::MAX as u64) as usize;
     let raw = unsafe { core::slice::from_raw_parts(ptr as *const u8, len) };
     let response: Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
-    if let Some(message) = response.get("errorMessage").and_then(Value::as_str) {
-        return Err(message.to_owned());
-    }
-    let status = response.pointer("/payload/statusCode").and_then(Value::as_u64).unwrap_or(200);
-    if !(200..300).contains(&status) {
-        return Err(format!("AnimeGo host HTTP request returned status {status}"));
-    }
-    response.pointer("/payload/body")
-        .and_then(Value::as_str)
-        .map(str::to_owned)
-        .ok_or_else(|| "AnimeGo response did not contain a body".to_owned())
+    HostResponse::from_value_limited(&response, "AnimeGo", MAX_RESPONSE_BYTES as usize)
+        .map(|response| response.body().to_owned())
+        .map_err(|error| format!("AnimeGo HTTP response invalid: {error:?}"))
 }
 
 fn page(request_id: &str, path: &str) -> Result<String, String> {
@@ -165,57 +134,31 @@ fn anime_slug(value: &str) -> Option<String> {
     } else { None }
 }
 
-fn safe_slice<'a>(html: &'a str, mut start: usize, mut end: usize) -> &'a str {
-    start = start.min(html.len());
-    end = end.min(html.len()).max(start);
-    while start > 0 && !html.is_char_boundary(start) {
-        start -= 1;
-    }
-    while end < html.len() && !html.is_char_boundary(end) {
-        end += 1;
-    }
-    &html[start..end]
-}
-
 fn card_titles(html: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "catalog")?;
-    let title_selector = Selector::parse(".ani-list__item-title, .ani-grid__item-title, .title, h2, h3")
-        .expect("valid anime title selector");
-    let image_selector = Selector::parse("img").expect("valid image selector");
     let metadata_selector = Selector::parse(
         ".ani-list__item-genres__link, .ani-grid__item-genres__link, .genres a, .meta a",
     )
     .expect("valid metadata selector");
 
     let mut parsed = document
-        .select("a[href*='/anime/']")
-        .expect("valid anime link selector")
+        .linked_cards(
+            "a[href*='/anime/']",
+            &[".ani-list__item-title", ".ani-grid__item-title", ".title", "h2", "h3"],
+            "img",
+        )
+        .map_err(|error| format!("AnimeGo catalog card extraction failed: {error:?}"))?
         .into_iter()
-        .filter_map(|link| {
-            let href = link.value().attr("href")?;
+        .filter_map(|card| {
+            let href = card.url.as_deref()?;
             let id = anime_slug(href)?;
-            let card = link.parent().and_then(ElementRef::wrap).unwrap_or(link);
-            let name = link
-                .value()
-                .attr("title")
-                .map(text)
-                .filter(|value| !value.is_empty())
-                .or_else(|| first_text(card, &title_selector))
-                .or_else(|| clean_element_text(link))
-                .unwrap_or_else(|| id.clone());
-            let original = first_class_text(card, "fw-lighter").unwrap_or_else(|| name.clone());
-            let source_poster = card
-                .select(&image_selector)
-                .next()
-                .and_then(|image| {
-                    ["src", "data-src", "data-original"]
-                        .into_iter()
-                        .find_map(|attribute| image.value().attr(attribute))
-                })
-                .map(absolute_url);
+            let card_element = card.element;
+            let name = card.title.unwrap_or_else(|| id.clone());
+            let original = first_class_text(card_element, "fw-lighter").unwrap_or_else(|| name.clone());
+            let source_poster = card.image_url;
             let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
                 .unwrap_or((String::new(), None));
-            let metadata = card
+            let metadata = card_element
                 .select(&metadata_selector)
                 .map(|element| clean_element_text(element))
                 .flatten()
@@ -223,7 +166,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                 .collect::<Vec<_>>();
             let year = metadata.iter().find_map(|value| release_year(value));
             let type_alias = metadata.iter().find_map(|value| known_type(value));
-            let description = first_class_text(card, "ani-list__item-description");
+            let description = first_class_text(card_element, "ani-list__item-description");
 
             Some(json!({
                 "id": id,
@@ -262,54 +205,21 @@ fn first_class_text(element: ElementRef<'_>, class_name: &str) -> Option<String>
     first_text(element, &selector)
 }
 
-fn clean_element_text(element: ElementRef<'_>) -> Option<String> {
-    let value = text(&element.text().collect::<String>());
-    (!value.is_empty()).then_some(value)
-}
-
-fn type_alias(value: &str) -> String {
-    match value.trim().to_lowercase().as_str() {
-        "tv" | "tvseries" | "\u{0441}\u{0435}\u{0440}\u{0438}\u{0430}\u{043b}" => "tv".to_owned(),
-        "movie" | "\u{0444}\u{0438}\u{043b}\u{044c}\u{043c}" => "movie".to_owned(),
-        "ova" => "ova".to_owned(),
-        "ona" => "ona".to_owned(),
-        _ => value.trim().to_owned(),
-    }
-}
-
 fn known_type(value: &str) -> Option<String> {
-    let mapped = type_alias(value);
-    matches!(mapped.as_str(), "tv" | "movie" | "ova" | "ona").then_some(mapped)
+    normalize_type(value)
 }
 
 fn release_year(value: &str) -> Option<i64> {
-    let digits = value.trim_matches(|c: char| !c.is_ascii_digit());
-    let year = digits.parse::<i64>().ok()?;
-    (1900..=2100).contains(&year).then_some(year)
+    parse_year(value)
 }
 
 fn status_alias(value: &str) -> Option<String> {
-    match value.trim().to_lowercase().as_str() {
-        "released" | "completed" | "finished" | "\u{0432}\u{044b}\u{0448}\u{0435}\u{043b}" => Some("released".to_owned()),
-        "ongoing" | "airing" | "releasing" | "\u{043e}\u{043d}\u{0433}\u{043e}\u{0438}\u{043d}\u{0433}" | "\u{0432}\u{044b}\u{0445}\u{043e}\u{0434}\u{0438}\u{0442}" => Some("ongoing".to_owned()),
-        "announcement" | "announced" | "\u{0430}\u{043d}\u{043e}\u{043d}\u{0441}" => Some("announcement".to_owned()),
-        _ => None,
-    }
-}
-
-fn field_value(html: &str, label: &str) -> Option<String> {
-    let marker = format!(">{}<", label);
-    let label_at = html.find(&marker)?;
-    let after_label = label_at + marker.len();
-    let value_tag = safe_slice(html, after_label, html.len()).find("<div")? + after_label;
-    let value_start = safe_slice(html, value_tag, html.len()).find('>')? + value_tag + 1;
-    let value_end = safe_slice(html, value_start, html.len()).find("</div>")? + value_start;
-    let value = text(safe_slice(html, value_start, value_end));
-    (!value.is_empty()).then_some(value)
+    normalize_status(value)
 }
 
 fn details(id: &str, html: &str) -> Result<Value, String> {
     let document = parse_html(html, "details")?;
+    let field_value = |_: &str, label: &str| document.labeled_text(".entity-row, body", label).ok().flatten();
     let name = document
         .text_first("h1")
         .map_err(|error| format!("AnimeGo details title selector failed for {id}: {error:?}"))?
@@ -320,7 +230,7 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
     let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
         .unwrap_or((String::new(), None));
     let description = schema.as_ref().and_then(|v| v.get("description")).and_then(Value::as_str).map(str::to_owned);
-    let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(|v| v.chars().take(4).collect::<String>().parse::<i64>().ok());
+    let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(parse_year);
     let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
     let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(Value::as_i64)
         .or_else(|| episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()));
@@ -406,8 +316,7 @@ fn catalog_sort(p: &Value) -> (&'static str, &'static str) {
 fn response_content(body: &str) -> String {
     let Ok(document) = JsonDocument::parse_limited(body, DEFAULT_MAX_DOCUMENT_BYTES) else { return body.to_owned(); };
     document
-        .string("/data/content")
-        .or_else(|_| document.string("/content"))
+        .string_any(&["/data/content", "/content", "/data/html", "/html"])
         .unwrap_or_else(|_| body.to_owned())
 }
 
@@ -427,12 +336,15 @@ fn card_titles_with_diagnostics(html: &str, operation: &str) -> Result<Vec<Value
 
 fn episode_items(html: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "episodes")?;
+    let mut seen_ids = Vec::new();
     let mut parsed = document
         .select("[data-episode]")
         .unwrap_or_default()
         .into_iter()
         .filter_map(|episode| {
             let id = element_attr(episode, "data-episode")?;
+            if seen_ids.iter().any(|seen| seen == &id) { return None; }
+            seen_ids.push(id.clone());
             let number = element_attr(episode, "data-episode-number")
                 .and_then(|value| value.replace(',', ".").parse::<f64>().ok())
                 .or_else(|| {
@@ -462,9 +374,10 @@ fn player_items(html: &str) -> Result<Vec<Value>, String> {
         .unwrap_or_default()
         .into_iter()
         .filter_map(|player| {
-            let url = element_attr(player, "data-player")?;
+            let raw_url = element_attr(player, "data-player")?;
+            let url = document.absolute_http_url(&raw_url)?;
             Some(json!({
-                "url": absolute_url(&url),
+                "url": url,
                 "type": "EMBED",
                 "quality": null,
                 "headers": { "Referer": format!("{BASE_URL}/") },
@@ -475,10 +388,6 @@ fn player_items(html: &str) -> Result<Vec<Value>, String> {
             }))
         })
         .collect::<Vec<_>>())
-}
-
-fn element_attr(element: ElementRef<'_>, name: &str) -> Option<String> {
-    element.value().attr(name).map(str::to_owned)
 }
 
 fn execute(request: RuntimeRequest) -> Result<Value, String> {
@@ -668,6 +577,7 @@ mod tests {
         let html = r#"
             <button data-episode="ep-2" data-episode-number="2">2</button>
             <button data-episode="ep-1" data-episode-number="1" data-episode-title="Pilot">1</button>
+            <button data-episode="ep-1" data-episode-number="1">duplicate</button>
         "#;
         let episodes = episode_items(html).expect("episodes");
 
