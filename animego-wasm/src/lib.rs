@@ -48,11 +48,12 @@ struct HostRequest {
 }
 
 fn error(request_id: String, message: impl Into<String>) -> Vec<u8> {
+    let message = message.into().replace(['\r', '\n'], " ");
     serde_json::to_vec(&RuntimeResponse {
         request_id,
         payload: None,
         error_code: Some("SOURCE_FAILURE"),
-        error_message: Some(message.into()),
+        error_message: Some(message),
         protocol_version: RUNTIME_PROTOCOL_VERSION,
     }).unwrap()
 }
