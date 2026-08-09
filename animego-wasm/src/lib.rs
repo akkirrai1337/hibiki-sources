@@ -259,10 +259,14 @@ fn card_titles(html: &str) -> Vec<Value> {
                 .unwrap_or((String::new(), None));
             let genres = class_values(window, "ani-list__item-genres__link")
                 .into_iter().chain(class_values(window, "ani-grid__item-genres__link")).collect::<Vec<_>>();
-            let year = window.split_whitespace().find_map(|v| {
+            let year = genres.iter().find_map(|v| {
                 let digits = v.trim_matches(|c: char| !c.is_ascii_digit());
                 (digits.len() == 4 && (digits.starts_with('1') || digits.starts_with('2'))).then(|| digits.parse::<i64>().ok()).flatten()
-            });
+            }).or_else(|| window.split_whitespace().find_map(|v| {
+                let digits = v.trim_matches(|c: char| !c.is_ascii_digit());
+                (digits.len() == 4 && (digits.starts_with('1') || digits.starts_with('2'))).then(|| digits.parse::<i64>().ok()).flatten()
+            }));
+            let type_alias = genres.iter().find_map(|value| known_type(value));
             let description = class_text(window, "ani-list__item-description");
             result.push(json!({
                 "id": id,
@@ -270,7 +274,7 @@ fn card_titles(html: &str) -> Vec<Value> {
                 "englishName": if original != name { Some(original.clone()) } else { None::<String> },
                 "originalName": original,
                 "japaneseName": null,
-                "synonyms": [], "year": year, "type": genres.first().map(|v| type_alias(v)),
+                "synonyms": [], "year": year, "type": type_alias,
                 "episodeCount": null, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": null,
                 "description": description.or_else(|| Some(name.clone())), "nextEpisodeAt": null,
                 "genres": genres, "ratings": [], "ageRating": null, "viewCount": null,
@@ -300,7 +304,36 @@ fn class_values(html: &str, class_name: &str) -> Vec<String> {
 }
 
 fn type_alias(value: &str) -> String {
-    match value.to_lowercase().as_str() { "сериал" | "tvseries" => "tv".to_owned(), "фильм" | "movie" => "movie".to_owned(), "ova" => "ova".to_owned(), "ona" => "ona".to_owned(), _ => value.to_owned() }
+    match value.trim().to_lowercase().as_str() {
+        "tv" | "tvseries" | "\u{0441}\u{0435}\u{0440}\u{0438}\u{0430}\u{043b}" => "tv".to_owned(),
+        "movie" | "\u{0444}\u{0438}\u{043b}\u{044c}\u{043c}" => "movie".to_owned(),
+        "ova" => "ova".to_owned(),
+        "ona" => "ona".to_owned(),
+        _ => value.trim().to_owned(),
+    }
+}
+
+fn known_type(value: &str) -> Option<String> {
+    let mapped = type_alias(value);
+    matches!(mapped.as_str(), "tv" | "movie" | "ova" | "ona").then_some(mapped)
+}
+
+fn status_alias(value: &str) -> Option<String> {
+    match value.trim().to_lowercase().as_str() {
+        "released" | "completed" | "finished" | "\u{0432}\u{044b}\u{0448}\u{0435}\u{043b}" => Some("released".to_owned()),
+        "ongoing" | "airing" | "releasing" | "\u{043e}\u{043d}\u{0433}\u{043e}\u{0438}\u{043d}\u{0433}" | "\u{0432}\u{044b}\u{0445}\u{043e}\u{0434}\u{0438}\u{0442}" => Some("ongoing".to_owned()),
+        "announcement" | "announced" | "\u{0430}\u{043d}\u{043e}\u{043d}\u{0441}" => Some("announcement".to_owned()),
+        _ => None,
+    }
+}
+
+fn field_value(html: &str, label: &str) -> Option<String> {
+    let marker = format!(">{}<", label);
+    let label_at = html.find(&marker)?;
+    let value_start = safe_slice(html, label_at + marker.len(), html.len()).find("><")? + label_at + marker.len() + 1;
+    let value_end = safe_slice(html, value_start, html.len()).find("</div>")? + value_start;
+    let value = text(safe_slice(html, value_start, value_end));
+    (!value.is_empty()).then_some(value)
 }
 
 fn details(id: &str, html: &str) -> Result<Value, String> {
@@ -312,16 +345,19 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
     let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
         .unwrap_or((String::new(), None));
     let description = schema.as_ref().and_then(|v| v.get("description")).and_then(Value::as_str).map(str::to_owned);
-    let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(|v| v.get(..4)).and_then(|v| v.parse::<i64>().ok());
+    let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(|v| v.chars().take(4).collect::<String>().parse::<i64>().ok());
     let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(Value::as_i64);
+    let type_alias = schema.as_ref().and_then(|v| v.get("@type")).and_then(Value::as_str).and_then(known_type);
+    let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
+    let status = field_value(html, "\u{0421}\u{0442}\u{0430}\u{0442}\u{0443}\u{0441}").and_then(|value| status_alias(&value));
     Ok(json!({
         "id": id, "russianName": name, "englishName": if original != name { Some(original.clone()) } else { None::<String> },
-        "originalName": original, "japaneseName": null, "synonyms": [], "year": year, "type": schema.as_ref().and_then(|v| v.get("@type")).and_then(Value::as_str),
-        "episodeCount": episode_count, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": null,
-        "description": description.or_else(|| Some(name)), "nextEpisodeAt": null, "genres": [], "ratings": [],
+        "originalName": original, "japaneseName": null, "synonyms": [], "year": year, "type": type_alias,
+        "episodeCount": episode_count, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
+        "description": description.or_else(|| Some(name)), "nextEpisodeAt": null, "genres": schema.as_ref().and_then(|v| v.get("genre")).cloned().unwrap_or_else(|| json!([])), "ratings": [],
         "ageRating": schema.as_ref().and_then(|v| v.get("contentRating")), "viewCount": null, "screenshots": [], "trailer": null,
         "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
-        "season": null, "availableEpisodeCount": null, "posterFallbackUrl": poster_fallback
+        "season": null, "availableEpisodeCount": episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()), "posterFallbackUrl": poster_fallback
     }))
 }
 
@@ -530,6 +566,23 @@ mod tests {
 
         assert_eq!(items[0]["russianName"], "Монолог фармацевта 2");
         assert_eq!(items[0]["originalName"], "Kusuriya no Hitorigoto 2nd Season");
+    }
+
+    #[test]
+    fn normalizes_details_metadata_for_client() {
+        let html = format!(
+            r#"<h1>Крутой учитель Онидзука</h1>
+            <script type="application/ld+json">{{"@type":"TVSeries","name":"Крутой учитель Онидзука","alternateName":"Great Teacher Onizuka","datePublished":"1999-06-30","numberOfEpisodes":43,"genre":["Комедия"]}}</script>
+            <div>Тип</div><div>Сериал</div>
+            <div>Эпизоды</div><div>43</div>
+            <div>Статус</div><div>Вышел</div>"#
+        );
+        let title = details("krutoy-uchitel-onidzuka-556", &html).expect("details");
+
+        assert_eq!(title["type"], "tv");
+        assert_eq!(title["year"], 1999);
+        assert_eq!(title["episodeCount"], 43);
+        assert_eq!(title["status"], "released");
     }
 }
 
