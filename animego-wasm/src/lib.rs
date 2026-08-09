@@ -297,7 +297,8 @@ fn class_values(html: &str, class_name: &str) -> Vec<String> {
     while let Some(relative) = safe_slice(html, cursor, html.len()).find(&marker) {
         let at = cursor + relative;
         let end = safe_slice(html, at, html.len()).find('>').map(|v| at + v + 1).unwrap_or(at);
-        if let Some(value) = first_between(safe_slice(html, end, html.len()), ">", "<").map(text).filter(|v| !v.is_empty()) { values.push(value); }
+        let value_end = safe_slice(html, end, html.len()).find('<').map(|v| end + v).unwrap_or(html.len());
+        if let Some(value) = Some(text(safe_slice(html, end, value_end))).filter(|v| !v.is_empty()) { values.push(value); }
         cursor = end.saturating_add(1);
     }
     values
@@ -330,25 +331,52 @@ fn status_alias(value: &str) -> Option<String> {
 fn field_value(html: &str, label: &str) -> Option<String> {
     let marker = format!(">{}<", label);
     let label_at = html.find(&marker)?;
-    let value_start = safe_slice(html, label_at + marker.len(), html.len()).find("><")? + label_at + marker.len() + 1;
+    let after_label = label_at + marker.len();
+    let value_tag = safe_slice(html, after_label, html.len()).find("<div")? + after_label;
+    let value_start = safe_slice(html, value_tag, html.len()).find('>')? + value_tag + 1;
     let value_end = safe_slice(html, value_start, html.len()).find("</div>")? + value_start;
     let value = text(safe_slice(html, value_start, value_end));
     (!value.is_empty()).then_some(value)
 }
 
+fn json_ld(html: &str) -> Option<Value> {
+    let mut cursor = 0;
+    while let Some(relative) = safe_slice(html, cursor, html.len()).find("<script") {
+        let tag_start = cursor + relative;
+        let tag_end = safe_slice(html, tag_start, html.len()).find('>')? + tag_start;
+        let tag = safe_slice(html, tag_start, tag_end + 1);
+        let is_json_ld = attr(tag, "type")
+            .map(|value| value.eq_ignore_ascii_case("application/ld+json"))
+            .unwrap_or(false);
+        let body_start = tag_end + 1;
+        let body_end = safe_slice(html, body_start, html.len()).find("</script>")
+            .map(|value| value + body_start);
+        if is_json_ld {
+            if let Some(body_end) = body_end {
+                if let Ok(value) = serde_json::from_str::<Value>(safe_slice(html, body_start, body_end).trim()) {
+                    return Some(value);
+                }
+            }
+        }
+        cursor = body_end.unwrap_or_else(|| tag_end.saturating_add(1)).saturating_add(1);
+    }
+    None
+}
+
 fn details(id: &str, html: &str) -> Result<Value, String> {
     let name = first_between(html, "<h1", "</h1>").map(text).filter(|v| !v.is_empty()).ok_or_else(|| format!("AnimeGo details title is missing for {id}"))?;
-    let schema = first_between(html, "application/ld+json\">", "</script>")
-        .and_then(|v| serde_json::from_str::<Value>(v.trim()).ok());
+    let schema = json_ld(html);
     let original = schema.as_ref().and_then(|v| v.get("alternateName").or_else(|| v.get("name"))).and_then(Value::as_str).unwrap_or(&name).to_owned();
     let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(Value::as_str).map(absolute_url);
     let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
         .unwrap_or((String::new(), None));
     let description = schema.as_ref().and_then(|v| v.get("description")).and_then(Value::as_str).map(str::to_owned);
     let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(|v| v.chars().take(4).collect::<String>().parse::<i64>().ok());
-    let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(Value::as_i64);
-    let type_alias = schema.as_ref().and_then(|v| v.get("@type")).and_then(Value::as_str).and_then(known_type);
     let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
+    let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(Value::as_i64)
+        .or_else(|| episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()));
+    let type_alias = schema.as_ref().and_then(|v| v.get("@type")).and_then(Value::as_str).and_then(known_type)
+        .or_else(|| field_value(html, "\u{0422}\u{0438}\u{043f}").and_then(|value| known_type(&value)));
     let status = field_value(html, "\u{0421}\u{0442}\u{0430}\u{0442}\u{0443}\u{0441}").and_then(|value| status_alias(&value));
     Ok(json!({
         "id": id, "russianName": name, "englishName": if original != name { Some(original.clone()) } else { None::<String> },
@@ -582,6 +610,36 @@ mod tests {
         assert_eq!(title["type"], "tv");
         assert_eq!(title["year"], 1999);
         assert_eq!(title["episodeCount"], 43);
+        assert_eq!(title["status"], "released");
+    }
+
+    #[test]
+    fn parses_captured_animego_card_metadata_for_client() {
+        let items = card_titles_with_diagnostics(
+            include_str!("../tests/fixtures/catalog-card.html"),
+            "LATEST",
+        ).expect("catalog cards");
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["russianName"], "Крутой учитель Онидзука");
+        assert_eq!(items[0]["year"], 1999);
+        assert_eq!(items[0]["type"], "tv");
+        assert!(items[0]["posterUrl"].as_str().is_some());
+    }
+
+    #[test]
+    fn parses_captured_animego_details_metadata_for_client() {
+        let title = details(
+            "krutoy-uchitel-onidzuka-556",
+            include_str!("../tests/fixtures/details.html"),
+        ).expect("details");
+
+        assert_eq!(title["russianName"], "Крутой учитель Онидзука");
+        assert_eq!(title["englishName"], "Great Teacher Onizuka");
+        assert_eq!(title["type"], "tv");
+        assert_eq!(title["year"], 1999);
+        assert_eq!(title["episodeCount"], 43);
+        assert_eq!(title["availableEpisodeCount"], 43);
         assert_eq!(title["status"], "released");
     }
 }
