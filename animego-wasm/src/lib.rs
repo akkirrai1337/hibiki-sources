@@ -89,7 +89,10 @@ fn http(request_id: &str, path: &str, headers: Value) -> Result<String, String> 
 }
 
 fn page(request_id: &str, path: &str) -> Result<String, String> {
-    http(request_id, path, json!({ "Accept": "text/html,application/json" }))
+    let body = http(request_id, path, json!({ "Accept": "text/html,application/json" }))?;
+    // AnimeGo returns AJAX catalog/search responses as JSON with the rendered
+    // HTML in `data.content`, while ordinary pages remain plain HTML.
+    Ok(response_content(&body))
 }
 
 fn ajax(request_id: &str, path: &str) -> Result<String, String> {
