@@ -181,10 +181,24 @@ fn class_text(html: &str, class_name: &str) -> Option<String> {
     (!value.is_empty()).then_some(value)
 }
 
-fn card_window<'a>(html: &'a str, at: usize) -> &'a str {
-    let start = at.saturating_sub(1400);
-    let end = (at + 1400).min(html.len());
+fn safe_slice<'a>(html: &'a str, mut start: usize, mut end: usize) -> &'a str {
+    start = start.min(html.len());
+    end = end.min(html.len()).max(start);
+    while start > 0 && !html.is_char_boundary(start) {
+        start -= 1;
+    }
+    while end < html.len() && !html.is_char_boundary(end) {
+        end += 1;
+    }
     &html[start..end]
+}
+
+fn card_window<'a>(html: &'a str, at: usize) -> &'a str {
+    // The window offsets are measured in bytes, but the page may contain
+    // Cyrillic or other multi-byte characters immediately around a card.
+    // Align both bounds before slicing so a card can never panic the WASM
+    // runtime with an invalid UTF-8 boundary.
+    safe_slice(html, at.saturating_sub(1400), at.saturating_add(1400))
 }
 
 fn card_titles(html: &str) -> Vec<Value> {
@@ -349,7 +363,7 @@ fn episode_items(html: &str) -> Vec<Value> {
         if let Some(id) = attr(tag, "data-episode") {
             let number = attr(tag, "data-episode-number").and_then(|v| v.replace(',', ".").parse::<f64>().ok())
                 .or_else(|| {
-                    let content = &html[end.saturating_add(1)..(end + 1200).min(html.len())];
+                    let content = safe_slice(html, end.saturating_add(1), end.saturating_add(1200));
                     text(content).split_whitespace()
                         .find_map(|part| part.replace(',', ".").parse::<f64>().ok())
                 });
