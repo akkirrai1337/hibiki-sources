@@ -116,15 +116,31 @@ fn scalar(value: &Value) -> Option<String> {
 }
 
 fn attr(tag: &str, name: &str) -> Option<String> {
-    for quote in ['"', '\''] {
-        let needle = format!("{name}={quote}");
-        if let Some(start) = tag.find(&needle) {
-            let value = &tag[start + needle.len()..];
-            if let Some(end) = value.find(quote) {
-                let value = safe_slice(value, 0, end).trim();
-                if !value.is_empty() { return Some(value.to_owned()); }
+    let bytes = tag.as_bytes();
+    let name_bytes = name.as_bytes();
+    let mut cursor = 0;
+    while cursor + name_bytes.len() <= bytes.len() {
+        let Some(relative) = tag[cursor..].find(name) else { break };
+        let start = cursor + relative;
+        let before_is_boundary = start == 0 || bytes[start - 1].is_ascii_whitespace() || bytes[start - 1] == b'<';
+        let after = start + name_bytes.len();
+        let after_is_boundary = after == bytes.len() || bytes[after].is_ascii_whitespace() || bytes[after] == b'=';
+        if before_is_boundary && after_is_boundary {
+            let mut value_start = after;
+            while value_start < bytes.len() && bytes[value_start].is_ascii_whitespace() { value_start += 1; }
+            if value_start < bytes.len() && bytes[value_start] == b'=' {
+                value_start += 1;
+                while value_start < bytes.len() && bytes[value_start].is_ascii_whitespace() { value_start += 1; }
+                if let Some(&quote) = bytes.get(value_start).filter(|quote| **quote == b'"' || **quote == b'\'') {
+                    let content_start = value_start + 1;
+                    if let Some(relative_end) = bytes[content_start..].iter().position(|byte| *byte == quote) {
+                        let value = safe_slice(tag, content_start, content_start + relative_end).trim();
+                        if !value.is_empty() { return Some(value.to_owned()); }
+                    }
+                }
             }
         }
+        cursor = start + name_bytes.len();
     }
     None
 }
@@ -207,15 +223,22 @@ fn card_window<'a>(html: &'a str, at: usize) -> &'a str {
 fn card_titles(html: &str) -> Vec<Value> {
     let mut result = Vec::new();
     let mut cursor = 0;
-    while let Some(relative) = html[cursor..].find("href=\"/anime/") {
+    while let Some(relative) = html[cursor..].find("<a") {
         let at = cursor + relative;
-        let end = html[at..].find('"').map(|v| at + v).unwrap_or(at);
-        let href = safe_slice(html, at.saturating_add(6), end);
-        if let Some(id) = anime_slug(href) {
+        let after_name = html.as_bytes().get(at.saturating_add(2)).copied();
+        if !matches!(after_name, Some(b' ' | b'\t' | b'\r' | b'\n' | b'>')) {
+            cursor = at.saturating_add(2);
+            continue;
+        }
+        let end = html[at..].find('>').map(|v| at + v + 1).unwrap_or(html.len());
+        let link_tag = safe_slice(html, at, end);
+        let href = attr(link_tag, "href").unwrap_or_default();
+        if !href.contains("/anime/") {
+            cursor = end.saturating_add(1);
+            continue;
+        }
+        if let Some(id) = anime_slug(&href) {
             let window = card_window(html, at);
-            let link_start = html[..at].rfind("<a ").unwrap_or(at);
-            let link_end = html[at..].find('>').map(|v| at + v + 1).unwrap_or(at);
-            let link_tag = safe_slice(html, link_start, link_end);
             let name = attr(link_tag, "title")
                 .map(|v| text(&v))
                 .filter(|v| !v.is_empty())
@@ -440,6 +463,53 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CARD_HTML: &str = r#"
+        <div class="anime-card">
+            <a data-kind="anime" title="Крутой учитель Онидзука" href='/anime/krutoy-uchitel-onidzuka-556'>
+                <img class="poster" src="https://img.cdngos.com/poster.webp">
+                <span class="fw-lighter">GTO</span>
+                <span class="ani-list__item-description">Учитель в необычной школе</span>
+            </a>
+        </div>
+    "#;
+
+    #[test]
+    fn parses_ajax_catalog_envelope_like_client_response() {
+        let body = json!({ "status": "success", "data": { "content": CARD_HTML } }).to_string();
+        let html = response_content(&body);
+        let items = card_titles_with_diagnostics(&html, "SEARCH").expect("catalog cards");
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["id"], "krutoy-uchitel-onidzuka-556");
+        assert_eq!(items[0]["russianName"], "Крутой учитель Онидзука");
+        assert_eq!(items[0]["originalName"], "GTO");
+    }
+
+    #[test]
+    fn parses_plain_html_latest_response() {
+        let items = card_titles_with_diagnostics(CARD_HTML, "LATEST").expect("latest cards");
+
+        assert_eq!(items.len(), 1);
+        assert!(items[0]["posterUrl"].as_str().is_some());
+        assert_eq!(items[0]["description"], "Учитель в необычной школе");
+    }
+
+    #[test]
+    fn ignores_non_anime_links_and_deduplicates_cards() {
+        let html = format!(
+            "<a href='/login'>login</a>{CARD_HTML}{CARD_HTML}<a href='/anime/type/tv'>type</a>"
+        );
+        let items = card_titles_with_diagnostics(&html, "SEARCH").expect("anime cards");
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["id"], "krutoy-uchitel-onidzuka-556");
+    }
+}
+
 static mut HEAP: usize = 4096;
 #[no_mangle] pub extern "C" fn beakokit_reset() { unsafe { HEAP = 4096; } }
 #[no_mangle] pub extern "C" fn beakokit_alloc(length: i32) -> i32 { unsafe { let ptr = HEAP; HEAP += length.max(0) as usize; ptr as i32 } }
@@ -454,5 +524,9 @@ static mut HEAP: usize = 4096;
     ((ptr as u64) << 32 | response.len() as u64) as i64
 }
 
+#[cfg(target_arch = "wasm32")]
 #[link(wasm_import_module = "host")]
 extern "C" { #[link_name = "call"] fn host_call(pointer: *const u8, length: i32) -> i64; }
+
+#[cfg(not(target_arch = "wasm32"))]
+unsafe extern "C" fn host_call(_pointer: *const u8, _length: i32) -> i64 { -1 }
