@@ -22,6 +22,12 @@ source.wasm
 the host `HTTP_REQUEST` capability. It implements `SEARCH`, `DETAILS`,
 `PLAYBACK_GROUPS`, and `PLAYER_LINKS`.
 
+The shared `beakokit-html-sdk` crate provides bounded HTML/JSON parsing,
+selector errors, required-field helpers, and URL normalization for HTML/AJAX
+sources. AnimeGo uses it for both ordinary pages and JSON `data.content`
+responses; AniLiberty and YummyAnime use its bounded JSON parser for API
+responses.
+
 YummyAnime is built from `yummyanime-wasm` with:
 
 ```powershell
@@ -48,8 +54,10 @@ repository itself is used as the package host. Do not publish a repository
 index with placeholder URLs or checksums: the client validates all three
 artifact fields before installation.
 
-`interop-smoke.mjs` runs the same mocked host protocol against both the Rust
-and Kotlin references. Both references pass the complete operation set,
-including playback groups and player links. The production host bridge
-provisions guest memory when a module starts with zero pages, which is required
-by the current Kotlin/Wasm reference as well as supported Rust packages.
+`interop-smoke.mjs` runs the mocked host protocol against the Rust and Kotlin
+references. `animego-wasm/interop-smoke.mjs` runs the packaged AnimeGo WASM
+module through the same host bridge and checks SEARCH, FILTER_CATALOG,
+DETAILS, PLAYBACK_GROUPS, and PLAYER_LINKS against captured HTML/AJAX fixtures.
+The production host bridge provisions guest memory when a module starts with
+zero pages, which is required by the current Kotlin/Wasm reference as well as
+supported Rust packages.

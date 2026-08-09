@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use beakokit_html_sdk::{JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -57,6 +58,8 @@ fn http(request_id: &str, path: &str, query: &str) -> Result<String, String> {
     let raw = unsafe { core::slice::from_raw_parts(ptr as *const u8, len) };
     let response: Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
     if let Some(message) = response.get("errorMessage").and_then(Value::as_str) { return Err(message.to_owned()); }
+    let status = response.pointer("/payload/statusCode").and_then(Value::as_u64).unwrap_or(200);
+    if !(200..300).contains(&status) { return Err(format!("YummyAnime host HTTP request returned status {status}")); }
     response.pointer("/payload/body").and_then(Value::as_str).map(str::to_owned).ok_or_else(|| "YummyAnime response did not contain a body".to_owned())
 }
 
@@ -80,8 +83,14 @@ fn normalized_url(value: &str) -> String {
 }
 
 fn envelope(body: &str) -> Result<Value, String> {
-    let value: Value = serde_json::from_str(body).map_err(|e| e.to_string())?;
+    let value = json_body(body, "envelope")?;
     Ok(value.get("response").cloned().unwrap_or(value))
+}
+
+fn json_body(body: &str, operation: &str) -> Result<Value, String> {
+    JsonDocument::parse_limited(body, DEFAULT_MAX_DOCUMENT_BYTES)
+        .map(|document| document.root().clone())
+        .map_err(|error| format!("YummyAnime {operation} JSON parse failed: {error:?}"))
 }
 
 fn title(value: &Value) -> Option<Value> {

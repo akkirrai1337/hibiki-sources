@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+pub use beakokit_html_sdk::{HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError};
+
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
 #[allow(dead_code)]
 const HOST_PROTOCOL_VERSION: u32 = 1;

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use beakokit_html_sdk::{JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -88,6 +89,10 @@ fn host_http(request_id: &str, url: String) -> Result<String, String> {
     if let Some(error) = response.get("errorMessage").and_then(Value::as_str) {
         return Err(error.to_owned());
     }
+    let status = response.pointer("/payload/statusCode").and_then(Value::as_u64).unwrap_or(200);
+    if !(200..300).contains(&status) {
+        return Err(format!("AniLiberty host HTTP request returned status {status}"));
+    }
     response
         .pointer("/payload/body")
         .and_then(Value::as_str)
@@ -159,8 +164,14 @@ fn title(value: &Value) -> Option<Value> {
 }
 
 fn release_value(body: &str) -> Result<Value, String> {
-    let value: Value = serde_json::from_str(body).map_err(|error| error.to_string())?;
+    let value = json_body(body, "release")?;
     Ok(value.get("data").cloned().unwrap_or(value))
+}
+
+fn json_body(body: &str, operation: &str) -> Result<Value, String> {
+    JsonDocument::parse_limited(body, DEFAULT_MAX_DOCUMENT_BYTES)
+        .map(|document| document.root().clone())
+        .map_err(|error| format!("AniLiberty {operation} JSON parse failed: {error:?}"))
 }
 
 fn release(request_id: &str, id: &str) -> Result<Value, String> {
@@ -186,7 +197,7 @@ fn episode_number(value: &Value) -> Option<f64> {
 
 fn reference_options(request_id: &str, reference: &str) -> Result<Value, String> {
     let body = host_http(request_id, api_url(&format!("anime/catalog/references/{reference}")))?;
-    let value: Value = serde_json::from_str(&body).map_err(|error| error.to_string())?;
+    let value = json_body(&body, "reference options")?;
     let items = value
         .get("data")
         .or_else(|| value.get("items"))
@@ -377,8 +388,7 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
             }
             let url = format!("{}?{parameters}", api_url("anime/catalog/releases"));
             host_http(&request.request_id, url).and_then(|body| {
-                let value: Value =
-                    serde_json::from_str(&body).map_err(|error| error.to_string())?;
+                let value = json_body(&body, "search")?;
                 let items = value
                     .get("data")
                     .or_else(|| value.get("items"))
