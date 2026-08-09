@@ -259,13 +259,9 @@ fn card_titles(html: &str) -> Vec<Value> {
                 .unwrap_or((String::new(), None));
             let genres = class_values(window, "ani-list__item-genres__link")
                 .into_iter().chain(class_values(window, "ani-grid__item-genres__link")).collect::<Vec<_>>();
-            let year = genres.iter().find_map(|v| {
-                let digits = v.trim_matches(|c: char| !c.is_ascii_digit());
-                (digits.len() == 4 && (digits.starts_with('1') || digits.starts_with('2'))).then(|| digits.parse::<i64>().ok()).flatten()
-            }).or_else(|| window.split_whitespace().find_map(|v| {
-                let digits = v.trim_matches(|c: char| !c.is_ascii_digit());
-                (digits.len() == 4 && (digits.starts_with('1') || digits.starts_with('2'))).then(|| digits.parse::<i64>().ok()).flatten()
-            }));
+            // Only accept a year from the dedicated metadata links. Scanning
+            // the whole card can mistake the numeric title id for a year.
+            let year = genres.iter().find_map(|value| release_year(value));
             let type_alias = genres.iter().find_map(|value| known_type(value));
             let description = class_text(window, "ani-list__item-description");
             result.push(json!({
@@ -317,6 +313,12 @@ fn type_alias(value: &str) -> String {
 fn known_type(value: &str) -> Option<String> {
     let mapped = type_alias(value);
     matches!(mapped.as_str(), "tv" | "movie" | "ova" | "ona").then_some(mapped)
+}
+
+fn release_year(value: &str) -> Option<i64> {
+    let digits = value.trim_matches(|c: char| !c.is_ascii_digit());
+    let year = digits.parse::<i64>().ok()?;
+    (1900..=2100).contains(&year).then_some(year)
 }
 
 fn status_alias(value: &str) -> Option<String> {
@@ -625,6 +627,19 @@ mod tests {
         assert_eq!(items[0]["year"], 1999);
         assert_eq!(items[0]["type"], "tv");
         assert!(items[0]["posterUrl"].as_str().is_some());
+    }
+
+    #[test]
+    fn ignores_title_id_numbers_when_card_has_no_release_year() {
+        let html = r#"
+            <div class="ani-list__item">
+                <a class="ani-list__item-picture" href="/anime/title-2430"><img alt="Без даты" src="poster.webp"></a>
+                <div class="ani-list__item-title"><a href="/anime/title-2430">Без даты</a></div>
+            </div>
+        "#;
+        let items = card_titles_with_diagnostics(html, "LATEST").expect("catalog cards");
+
+        assert_eq!(items[0]["year"], Value::Null);
     }
 
     #[test]
