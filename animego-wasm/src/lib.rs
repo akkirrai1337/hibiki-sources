@@ -359,6 +359,20 @@ fn response_content(body: &str) -> String {
         .unwrap_or_else(|| body.to_owned())
 }
 
+fn card_titles_with_diagnostics(html: &str, operation: &str) -> Result<Vec<Value>, String> {
+    let items = card_titles(html);
+    if !items.is_empty() {
+        return Ok(items);
+    }
+    Err(format!(
+        "AnimeGo {operation} returned no cards: bodyBytes={}, animeLinks={}, contentContainer={}, jsonBody={}",
+        html.len(),
+        html.contains("href=\"/anime/"),
+        html.contains("content-container"),
+        html.trim_start().starts_with('{'),
+    ))
+}
+
 fn episode_items(html: &str) -> Vec<Value> {
     let mut result = Vec::new(); let mut cursor = 0;
     while let Some(relative) = html[cursor..].find("data-episode=\"") {
@@ -394,7 +408,7 @@ fn player_items(html: &str) -> Vec<Value> {
 fn execute(request: RuntimeRequest) -> Result<Value, String> {
     match request.operation {
         RuntimeOperation::FilterCatalog => Ok(filters(&page(&request.request_id, "/anime")?)),
-        RuntimeOperation::Latest => Ok(json!({ "items": card_titles(&page(&request.request_id, "/anime")?).into_iter().take(request.payload.get("limit").and_then(Value::as_i64).unwrap_or(20).max(1) as usize).collect::<Vec<_>>() })),
+        RuntimeOperation::Latest => Ok(json!({ "items": card_titles_with_diagnostics(&page(&request.request_id, "/anime")?, "LATEST")?.into_iter().take(request.payload.get("limit").and_then(Value::as_i64).unwrap_or(20).max(1) as usize).collect::<Vec<_>>() })),
         RuntimeOperation::Search => {
             let p = &request.payload; let limit = p.get("limit").and_then(Value::as_i64).unwrap_or(20).clamp(1, 50); let offset = p.get("offset").and_then(Value::as_i64).unwrap_or(0).max(0);
             let query = p.get("query").and_then(Value::as_str).unwrap_or("").trim();
@@ -406,7 +420,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
                 let (sort, direction) = catalog_sort(p);
                 format!("{base}{page}?entities=true&sort={sort}&direction={direction}")
             };
-            Ok(json!({ "items": card_titles(&page(&request.request_id, &path)?).into_iter().skip((offset % 20) as usize).take(limit as usize).collect::<Vec<_>>() }))
+            Ok(json!({ "items": card_titles_with_diagnostics(&page(&request.request_id, &path)?, "SEARCH")?.into_iter().skip((offset % 20) as usize).take(limit as usize).collect::<Vec<_>>() }))
         }
         RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; details(id, &page(&request.request_id, &format!("/anime/{id}"))?) }
         RuntimeOperation::PlaybackGroups => {
