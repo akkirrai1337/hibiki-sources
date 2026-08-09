@@ -118,7 +118,7 @@ fn attr(tag: &str, name: &str) -> Option<String> {
         if let Some(start) = tag.find(&needle) {
             let value = &tag[start + needle.len()..];
             if let Some(end) = value.find(quote) {
-                let value = value[..end].trim();
+                let value = safe_slice(value, 0, end).trim();
                 if !value.is_empty() { return Some(value.to_owned()); }
             }
         }
@@ -169,7 +169,7 @@ fn anime_slug(value: &str) -> Option<String> {
 fn first_between<'a>(value: &'a str, start: &str, end: &str) -> Option<&'a str> {
     let from = value.find(start)? + start.len();
     let to = value[from..].find(end)? + from;
-    Some(&value[from..to])
+    Some(safe_slice(value, from, to))
 }
 
 fn class_text(html: &str, class_name: &str) -> Option<String> {
@@ -177,7 +177,7 @@ fn class_text(html: &str, class_name: &str) -> Option<String> {
     let at = html.find(&marker)?;
     let start = html[at..].find('>')? + at + 1;
     let end = html[start..].find("</")? + start;
-    let value = text(&html[start..end]).trim().to_owned();
+    let value = text(safe_slice(html, start, end)).trim().to_owned();
     (!value.is_empty()).then_some(value)
 }
 
@@ -207,11 +207,12 @@ fn card_titles(html: &str) -> Vec<Value> {
     while let Some(relative) = html[cursor..].find("href=\"/anime/") {
         let at = cursor + relative;
         let end = html[at..].find('"').map(|v| at + v).unwrap_or(at);
-        let href = &html[at + 6..end];
+        let href = safe_slice(html, at.saturating_add(6), end);
         if let Some(id) = anime_slug(href) {
             let window = card_window(html, at);
             let link_start = html[..at].rfind("<a ").unwrap_or(at);
-            let link_tag = &html[link_start..html[at..].find('>').map(|v| at + v + 1).unwrap_or(at)];
+            let link_end = html[at..].find('>').map(|v| at + v + 1).unwrap_or(at);
+            let link_tag = safe_slice(html, link_start, link_end);
             let name = attr(link_tag, "title")
                 .map(|v| text(&v))
                 .filter(|v| !v.is_empty())
@@ -220,7 +221,7 @@ fn card_titles(html: &str) -> Vec<Value> {
             let original = class_text(window, "fw-lighter").unwrap_or_else(|| name.clone());
             let source_poster = window.find("<img ").and_then(|img| {
                 let tag_end = window[img..].find('>').map(|v| img + v)?;
-                attr(&window[img..tag_end], "src").map(|v| absolute_url(&v))
+                attr(safe_slice(window, img, tag_end), "src").map(|v| absolute_url(&v))
             });
             let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
                 .unwrap_or((String::new(), None));
