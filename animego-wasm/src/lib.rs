@@ -242,6 +242,12 @@ fn card_titles(html: &str) -> Vec<Value> {
             let name = attr(link_tag, "title")
                 .map(|v| text(&v))
                 .filter(|v| !v.is_empty())
+                .or_else(|| class_text(window, "ani-list__item-title"))
+                .or_else(|| class_text(window, "ani-grid__item-title"))
+                .or_else(|| window.find("<img ").and_then(|img| {
+                    let tag_end = safe_slice(window, img, window.len()).find('>').map(|v| img + v)?;
+                    attr(safe_slice(window, img, tag_end), "alt").map(|v| text(&v))
+                }))
                 .or_else(|| first_between(link_tag, ">", "<").map(text))
                 .unwrap_or_else(|| id.clone());
             let original = class_text(window, "fw-lighter").unwrap_or_else(|| name.clone());
@@ -507,6 +513,23 @@ mod tests {
 
         assert_eq!(items.len(), 1);
         assert_eq!(items[0]["id"], "krutoy-uchitel-onidzuka-556");
+    }
+
+    #[test]
+    fn uses_title_from_card_body_when_picture_link_has_no_title() {
+        let html = r#"
+            <div class="ani-list__item">
+                <a class="ani-list__item-picture" href="/anime/monolog-farmacevta-2-2727">
+                    <img alt="Монолог фармацевта 2" src="poster.webp">
+                </a>
+                <div class="ani-list__item-title"><a href="/anime/monolog-farmacevta-2-2727">Монолог фармацевта 2</a></div>
+                <div class="fw-lighter">Kusuriya no Hitorigoto 2nd Season</div>
+            </div>
+        "#;
+        let items = card_titles_with_diagnostics(html, "SEARCH").expect("anime cards");
+
+        assert_eq!(items[0]["russianName"], "Монолог фармацевта 2");
+        assert_eq!(items[0]["originalName"], "Kusuriya no Hitorigoto 2nd Season");
     }
 }
 
