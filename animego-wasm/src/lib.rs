@@ -120,7 +120,7 @@ fn attr(tag: &str, name: &str) -> Option<String> {
     let name_bytes = name.as_bytes();
     let mut cursor = 0;
     while cursor + name_bytes.len() <= bytes.len() {
-        let Some(relative) = tag[cursor..].find(name) else { break };
+        let Some(relative) = safe_slice(tag, cursor, tag.len()).find(name) else { break };
         let start = cursor + relative;
         let before_is_boundary = start == 0 || bytes[start - 1].is_ascii_whitespace() || bytes[start - 1] == b'<';
         let after = start + name_bytes.len();
@@ -187,15 +187,15 @@ fn anime_slug(value: &str) -> Option<String> {
 
 fn first_between<'a>(value: &'a str, start: &str, end: &str) -> Option<&'a str> {
     let from = value.find(start)? + start.len();
-    let to = value[from..].find(end)? + from;
+    let to = safe_slice(value, from, value.len()).find(end)? + from;
     Some(safe_slice(value, from, to))
 }
 
 fn class_text(html: &str, class_name: &str) -> Option<String> {
     let marker = format!("class=\"{class_name}");
     let at = html.find(&marker)?;
-    let start = html[at..].find('>')? + at + 1;
-    let end = html[start..].find("</")? + start;
+    let start = safe_slice(html, at, html.len()).find('>')? + at + 1;
+    let end = safe_slice(html, start, html.len()).find("</")? + start;
     let value = text(safe_slice(html, start, end)).trim().to_owned();
     (!value.is_empty()).then_some(value)
 }
@@ -223,14 +223,14 @@ fn card_window<'a>(html: &'a str, at: usize) -> &'a str {
 fn card_titles(html: &str) -> Vec<Value> {
     let mut result = Vec::new();
     let mut cursor = 0;
-    while let Some(relative) = html[cursor..].find("<a") {
+    while let Some(relative) = safe_slice(html, cursor, html.len()).find("<a") {
         let at = cursor + relative;
         let after_name = html.as_bytes().get(at.saturating_add(2)).copied();
         if !matches!(after_name, Some(b' ' | b'\t' | b'\r' | b'\n' | b'>')) {
             cursor = at.saturating_add(2);
             continue;
         }
-        let end = html[at..].find('>').map(|v| at + v + 1).unwrap_or(html.len());
+        let end = safe_slice(html, at, html.len()).find('>').map(|v| at + v + 1).unwrap_or(html.len());
         let link_tag = safe_slice(html, at, end);
         let href = attr(link_tag, "href").unwrap_or_default();
         if !href.contains("/anime/") {
@@ -246,7 +246,7 @@ fn card_titles(html: &str) -> Vec<Value> {
                 .unwrap_or_else(|| id.clone());
             let original = class_text(window, "fw-lighter").unwrap_or_else(|| name.clone());
             let source_poster = window.find("<img ").and_then(|img| {
-                let tag_end = window[img..].find('>').map(|v| img + v)?;
+                let tag_end = safe_slice(window, img, window.len()).find('>').map(|v| img + v)?;
                 attr(safe_slice(window, img, tag_end), "src").map(|v| absolute_url(&v))
             });
             let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
@@ -284,10 +284,10 @@ fn class_values(html: &str, class_name: &str) -> Vec<String> {
     let marker = format!("class=\"{class_name}");
     let mut values = Vec::new();
     let mut cursor = 0;
-    while let Some(relative) = html[cursor..].find(&marker) {
+    while let Some(relative) = safe_slice(html, cursor, html.len()).find(&marker) {
         let at = cursor + relative;
-        let end = html[at..].find('>').map(|v| at + v + 1).unwrap_or(at);
-        if let Some(value) = first_between(&html[end..], ">", "<").map(text).filter(|v| !v.is_empty()) { values.push(value); }
+        let end = safe_slice(html, at, html.len()).find('>').map(|v| at + v + 1).unwrap_or(at);
+        if let Some(value) = first_between(safe_slice(html, end, html.len()), ">", "<").map(text).filter(|v| !v.is_empty()) { values.push(value); }
         cursor = end.saturating_add(1);
     }
     values
@@ -323,11 +323,11 @@ fn filter_options(html: &str, prefix: &str) -> Vec<Value> {
     let mut values = Vec::new();
     let mut cursor = 0;
     let marker = format!("name=\"{prefix}");
-    while let Some(relative) = html[cursor..].find(&marker) {
+    while let Some(relative) = safe_slice(html, cursor, html.len()).find(&marker) {
         let at = cursor + relative;
-        let start = html[..at].rfind("<input").unwrap_or(at);
-        let end = html[at..].find('>').map(|v| at + v).unwrap_or(at);
-        let tag = &html[start..end];
+        let start = safe_slice(html, 0, at).rfind("<input").unwrap_or(at);
+        let end = safe_slice(html, at, html.len()).find('>').map(|v| at + v).unwrap_or(at);
+        let tag = safe_slice(html, start, end);
         if let Some(id) = attr(tag, "value") { values.push(json!({ "id": id, "title": id })); }
         cursor = end.saturating_add(1);
     }
@@ -398,9 +398,9 @@ fn card_titles_with_diagnostics(html: &str, operation: &str) -> Result<Vec<Value
 
 fn episode_items(html: &str) -> Vec<Value> {
     let mut result = Vec::new(); let mut cursor = 0;
-    while let Some(relative) = html[cursor..].find("data-episode=\"") {
-        let at = cursor + relative; let end = html[at..].find('>').map(|v| at + v).unwrap_or(at);
-        let tag_start = html[..at].rfind('<').unwrap_or(at); let tag = &html[tag_start..end];
+    while let Some(relative) = safe_slice(html, cursor, html.len()).find("data-episode=\"") {
+        let at = cursor + relative; let end = safe_slice(html, at, html.len()).find('>').map(|v| at + v).unwrap_or(at);
+        let tag_start = safe_slice(html, 0, at).rfind('<').unwrap_or(at); let tag = safe_slice(html, tag_start, end);
         if let Some(id) = attr(tag, "data-episode") {
             let number = attr(tag, "data-episode-number").and_then(|v| v.replace(',', ".").parse::<f64>().ok())
                 .or_else(|| {
@@ -417,9 +417,9 @@ fn episode_items(html: &str) -> Vec<Value> {
 
 fn player_items(html: &str) -> Vec<Value> {
     let mut result = Vec::new(); let mut cursor = 0;
-    while let Some(relative) = html[cursor..].find("data-player=\"") {
-        let at = cursor + relative; let end = html[at..].find('>').map(|v| at + v).unwrap_or(at);
-        let tag_start = html[..at].rfind('<').unwrap_or(at); let tag = &html[tag_start..end];
+    while let Some(relative) = safe_slice(html, cursor, html.len()).find("data-player=\"") {
+        let at = cursor + relative; let end = safe_slice(html, at, html.len()).find('>').map(|v| at + v).unwrap_or(at);
+        let tag_start = safe_slice(html, 0, at).rfind('<').unwrap_or(at); let tag = safe_slice(html, tag_start, end);
         if let Some(url) = attr(tag, "data-player") {
             result.push(json!({ "url": absolute_url(&url), "type": "EMBED", "quality": null, "headers": { "Referer": format!("{BASE_URL}/") }, "playerName": attr(tag, "data-provider-title"), "translation": attr(tag, "data-translation-title"), "segments": [], "videoId": null }));
         }
