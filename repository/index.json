@@ -37,26 +37,82 @@
                                               }
                     },
                     {
-                        "manifestFormatVersion": 1,
-                        "sourceId": "yummy-anime",
-                        "packageVersion": "0.1.1",
-                        "sourceInfo": {
-                            "displayName": "YummyAnime",
-                            "languages": ["ru"],
-                            "primaryLanguage": "ru",
-                            "website": "https://yummyani.me"
-                        },
-                        "apiVersion": 1,
-                        "hostApiVersion": 1,
-                        "runtime": { "id": "wasm", "abi": "wasm32-wasi-preview1" },
-                        "entrypoint": "source.wasm",
-                        "packageUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummyanime-0.1.1.zip",
-                        "sha256": "1f75478322da2df13ac0df5cb77122c8518c8343be19a11dbab50b61e01e1c87",
-                        "artifactSizeBytes": 108693,
-                        "minClientVersion": 0,
-                        "capabilities": ["LATEST_RELEASES", "PLAYBACK", "RELATED_TITLES", "SIMILAR_TITLES"],
-                        "hostCapabilities": ["NETWORK"],
-                        "hostNetworkPolicy": { "allowedHosts": ["api.yani.tv", "yummyani.me", "ru.yummyani.me"] }
+                        "manifestFormatVersion":  1,
+                        "sourceId":  "yummy-anime",
+                        "packageVersion":  "0.1.1",
+                        "sourceInfo":  {
+                                           "displayName":  "YummyAnime",
+                                           "languages":  [
+                                                             "ru"
+                                                         ],
+                                           "primaryLanguage":  "ru",
+                                           "website":  "https://yummyani.me"
+                                       },
+                        "apiVersion":  1,
+                        "hostApiVersion":  1,
+                        "runtime":  {
+                                        "id":  "wasm",
+                                        "abi":  "wasm32-wasi-preview1"
+                                    },
+                        "entrypoint":  "source.wasm",
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummyanime-0.1.1.zip",
+                        "sha256":  "1f75478322da2df13ac0df5cb77122c8518c8343be19a11dbab50b61e01e1c87",
+                        "artifactSizeBytes":  108693,
+                        "minClientVersion":  0,
+                        "capabilities":  [
+                                             "LATEST_RELEASES",
+                                             "PLAYBACK",
+                                             "RELATED_TITLES",
+                                             "SIMILAR_TITLES"
+                                         ],
+                        "hostCapabilities":  [
+                                                 "NETWORK"
+                                             ],
+                        "hostNetworkPolicy":  {
+                                                  "allowedHosts":  [
+                                                                       "api.yani.tv",
+                                                                       "yummyani.me",
+                                                                       "ru.yummyani.me"
+                                                                   ]
+                                              }
+                    },
+                    {
+                        "manifestFormatVersion":  1,
+                        "sourceId":  "animego",
+                        "packageVersion":  "0.1.0",
+                        "sourceInfo":  {
+                                           "displayName":  "AnimeGo",
+                                           "languages":  [
+                                                             "ru"
+                                                         ],
+                                           "primaryLanguage":  "ru",
+                                           "website":  "https://animego.me",
+                                           "iconUrl":  "https://animego.me/favicon.ico"
+                                       },
+                        "apiVersion":  1,
+                        "hostApiVersion":  1,
+                        "runtime":  {
+                                        "id":  "wasm",
+                                        "abi":  "wasm32-wasi-preview1"
+                                    },
+                        "entrypoint":  "source.wasm",
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-0.1.0.zip",
+                        "sha256":  "a906fa312e17f7f0e679d061d821da7dfb4afdeee27754e06ad79c4d488216b9",
+                        "artifactSizeBytes":  118324,
+                        "minClientVersion":  0,
+                        "capabilities":  [
+                                             "LATEST_RELEASES",
+                                             "PLAYBACK"
+                                         ],
+                        "hostCapabilities":  [
+                                                 "NETWORK"
+                                             ],
+                        "hostNetworkPolicy":  {
+                                                  "allowedHosts":  [
+                                                                       "animego.me",
+                                                                       "images.weserv.nl"
+                                                                   ]
+                                              }
                     }
                 ]
 }

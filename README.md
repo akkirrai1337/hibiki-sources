@@ -1,6 +1,6 @@
 # BeakoKit external sources
 
-The external source packages are AniLiberty and YummyAnime.
+The external source packages are AniLiberty, YummyAnime, and AnimeGo.
 
 Build it from `aniliberty-wasm` with:
 
@@ -31,6 +31,17 @@ YummyAnime is built from `yummyanime-wasm` with:
 It follows the old YummyAnime source behavior: catalog search and filters,
 details, latest releases, dubbing groups, and embedded player links from the
 YummyAnime API.
+
+AnimeGo is built from `animego-wasm` with:
+
+```powershell
+.\animego-wasm\build.ps1 -PackageUrl "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-0.1.0.zip" -RepositoryIndexPath "..\repository\index.json"
+```
+
+It follows the old AnimeGo source behavior: catalog search and pagination,
+sorts, type/status/genre/year filters, details with poster fallback, latest
+releases, episode groups, and embedded player links from AnimeGo's HTML and
+AJAX endpoints.
 
 The generated archive is placed in `artifacts/` and may be committed when the
 repository itself is used as the package host. Do not publish a repository
