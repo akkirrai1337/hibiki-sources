@@ -181,24 +181,28 @@ fn reference_options(request_id: &str, reference: &str) -> Result<Value, String>
         .or_else(|| value.as_array())
         .cloned()
         .unwrap_or_default();
-    Ok(Value::Array(
-        items
-            .iter()
-            .filter_map(|item| {
-                let object = item.as_object()?;
-                let id = object
-                    .get("id")
-                    .or_else(|| object.get("value"))
-                    .and_then(ValueString::to_string_value)?;
-                let title = object
-                    .get("name")
-                    .or_else(|| object.get("description"))
-                    .and_then(Value::as_str)
-                    .unwrap_or(&id);
-                Some(json!({ "id": id, "title": title }))
-            })
-            .collect(),
-    ))
+    Ok(Value::Array(reference_option_values(&items)))
+}
+
+fn reference_option_values(items: &[Value]) -> Vec<Value> {
+    let mut seen_ids = Vec::new();
+    items.iter().filter_map(|item| {
+        let object = item.as_object()?;
+        let id = object
+            .get("id")
+            .or_else(|| object.get("value"))
+            .and_then(ValueString::to_string_value)?;
+        if id.trim().is_empty() || seen_ids.iter().any(|seen| seen == &id) { return None; }
+        let title = object
+            .get("name")
+            .or_else(|| object.get("description"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or(&id);
+        seen_ids.push(id.clone());
+        Some(json!({ "id": id, "title": title }))
+    }).collect()
 }
 
 fn filter_catalog(request_id: &str) -> Result<Value, String> {
@@ -516,5 +520,19 @@ mod tests {
     fn rejects_unsafe_release_ids_before_host_call() {
         assert!(release("test", "../admin").is_err());
         assert!(reference_options("test", "reference?id=1").is_err());
+    }
+
+    #[test]
+    fn deduplicates_reference_options() {
+        let items = vec![
+            json!({"id":"tv", "name":"TV"}),
+            json!({"value":"tv", "name":"Duplicate"}),
+            json!({"id":"", "name":"Blank"}),
+            json!({"id":"movie", "description":" Movie "}),
+        ];
+        assert_eq!(reference_option_values(&items), vec![
+            json!({"id":"tv", "title":"TV"}),
+            json!({"id":"movie", "title":"Movie"})
+        ]);
     }
 }
