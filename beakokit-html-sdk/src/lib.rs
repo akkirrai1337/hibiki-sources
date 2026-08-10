@@ -468,11 +468,15 @@ impl HtmlDocument {
     }
 
     pub fn required_attribute_any(&self, selectors: &[&str], attributes: &[&str]) -> Result<String, HtmlSdkError> {
-        self.select_any(selectors)?.into_iter().find_map(|element| first_attribute(element, attributes))
-            .ok_or_else(|| HtmlSdkError::MissingAttribute {
-                selector: selectors.join(" | "),
-                attribute: attributes.join(" | "),
-            })
+        for selector in selectors {
+            if let Some(value) = self.select(selector)?.into_iter().find_map(|element| first_attribute(element, attributes)) {
+                return Ok(value);
+            }
+        }
+        Err(HtmlSdkError::MissingAttribute {
+            selector: selectors.join(" | "),
+            attribute: attributes.join(" | "),
+        })
     }
 
     pub fn links(&self, selector: &str) -> Result<Vec<String>, HtmlSdkError> {
@@ -904,6 +908,8 @@ mod tests {
             selector: ".missing | .card".to_owned(),
             attribute: "href | data-id".to_owned(),
         });
+        let fallback = HtmlDocument::parse(r#"<div class="primary"></div><a class="fallback" href="/fallback"></a>"#, "https://example.org");
+        assert_eq!(fallback.required_attribute_any(&[".primary", ".fallback"], &["href"]).unwrap(), "/fallback");
     }
 
     #[test]
