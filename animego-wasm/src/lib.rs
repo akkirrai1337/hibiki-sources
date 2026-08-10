@@ -5,6 +5,7 @@ use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_ele
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
+const CATALOG_PAGE_SIZE: i64 = 20;
 const BASE_URL: &str = "https://animego.me";
 const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 
@@ -389,6 +390,22 @@ fn catalog_sort(p: &Value) -> (&'static str, &'static str) {
     }
 }
 
+fn catalog_page_path(base: &str, offset: i64) -> String {
+    if offset <= 0 {
+        base.to_owned()
+    } else {
+        format!("{base}/{}", offset / CATALOG_PAGE_SIZE + 1)
+    }
+}
+
+fn page_items(items: Vec<Value>, offset: i64, limit: i64) -> Vec<Value> {
+    items
+        .into_iter()
+        .skip((offset.rem_euclid(CATALOG_PAGE_SIZE)) as usize)
+        .take(limit as usize)
+        .collect()
+}
+
 fn response_content(body: &str) -> Result<String, String> {
     let Ok(document) = JsonDocument::parse_limited(body, DEFAULT_MAX_DOCUMENT_BYTES) else {
         return Ok(body.to_owned());
@@ -501,7 +518,12 @@ fn player_items_with_diagnostics(html: &str) -> Result<Vec<Value>, String> {
 fn execute(request: RuntimeRequest) -> Result<Value, String> {
     match request.operation {
         RuntimeOperation::FilterCatalog => filters(&page(&request.request_id, "/anime")?),
-        RuntimeOperation::Latest => { let (_, limit) = bounded_pagination(&request.payload); Ok(json!({ "items": card_titles_with_diagnostics(&page(&request.request_id, "/anime")?, "LATEST")?.into_iter().take(limit as usize).collect::<Vec<_>>() })) },
+        RuntimeOperation::Latest => {
+            let (offset, limit) = bounded_pagination(&request.payload);
+            let path = catalog_page_path("/anime", offset);
+            let items = card_titles_with_diagnostics(&page(&request.request_id, &path)?, "LATEST")?;
+            Ok(json!({ "items": page_items(items, offset, limit) }))
+        }
         RuntimeOperation::Search => {
             let p = &request.payload; let (offset, limit) = bounded_pagination(p);
             let query = p.get("query").and_then(Value::as_str).unwrap_or("").trim();
@@ -509,11 +531,12 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
                 format!("/search/all?q={}&page={}", enc(query), offset / 20 + 1)
             } else {
                 let base = filter_path(p)?;
-                let page = if offset > 0 { format!("/{}", offset / 20 + 1) } else { String::new() };
+                let page = if offset > 0 { format!("/{}", offset / CATALOG_PAGE_SIZE + 1) } else { String::new() };
                 let (sort, direction) = catalog_sort(p);
                 format!("{base}{page}?entities=true&sort={sort}&direction={direction}")
             };
-            Ok(json!({ "items": card_titles_with_diagnostics(&page(&request.request_id, &path)?, "SEARCH")?.into_iter().skip((offset % 20) as usize).take(limit as usize).collect::<Vec<_>>() }))
+            let items = card_titles_with_diagnostics(&page(&request.request_id, &path)?, "SEARCH")?;
+            Ok(json!({ "items": page_items(items, offset, limit) }))
         }
         RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; let id = safe_path_segment(id).ok_or("AnimeGo anime id is invalid")?; details(id, &page(&request.request_id, &format!("/anime/{id}"))?) }
         RuntimeOperation::PlaybackGroups => {
@@ -634,6 +657,22 @@ mod tests {
         })).expect("filter path");
 
         assert_eq!(path, "/anime/filter/year-from-2020/genres-is-action%2Fromance-or-!%3Funsafe/type-is-tv%20series/apply");
+    }
+
+    #[test]
+    fn builds_catalog_pages_from_client_offsets() {
+        assert_eq!(catalog_page_path("/anime", 0), "/anime");
+        assert_eq!(catalog_page_path("/anime", 20), "/anime/2");
+        assert_eq!(catalog_page_path("/anime/filter/apply", 40), "/anime/filter/apply/3");
+    }
+
+    #[test]
+    fn slices_a_catalog_page_without_losing_offset_items() {
+        let items = (0..20).map(|value| json!(value)).collect::<Vec<_>>();
+        assert_eq!(page_items(items.clone(), 0, 3), vec![json!(0), json!(1), json!(2)]);
+        assert_eq!(page_items(items.clone(), 5, 3), vec![json!(5), json!(6), json!(7)]);
+        let second_page = (20..40).map(|value| json!(value)).collect::<Vec<_>>();
+        assert_eq!(page_items(second_page, 20, 3), vec![json!(20), json!(21), json!(22)]);
     }
 
     #[test]
