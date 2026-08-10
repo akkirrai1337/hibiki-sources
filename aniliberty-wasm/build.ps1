@@ -69,12 +69,15 @@ if ($RepositoryIndexPath) {
     $manifest = $publishedManifest | ConvertFrom-Json
     $manifest.sha256 = $hash
     $manifest.artifactSizeBytes = $artifact.Length
-    $index = [ordered]@{
-        apiVersion = 1
-        sources = @($manifest)
-    }
     $indexPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $RepositoryIndexPath))
     New-Item -ItemType Directory -Force -Path ([System.IO.Path]::GetDirectoryName($indexPath)) | Out-Null
+    if ([System.IO.File]::Exists($indexPath)) {
+        $index = Get-Content -Raw -LiteralPath $indexPath | ConvertFrom-Json
+    } else {
+        $index = [pscustomobject]@{ apiVersion = 1; sources = @() }
+    }
+    $index.apiVersion = 1
+    $index.sources = @($index.sources | Where-Object { $_.sourceId -ne $manifest.sourceId }) + $manifest
     [System.IO.File]::WriteAllText(
         $indexPath,
         ($index | ConvertTo-Json -Depth 20),
