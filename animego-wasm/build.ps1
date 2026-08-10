@@ -11,6 +11,7 @@ $stagingDirectory = Join-Path $projectRoot "..\.animego-package-staging"
 $wasmPath = Join-Path $projectRoot "target\wasm32-wasip1\release\animego_wasm.wasm"
 $archivePath = Join-Path $artifactDirectory $OutputName
 . (Join-Path $PSScriptRoot "..\scripts\validate-package-manifest.ps1")
+. (Join-Path $PSScriptRoot "..\scripts\validate-repository-index.ps1")
 
 trap {
     $errorRecord = $_
@@ -73,16 +74,8 @@ if ($RepositoryIndexPath) {
         throw "Repository index does not exist"
     }
     $index = Get-Content -Raw -LiteralPath $indexPath | ConvertFrom-Json
-    if ($index.apiVersion -ne 1 -or $null -eq $index.sources) {
-        throw "Repository index has an invalid envelope"
-    }
+    Assert-RepositoryIndex $index
     $existingSources = @($index.sources)
-    $existingIds = @($existingSources | ForEach-Object { [string]$_.sourceId })
-    $hasBlankId = @($existingIds | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0
-    $hasDuplicateId = @($existingIds | Sort-Object -Unique).Count -ne $existingIds.Count
-    if ($hasBlankId -or $hasDuplicateId) {
-        throw "Repository index contains blank or duplicate sourceId values"
-    }
     $index.sources = @($existingSources | Where-Object { $_.sourceId -ne $manifest.sourceId }) + $manifest
     [System.IO.File]::WriteAllText($indexPath, ($index | ConvertTo-Json -Depth 20), [System.Text.UTF8Encoding]::new($false))
 }
