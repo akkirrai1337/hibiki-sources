@@ -40,6 +40,25 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
     return $manifest
 }
 
+function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
+    if (-not [System.IO.File]::Exists($indexPath)) { throw "Repository index does not exist: $indexPath" }
+    $index = Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json
+    if ($index.apiVersion -ne 1 -or $null -eq $index.sources) { throw "Repository index has an invalid envelope" }
+    $sourceIds = @($index.sources | ForEach-Object { [string]$_.sourceId })
+    if ($sourceIds.Count -eq 0 -or @($sourceIds | Sort-Object -Unique).Count -ne $sourceIds.Count) {
+        throw "Repository index contains blank or duplicate sourceId values"
+    }
+    foreach ($expectedSourceId in $expectedSourceIds) {
+        $manifest = @($index.sources | Where-Object { $_.sourceId -eq $expectedSourceId })[0]
+        if ($null -eq $manifest -or [string]$manifest.packageUrl -notmatch '^https://[^\s/]+(?:/[^\s]*)?$' -or
+            [string]$manifest.sha256 -notmatch '^[0-9a-fA-F]{64}$' -or [int64]$manifest.artifactSizeBytes -le 0) {
+            throw "Repository index entry is invalid: $expectedSourceId"
+        }
+    }
+}
+
+Assert-RepositoryIndex (Join-Path $repositoryRoot "repository\index.json") @("ani-liberty", "yummy-anime", "animego")
+
 try {
     New-Item -ItemType Directory -Force -Path $unpackRoot | Out-Null
     $indexPath = Join-Path $unpackRoot "index.json"
