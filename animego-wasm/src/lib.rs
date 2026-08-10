@@ -283,19 +283,19 @@ fn filters(html: &str) -> Result<Value, String> {
 fn filter_path(p: &Value) -> String {
     let mut parts = Vec::new();
     let from = p.get("yearFrom").and_then(scalar); let to = p.get("yearTo").and_then(scalar);
-    if let Some(from) = from { parts.push(if let Some(to) = to { format!("year-from-{from}-to-{to}") } else { format!("year-from-{from}") }); }
-    else if let Some(to) = to { parts.push(format!("year-to-{to}")); }
+    if let Some(from) = from { parts.push(if let Some(to) = to { format!("year-from-{}-to-{}", enc(&from), enc(&to)) } else { format!("year-from-{}", enc(&from)) }); }
+    else if let Some(to) = to { parts.push(format!("year-to-{}", enc(&to))); }
     let mut genres = Vec::new();
     if let Some(values) = p.get("includedGenreAliases").and_then(Value::as_array) {
-        genres.extend(values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).map(str::to_owned));
+        genres.extend(values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).map(enc));
     }
     if let Some(values) = p.get("excludedGenreAliases").and_then(Value::as_array) {
-        genres.extend(values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).map(|v| format!("!{v}")));
+        genres.extend(values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).map(|v| format!("!{}", enc(v))));
     }
     if !genres.is_empty() { parts.push(format!("genres-is-{}", genres.join("-or-"))); }
     for (field, prefix) in [("typeAliases", "type-is"), ("statusAliases", "status-is")] {
         if let Some(values) = p.get(field).and_then(Value::as_array) {
-            let values = values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).collect::<Vec<_>>();
+            let values = values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).map(enc).collect::<Vec<_>>();
             if !values.is_empty() { parts.push(format!("{prefix}-{}", values.join("-or-"))); }
         }
     }
@@ -460,6 +460,18 @@ mod tests {
 
         assert_eq!(filter_options(html, "type_").unwrap(), vec![json!({"id":"tv", "title":"TV"}), json!({"id":"movie", "title":"Movie"})]);
         assert_eq!(filter_options(html, "status_").unwrap(), vec![json!({"id":"released", "title":"released"})]);
+    }
+
+    #[test]
+    fn encodes_filter_values_before_building_catalog_path() {
+        let path = filter_path(&json!({
+            "yearFrom": "2020/../2024",
+            "includedGenreAliases": ["action/romance"],
+            "excludedGenreAliases": ["?unsafe"],
+            "typeAliases": ["tv series"]
+        }));
+
+        assert_eq!(path, "/anime/filter/year-from-2020%2F..%2F2024/genres-is-action%2Fromance-or-!%3Funsafe/type-is-tv%20series/apply");
     }
 
     #[test]
