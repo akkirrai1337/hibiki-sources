@@ -280,9 +280,13 @@ fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
 fn filters(html: &str) -> Result<Value, String> {
     let sort_options = ["relevance", "year", "rating"]
         .iter().map(|v| json!({"id": v, "title": v})).collect::<Vec<_>>();
+    let type_options = filter_options(html, "type_")?;
+    let status_options = filter_options(html, "status_")?;
+    if type_options.is_empty() { return Err("AnimeGo filters contain no type options".to_owned()); }
+    if status_options.is_empty() { return Err("AnimeGo filters contain no status options".to_owned()); }
     Ok(json!({
         "sortOptions": sort_options,
-        "typeOptions": filter_options(html, "type_")?, "statusOptions": filter_options(html, "status_")?,
+        "typeOptions": type_options, "statusOptions": status_options,
         "genreOptions": filter_options(html, "genres_")?,
         "capabilities": { "supportedSorts": ["RELEVANCE", "YEAR", "RATING"], "supportedFilters": ["TYPE", "STATUS", "INCLUDED_GENRES", "EXCLUDED_GENRES", "YEAR_RANGE"], "features": ["LATEST_RELEASES"], "fallbackSort": "RELEVANCE" }
     }))
@@ -515,6 +519,16 @@ mod tests {
             json!({"id":"tv", "title":"TV"}),
             json!({"id":"movie", "title":"Movie"})
         ]);
+    }
+
+    #[test]
+    fn reports_missing_required_filter_groups() {
+        let html = r#"
+            <input name="type_tv" value="tv" data-title="TV">
+            <input name="status_released" value="released" data-title="Released">
+        "#;
+        assert!(filters(html).is_ok());
+        assert!(filters(r#"<input name="type_tv" value="tv">"#).is_err());
     }
 
     #[test]
