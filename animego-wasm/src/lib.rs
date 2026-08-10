@@ -379,6 +379,14 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
     Ok(parsed)
 }
 
+fn episode_items_with_diagnostics(html: &str) -> Result<Vec<Value>, String> {
+    let items = episode_items(html)?;
+    if items.is_empty() && html.contains("data-episode") {
+        return Err("AnimeGo episode markup contained no valid numeric episodes".to_owned());
+    }
+    Ok(items)
+}
+
 fn player_items(html: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "players")?;
     let mut seen_urls = Vec::new();
@@ -435,7 +443,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
             let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("playback titleId is missing")?;
             let numeric = id.rsplit('-').next().ok_or("AnimeGo title id has no numeric suffix")?;
             let numeric = safe_numeric_segment(numeric).ok_or("AnimeGo numeric id is invalid")?;
-            let episodes = episode_items(&response_content(&ajax(&request.request_id, &format!("/player/{numeric}"))?)?)?;
+            let episodes = episode_items_with_diagnostics(&response_content(&ajax(&request.request_id, &format!("/player/{numeric}"))?)?)?;
             Ok(json!({ "groups": if episodes.is_empty() { Vec::<Value>::new() } else { vec![json!({ "id": id, "title": "AnimeGo", "qualityLabel": null, "episodes": episodes })] } }))
         }
         RuntimeOperation::PlayerLinks => {
@@ -720,6 +728,13 @@ mod tests {
         let html = r#"<a data-player="javascript:alert(1)"></a>"#;
         assert!(player_items_with_diagnostics(html).is_err());
         assert!(player_items_with_diagnostics("<div>No players</div>").unwrap().is_empty());
+    }
+
+    #[test]
+    fn reports_episode_markup_without_valid_numbers() {
+        let html = r#"<button data-episode="broken" data-episode-number="unknown"></button>"#;
+        assert!(episode_items_with_diagnostics(html).is_err());
+        assert!(episode_items_with_diagnostics("<div>No episodes</div>").unwrap().is_empty());
     }
 }
 
