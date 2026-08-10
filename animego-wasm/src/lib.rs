@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -597,6 +597,12 @@ static mut HEAP: usize = 4096;
 #[no_mangle] pub extern "C" fn beakokit_reset() { unsafe { HEAP = 4096; } }
 #[no_mangle] pub extern "C" fn beakokit_alloc(length: i32) -> i32 { unsafe { let ptr = HEAP; HEAP += length.max(0) as usize; ptr as i32 } }
 #[no_mangle] pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
+    if length < 0 || length as usize > MAX_RUNTIME_REQUEST_BYTES {
+        let response = error("invalid-request".to_owned(), "runtime request exceeds size limit");
+        let ptr = beakokit_alloc(response.len() as i32) as usize;
+        unsafe { core::ptr::copy_nonoverlapping(response.as_ptr(), ptr as *mut u8, response.len()); }
+        return ((ptr as u64) << 32 | response.len() as u64) as i64;
+    }
     let input = unsafe { core::slice::from_raw_parts(pointer as *const u8, length.max(0) as usize) };
     let response = match serde_json::from_slice::<Value>(input) {
         Ok(value) => match validate_runtime_request(&value) {

@@ -2,6 +2,7 @@ pub use scraper::{ElementRef, Html, Selector};
 use serde_json::Value;
 
 pub const DEFAULT_MAX_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_RUNTIME_REQUEST_BYTES: usize = 256 * 1024;
 pub const HOST_PROTOCOL_VERSION: u32 = 1;
 pub const DEFAULT_HTTP_TIMEOUT_MILLIS: u64 = 30_000;
 
@@ -557,7 +558,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION};
+    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_stable_host_get_request() {
@@ -730,5 +731,6 @@ mod tests {
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": {} })).is_ok());
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "  ", "operation": "SEARCH", "payload": {} })).is_err());
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": null })).is_err());
+        assert_eq!(MAX_RUNTIME_REQUEST_BYTES, 256 * 1024);
     }
 }
