@@ -232,15 +232,24 @@ fn catalog_titles(items: &[Value]) -> Result<Vec<Value>, String> {
         .collect()
 }
 
+fn require_filter_options(options: Value, label: &str) -> Result<Value, String> {
+    if options.as_array().is_none_or(Vec::is_empty) {
+        return Err(format!("AniLiberty filters contain no {label} options"));
+    }
+    Ok(options)
+}
+
 fn filter_catalog(request_id: &str) -> Result<Value, String> {
+    let type_options = require_filter_options(reference_options(request_id, "types")?, "type")?;
+    let status_options = require_filter_options(reference_options(request_id, "publish-statuses")?, "status")?;
     Ok(json!({
         "sortOptions": [
             { "id": "relevance", "title": "Relevance" },
             { "id": "rating", "title": "Rating" },
             { "id": "year", "title": "Year" }
         ],
-        "typeOptions": reference_options(request_id, "types")?,
-        "statusOptions": reference_options(request_id, "publish-statuses")?,
+        "typeOptions": type_options,
+        "statusOptions": status_options,
         "genreOptions": reference_options(request_id, "genres")?
     }))
 }
@@ -566,6 +575,12 @@ mod tests {
     fn rejects_malformed_reference_collections() {
         assert!(reference_items(&json!({"data":{"unexpected":true}})).is_err());
         assert_eq!(reference_items(&json!({"items":[]})).unwrap(), Vec::<Value>::new());
+    }
+
+    #[test]
+    fn reports_missing_required_filter_options() {
+        assert!(require_filter_options(json!([]), "type").is_err());
+        assert!(require_filter_options(json!([{"id":"tv"}]), "type").is_ok());
     }
 
     #[test]
