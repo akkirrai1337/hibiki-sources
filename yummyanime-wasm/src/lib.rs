@@ -127,6 +127,16 @@ fn array(body: &str) -> Result<Vec<Value>, String> {
         .ok_or_else(|| "YummyAnime API response expected an array".to_owned())
 }
 
+fn catalog_titles(items: &[Value]) -> Result<Vec<Value>, String> {
+    items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            title(item).ok_or_else(|| format!("YummyAnime catalog item {index} is invalid"))
+        })
+        .collect()
+}
+
 fn videos(request_id: &str, id: &str) -> Result<Vec<Value>, String> {
     let id = safe_path_segment(id).ok_or("YummyAnime anime id is invalid")?;
     array(&http(request_id, &format!("/anime/{id}/videos"), "")?)
@@ -189,7 +199,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
         RuntimeOperation::FilterCatalog => Ok(filters()),
         RuntimeOperation::Latest => {
             let items = array(&http(&request.request_id, "/anime/schedule", "")?)?;
-            Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
+            Ok(json!({ "items": catalog_titles(&items)? }))
         }
         RuntimeOperation::Search => {
             let p = &request.payload; let (offset, limit) = bounded_pagination(p);
@@ -202,7 +212,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
             for (field, key) in [("yearFrom", "year_from"), ("yearTo", "year_to")] { if let Some(v) = p.get(field).and_then(normalize_year).map(|value| value.to_string()) { q.push_str(&format!("&{key}={}", enc(&v))); } }
             for (field, key) in [("typeAliases", "types"), ("statusAliases", "statuses"), ("includedGenreAliases", "genres"), ("excludedGenreAliases", "genres_exclude")] { if let Some(values) = p.get(field).and_then(Value::as_array) { let joined = values.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","); if !joined.is_empty() { q.push_str(&format!("&{key}={}", enc(&joined))); } } }
             let items = array(&http(&request.request_id, "/anime", &q)?)?;
-            Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
+            Ok(json!({ "items": catalog_titles(&items)? }))
         }
         RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; let id = safe_path_segment(id).ok_or("YummyAnime anime id is invalid")?; let body = http(&request.request_id, &format!("/anime/{id}"), "")?; let value = envelope(&body)?; title(&value).ok_or_else(|| "YummyAnime returned an invalid title".to_owned()) }
         RuntimeOperation::PlaybackGroups => { let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("playback titleId is missing")?; playback_groups(&request.request_id, id) }
@@ -306,5 +316,14 @@ mod tests {
     #[test]
     fn rejects_non_array_api_collections() {
         assert!(array(r#"{"response":{"unexpected":true}}"#).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_catalog_items_instead_of_hiding_them() {
+        let items = vec![
+            json!({"anime_id":"100", "title":"Valid"}),
+            json!({"title":"Missing id"}),
+        ];
+        assert!(catalog_titles(&items).is_err());
     }
 }
