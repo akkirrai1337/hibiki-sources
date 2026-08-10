@@ -226,7 +226,9 @@ fn status_alias(value: &str) -> Option<String> {
 
 fn details(id: &str, html: &str) -> Result<Value, String> {
     let document = parse_html(html, "details")?;
-    let field_value = |_: &str, label: &str| document.labeled_text(".entity-row, body", label).ok().flatten();
+    let field_value = |labels: &[&str]| {
+        labels.iter().find_map(|label| document.labeled_text(".entity-row, body", label).ok().flatten())
+    };
     let name = document
         .text_first("h1")
         .map_err(|error| format!("AnimeGo details title selector failed for {id}: {error:?}"))?
@@ -245,16 +247,20 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         .unwrap_or((String::new(), None));
     let description = schema.as_ref().and_then(|v| v.get("description")).and_then(non_empty_text)
         .or_else(|| document.meta_content_any(&["og:description", "twitter:description"]).ok().flatten());
-    let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(parse_year)
+    let year = schema.as_ref().and_then(|v| v.get("datePublished").or_else(|| v.get("dateCreated"))).and_then(Value::as_str).and_then(parse_year)
         .or_else(|| ["Год", "Year"].into_iter().find_map(|label| {
-            field_value(html, label).and_then(|value| parse_year(&value))
+            field_value(&[label]).and_then(|value| parse_year(&value))
         }));
-    let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
+    let episode_text = field_value(&["Эпизоды", "Episodes", "Episode count"]);
     let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(non_negative_i64)
         .or_else(|| episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()).filter(|value| *value >= 0));
     let type_alias = schema.as_ref().and_then(|v| v.get("@type")).and_then(first_non_empty_text).and_then(|value| known_type(&value))
-        .or_else(|| field_value(html, "\u{0422}\u{0438}\u{043f}").and_then(|value| known_type(&value)));
-    let status = field_value(html, "\u{0421}\u{0442}\u{0430}\u{0442}\u{0443}\u{0441}").and_then(|value| status_alias(&value));
+        .or_else(|| field_value(&["Тип", "Type"]).and_then(|value| known_type(&value)));
+    let status = schema.as_ref()
+        .and_then(|value| ["status", "publicationStatus", "airingStatus", "releaseStatus"].into_iter()
+            .find_map(|key| value.get(key).and_then(first_non_empty_text)))
+        .and_then(|value| status_alias(&value))
+        .or_else(|| field_value(&["Статус", "Status", "State"]).and_then(|value| status_alias(&value)));
     Ok(json!({
         "id": id, "russianName": name, "englishName": if original != name { Some(original.clone()) } else { None::<String> },
         "originalName": original, "japaneseName": null, "synonyms": [], "year": year, "type": type_alias,
@@ -796,6 +802,21 @@ mod tests {
         let html = r#"<h1>Markup year</h1><div class="entity-row"><div>Год</div><div>2021</div></div>"#;
         let title = details("markup-year-123", html).expect("details");
         assert_eq!(title["year"], 2021);
+    }
+
+    #[test]
+    fn reads_english_detail_fields_and_schema_status() {
+        let html = r#"
+            <h1>English metadata</h1>
+            <script type="application/ld+json">{"@type":"TVSeries","dateCreated":"2020-01-01","status":"Finished airing","numberOfEpisodes":"12"}</script>
+            <div class="entity-row"><div>Type</div><div>TV Series</div></div>
+            <div class="entity-row"><div>Episodes</div><div>12 / 12</div></div>
+        "#;
+        let title = details("english-metadata-123", html).expect("details");
+        assert_eq!(title["type"], "tv");
+        assert_eq!(title["year"], 2020);
+        assert_eq!(title["episodeCount"], 12);
+        assert_eq!(title["status"], "released");
     }
 
     #[test]
