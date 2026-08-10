@@ -245,7 +245,10 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         .unwrap_or((String::new(), None));
     let description = schema.as_ref().and_then(|v| v.get("description")).and_then(non_empty_text)
         .or_else(|| document.meta_content_any(&["og:description", "twitter:description"]).ok().flatten());
-    let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(parse_year);
+    let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(parse_year)
+        .or_else(|| ["Год", "Year"].into_iter().find_map(|label| {
+            field_value(html, label).and_then(|value| parse_year(&value))
+        }));
     let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
     let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(non_negative_i64)
         .or_else(|| episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()).filter(|value| *value >= 0));
@@ -786,6 +789,13 @@ mod tests {
         let html = r#"<h1>Markup poster</h1><div class="entity-poster"><img src="/poster.jpg"></div>"#;
         let title = details("markup-poster-123", html).expect("details");
         assert_eq!(title["posterUrl"], "https://animego.me/poster.jpg");
+    }
+
+    #[test]
+    fn falls_back_to_detail_year_markup() {
+        let html = r#"<h1>Markup year</h1><div class="entity-row"><div>Год</div><div>2021</div></div>"#;
+        let title = details("markup-year-123", html).expect("details");
+        assert_eq!(title["year"], 2021);
     }
 
     #[test]
