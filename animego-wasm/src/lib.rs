@@ -151,11 +151,14 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
         )
         .map_err(|error| format!("AnimeGo catalog card extraction failed: {error:?}"))?
         .into_iter()
-        .filter_map(|card| {
-            let href = card.url.as_deref()?;
-            let id = anime_slug(href)?;
+        .map(|card| -> Result<Option<Value>, String> {
+            let Some(href) = card.url.as_deref() else { return Ok(None); };
+            let Some(id) = anime_slug(href) else { return Ok(None); };
             let card_element = card.element;
-            let name = card.title.filter(|value| !value.trim().is_empty())?;
+            let name = card
+                .title
+                .filter(|value| !value.trim().is_empty())
+                .ok_or_else(|| format!("AnimeGo catalog card {id} has no display title"))?;
             let original = first_class_text(card_element, "fw-lighter").unwrap_or_else(|| name.clone());
             let source_poster = card.image_url;
             let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
@@ -169,7 +172,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
             let type_alias = metadata.iter().find_map(|value| known_type(value));
             let description = first_class_text(card_element, "ani-list__item-description");
 
-            Some(json!({
+            Ok(Some(json!({
                 "id": id,
                 "russianName": name,
                 "englishName": if original != name { Some(original.clone()) } else { None::<String> },
@@ -182,8 +185,11 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                 "screenshots": [], "trailer": null, "sourceMaterial": null, "studios": [],
                 "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
                 "season": null, "availableEpisodeCount": null, "posterFallbackUrl": poster_fallback
-            }))
+            })))
         })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .flatten()
         .collect::<Vec<_>>();
     Ok(parsed)
 }
