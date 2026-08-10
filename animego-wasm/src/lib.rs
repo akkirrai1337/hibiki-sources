@@ -297,7 +297,10 @@ fn json_ld_document(document: &HtmlDocument) -> Option<Value> {
 
 fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "filters")?;
-    let selector = format!("input[name^='{prefix}']");
+    let group = prefix.trim_end_matches('_');
+    let selector = format!(
+        "input[name^='{prefix}'], select[name^='{group}'] option, select[data-filter='{group}'] option"
+    );
     let mut seen_ids = Vec::new();
     Ok(document
         .select(&selector)
@@ -319,6 +322,7 @@ fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
                     let parent = input.parent().and_then(ElementRef::wrap)?;
                     (parent.value().name() == "label").then(|| clean_element_text(parent)).flatten()
                 })
+                .or_else(|| clean_element_text(input))
                 .unwrap_or_else(|| id.clone());
             if title.trim().is_empty() { return None; }
             Some(json!({ "id": id, "title": title }))
@@ -627,6 +631,16 @@ mod tests {
     fn reads_filter_title_from_wrapping_label() {
         let html = r#"<label>Movie<input name="type_movie" value="movie"></label>"#;
         assert_eq!(filter_options(html, "type_").unwrap(), vec![json!({"id":"movie", "title":"Movie"})]);
+    }
+
+    #[test]
+    fn reads_filter_options_from_select_controls() {
+        let html = r#"
+            <select name="type"><option value="tv">TV Series</option></select>
+            <select data-filter="status"><option value="ongoing">Currently airing</option></select>
+        "#;
+        assert_eq!(filter_options(html, "type_" ).unwrap(), vec![json!({"id":"tv", "title":"TV Series"})]);
+        assert_eq!(filter_options(html, "status_" ).unwrap(), vec![json!({"id":"ongoing", "title":"Currently airing"})]);
     }
 
     #[test]
