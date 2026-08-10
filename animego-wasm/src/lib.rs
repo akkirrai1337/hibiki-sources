@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, host_get_request, is_http_url, non_negative_finite, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, host_get_request, is_http_url, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -384,7 +384,7 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
                     text(&content).split_whitespace()
                         .find_map(|part| part.replace(',', ".").parse::<f64>().ok())
                 })
-                .and_then(non_negative_finite)?;
+                .and_then(positive_finite)?;
             if seen_ids.iter().any(|seen| seen == &id) { return None; }
             seen_ids.push(id.clone());
             Some(json!({

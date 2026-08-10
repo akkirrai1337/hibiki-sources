@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, non_negative_i64, normalize_status, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -149,7 +149,7 @@ fn video_episode(video: &Value) -> Result<Option<(String, f64)>, String> {
     let episode_id = scalar(raw_number)
         .ok_or_else(|| "YummyAnime video number is not a valid scalar".to_owned())?;
     let episode_number = number(&episode_id)
-        .and_then(non_negative_finite)
+        .and_then(positive_finite)
         .ok_or_else(|| format!("YummyAnime video episode number is invalid: {episode_id}"))?;
     Ok(Some((episode_id, episode_number)))
 }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, non_negative_i64, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, non_negative_i64, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -286,8 +286,8 @@ fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
         .cloned()
         .filter_map(|episode| {
             let id = episode.get("id")?.to_string_value()?;
-            let number = episode_number(&episode)?;
-            if number <= 0.0 || seen_ids.iter().any(|seen| seen == &id) { return None; }
+            let number = episode_number(&episode).and_then(positive_finite)?;
+            if seen_ids.iter().any(|seen| seen == &id) { return None; }
             seen_ids.push(id.clone());
             Some(json!({
                 "id": id,

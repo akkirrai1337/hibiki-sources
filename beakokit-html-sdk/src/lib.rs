@@ -160,6 +160,10 @@ pub fn non_negative_finite(value: f64) -> Option<f64> {
     value.is_finite().then_some(value).filter(|value| *value >= 0.0)
 }
 
+pub fn positive_finite(value: f64) -> Option<f64> {
+    value.is_finite().then_some(value).filter(|value| *value > 0.0)
+}
+
 pub fn bounded_pagination(payload: &Value) -> (i64, i64) {
     let offset = payload
         .get("offset")
@@ -689,7 +693,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, bounded_pagination, first_attribute, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_PAGINATION_OFFSET, MAX_RUNTIME_REQUEST_BYTES};
+    use super::{attribute, bounded_pagination, first_attribute, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, normalize_status, normalize_type, parse_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_PAGINATION_OFFSET, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_bounded_host_get_request() {
@@ -726,6 +730,8 @@ mod tests {
         assert_eq!(non_negative_finite(f64::NAN), None);
         assert_eq!(non_negative_finite(f64::INFINITY), None);
         assert_eq!(non_negative_finite(2.5), Some(2.5));
+        assert_eq!(positive_finite(0.0), None);
+        assert_eq!(positive_finite(2.5), Some(2.5));
     }
 
     #[test]
