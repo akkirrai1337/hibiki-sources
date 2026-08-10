@@ -57,7 +57,12 @@ pub fn normalize_status(value: &str) -> Option<String> {
 }
 
 pub fn is_http_url(value: &str) -> bool {
-    value.starts_with("http://") || value.starts_with("https://")
+    let value = value.trim();
+    let remainder = value.strip_prefix("http://")
+        .or_else(|| value.strip_prefix("https://"));
+    let Some(remainder) = remainder else { return false; };
+    let host = remainder.split(['/', '?', '#']).next().unwrap_or_default();
+    !host.is_empty() && !value.chars().any(char::is_whitespace)
 }
 
 /// Return the first non-empty attribute from a fallback list.
@@ -597,5 +602,8 @@ mod tests {
         assert_eq!(normalize_status("вышел"), Some("released".to_owned()));
         assert!(is_http_url("https://example.org/video"));
         assert!(!is_http_url("javascript:alert(1)"));
+        assert!(!is_http_url("https://"));
+        assert!(!is_http_url("https://example.org/video path"));
+        assert!(is_http_url("https://example.org:443/video"));
     }
 }
