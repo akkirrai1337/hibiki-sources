@@ -740,6 +740,7 @@ pub enum JsonSdkError {
     EmptyDocument,
     InvalidJson(String),
     MissingValue { path: String },
+    BlankString { path: String },
     ExpectedString { path: String },
     ExpectedInteger { path: String },
     ExpectedBoolean { path: String },
@@ -786,6 +787,35 @@ impl JsonDocument {
             }
         }
         Err(first_type_error.unwrap_or_else(|| JsonSdkError::MissingValue { path: paths.join(" | ") }))
+    }
+
+    pub fn text(&self, path: &str) -> Result<String, JsonSdkError> {
+        let value = self.value(path).ok_or_else(|| JsonSdkError::MissingValue { path: path.to_owned() })?;
+        non_empty_text(value).ok_or_else(|| if value.is_string() {
+            JsonSdkError::BlankString { path: path.to_owned() }
+        } else {
+            JsonSdkError::ExpectedString { path: path.to_owned() }
+        })
+    }
+
+    pub fn text_any(&self, paths: &[&str]) -> Result<String, JsonSdkError> {
+        let mut first_blank = None;
+        let mut first_type_error = None;
+        for path in paths {
+            if let Some(value) = self.value(path) {
+                if let Some(value) = non_empty_text(value) {
+                    return Ok(value);
+                }
+                if value.is_string() {
+                    if first_blank.is_none() {
+                        first_blank = Some(JsonSdkError::BlankString { path: (*path).to_owned() });
+                    }
+                } else if first_type_error.is_none() {
+                    first_type_error = Some(JsonSdkError::ExpectedString { path: (*path).to_owned() });
+                }
+            }
+        }
+        Err(first_blank.or(first_type_error).unwrap_or_else(|| JsonSdkError::MissingValue { path: paths.join(" | ") }))
     }
 
     pub fn int(&self, path: &str) -> Result<i64, JsonSdkError> {
@@ -1053,6 +1083,9 @@ mod tests {
         assert_eq!(document.array("/data/items").unwrap().len(), 1);
         assert_eq!(document.string("/data/missing"), Err(JsonSdkError::MissingValue { path: "/data/missing".to_owned() }));
         assert_eq!(document.string_any(&["/data/missing", "/data/content"]).unwrap(), "<div class=\"result\">OK</div>");
+        let blank = JsonDocument::parse(r#"{"data":{"content":"  ","html":"<div>Fallback</div>"}}"#).unwrap();
+        assert_eq!(blank.text_any(&["/data/content", "/data/html"]).unwrap(), "<div>Fallback</div>");
+        assert_eq!(blank.text("/data/content"), Err(JsonSdkError::BlankString { path: "/data/content".to_owned() }));
         assert_eq!(document.html_any(&["/data/missing", "/data/content"], "https://example.org").unwrap().text(".result").unwrap(), ["OK"]);
         let fallback = JsonDocument::parse(r#"{"data":{"content":42,"html":"<div class=\"result\">Fallback</div>"}}"#).unwrap();
         assert_eq!(fallback.html_any(&["/data/content", "/data/html"], "https://example.org").unwrap().text(".result").unwrap(), ["Fallback"]);

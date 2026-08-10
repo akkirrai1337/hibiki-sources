@@ -355,7 +355,7 @@ fn response_content(body: &str) -> Result<String, String> {
     let Ok(document) = JsonDocument::parse_limited(body, DEFAULT_MAX_DOCUMENT_BYTES) else {
         return Ok(body.to_owned());
     };
-    match document.string_any(&["/data/content", "/content", "/data/html", "/html"]) {
+    match document.text_any(&["/data/content", "/content", "/data/html", "/html"]) {
         Ok(content) => Ok(content),
         Err(_) if !matches!(body.trim_start().chars().next(), Some('{') | Some('[')) => {
             Ok(body.to_owned())
