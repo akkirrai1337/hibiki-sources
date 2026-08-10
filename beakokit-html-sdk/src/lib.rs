@@ -143,6 +143,7 @@ pub struct HtmlCard<'document> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum HttpSdkError {
     Remote { source: String, message: String },
+    MissingStatus { source: String },
     Status { source: String, status: u16 },
     MissingBody { source: String },
     BodyTooLarge { source: String, actual: usize, maximum: usize },
@@ -162,7 +163,7 @@ impl HostResponse {
         }
         let status_code = value.pointer("/payload/statusCode")
             .and_then(Value::as_u64)
-            .unwrap_or(200)
+            .ok_or_else(|| HttpSdkError::MissingStatus { source: source.clone() })?
             .min(u16::MAX as u64) as u16;
         if !(200..300).contains(&status_code) {
             return Err(HttpSdkError::Status { source, status: status_code });
@@ -711,6 +712,7 @@ mod tests {
         assert_eq!(parsed.status_code, 200);
         assert_eq!(parsed.body(), "{}");
         assert_eq!(HostResponse::from_value(&serde_json::json!({ "payload": { "statusCode": 503 } }), "fixture"), Err(HttpSdkError::Status { source: "fixture".to_owned(), status: 503 }));
+        assert_eq!(HostResponse::from_value(&serde_json::json!({ "payload": { "body": "{}" } }), "fixture"), Err(HttpSdkError::MissingStatus { source: "fixture".to_owned() }));
         assert_eq!(HostResponse::from_value_limited(&serde_json::json!({ "payload": { "statusCode": 200, "body": "12345" } }), "fixture", 4), Err(HttpSdkError::BodyTooLarge { source: "fixture".to_owned(), actual: 5, maximum: 4 }));
     }
 
