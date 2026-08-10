@@ -214,6 +214,21 @@ fn known_type(value: &str) -> Option<String> {
     normalize_type(value)
 }
 
+fn genre_values(value: Option<&Value>) -> Vec<String> {
+    let values = match value {
+        Some(Value::Array(items)) => items.iter().collect::<Vec<_>>(),
+        Some(value) => vec![value],
+        None => Vec::new(),
+    };
+    let mut genres = Vec::new();
+    for genre in values.into_iter().filter_map(non_empty_text) {
+        if !genres.iter().any(|known| known == &genre) {
+            genres.push(genre);
+        }
+    }
+    genres
+}
+
 fn release_year(value: &str) -> Option<i64> {
     parse_year(value)
 }
@@ -246,7 +261,7 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         "id": id, "russianName": name, "englishName": if original != name { Some(original.clone()) } else { None::<String> },
         "originalName": original, "japaneseName": null, "synonyms": [], "year": year, "type": type_alias,
         "episodeCount": episode_count, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
-        "description": description.or(Some(name)), "nextEpisodeAt": null, "genres": schema.as_ref().and_then(|v| v.get("genre")).cloned().unwrap_or_else(|| json!([])), "ratings": [],
+        "description": description.or(Some(name)), "nextEpisodeAt": null, "genres": genre_values(schema.as_ref().and_then(|v| v.get("genre"))), "ratings": [],
         "ageRating": schema.as_ref().and_then(|v| v.get("contentRating")), "viewCount": null, "screenshots": [], "trailer": null,
         "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
         "season": null, "availableEpisodeCount": episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()).filter(|value| *value >= 0), "posterFallbackUrl": poster_fallback
@@ -709,6 +724,7 @@ mod tests {
         assert_eq!(title["episodeCount"], 43);
         assert_eq!(title["availableEpisodeCount"], 43);
         assert_eq!(title["status"], "released");
+        assert_eq!(title["genres"], json!(["Комедия", "Сёнен"]));
     }
 
     #[test]
