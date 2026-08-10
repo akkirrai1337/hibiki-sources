@@ -120,7 +120,12 @@ fn title(value: &Value) -> Option<Value> {
     }))
 }
 
-fn array(body: &str) -> Result<Vec<Value>, String> { Ok(envelope(body)?.as_array().cloned().unwrap_or_default()) }
+fn array(body: &str) -> Result<Vec<Value>, String> {
+    envelope(body)?
+        .as_array()
+        .cloned()
+        .ok_or_else(|| "YummyAnime API response expected an array".to_owned())
+}
 
 fn videos(request_id: &str, id: &str) -> Result<Vec<Value>, String> {
     let id = safe_path_segment(id).ok_or("YummyAnime anime id is invalid")?;
@@ -296,5 +301,10 @@ mod tests {
     #[test]
     fn trims_normalized_media_urls() {
         assert_eq!(normalized_url("  //cdn.example/video  "), "https://cdn.example/video");
+    }
+
+    #[test]
+    fn rejects_non_array_api_collections() {
+        assert!(array(r#"{"response":{"unexpected":true}}"#).is_err());
     }
 }
