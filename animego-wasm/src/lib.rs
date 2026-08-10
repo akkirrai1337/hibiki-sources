@@ -405,6 +405,14 @@ fn player_items(html: &str) -> Result<Vec<Value>, String> {
         .collect::<Vec<_>>())
 }
 
+fn player_items_with_diagnostics(html: &str) -> Result<Vec<Value>, String> {
+    let items = player_items(html)?;
+    if items.is_empty() && html.contains("data-player") {
+        return Err("AnimeGo player response contained no valid HTTP player URLs".to_owned());
+    }
+    Ok(items)
+}
+
 fn execute(request: RuntimeRequest) -> Result<Value, String> {
     match request.operation {
         RuntimeOperation::FilterCatalog => filters(&page(&request.request_id, "/anime")?),
@@ -435,7 +443,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
             let episode = request.payload.get("episodeId").and_then(Value::as_str).ok_or("player links episodeId is missing")?;
             let episode = safe_path_segment(episode).ok_or("AnimeGo episode id is invalid")?;
             let html = response_content(&ajax(&request.request_id, &format!("/player/videos/{episode}"))?)?;
-            let links = player_items(&html)?.into_iter().filter(|v| v.get("url").and_then(Value::as_str).is_some()).collect::<Vec<_>>();
+            let links = player_items_with_diagnostics(&html)?.into_iter().filter(|v| v.get("url").and_then(Value::as_str).is_some()).collect::<Vec<_>>();
             if id.is_empty() { return Err("AnimeGo title id is blank".to_owned()); }
             Ok(json!({ "links": links }))
         }
@@ -705,6 +713,13 @@ mod tests {
     #[test]
     fn rejects_unsafe_poster_urls() {
         assert_eq!(poster_url("javascript:alert(1)"), (String::new(), None));
+    }
+
+    #[test]
+    fn reports_player_markup_without_valid_http_urls() {
+        let html = r#"<a data-player="javascript:alert(1)"></a>"#;
+        assert!(player_items_with_diagnostics(html).is_err());
+        assert!(player_items_with_diagnostics("<div>No players</div>").unwrap().is_empty());
     }
 }
 
