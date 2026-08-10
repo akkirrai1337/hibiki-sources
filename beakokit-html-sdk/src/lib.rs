@@ -210,6 +210,12 @@ impl HtmlDocument {
         Ok(None)
     }
 
+    pub fn required_text_any(&self, selectors: &[&str]) -> Result<String, HtmlSdkError> {
+        self.text_any(selectors)?.ok_or_else(|| HtmlSdkError::MissingText {
+            selector: selectors.join(" | "),
+        })
+    }
+
     pub fn required_text(&self, selector: &str) -> Result<String, HtmlSdkError> {
         self.text_first(selector)?.ok_or_else(|| HtmlSdkError::MissingText { selector: selector.to_owned() })
     }
@@ -246,6 +252,14 @@ impl HtmlDocument {
                 }
             })
         }).collect()
+    }
+
+    pub fn required_attribute_any(&self, selectors: &[&str], attributes: &[&str]) -> Result<String, HtmlSdkError> {
+        self.select_any(selectors)?.into_iter().find_map(|element| first_attribute(element, attributes))
+            .ok_or_else(|| HtmlSdkError::MissingAttribute {
+                selector: selectors.join(" | "),
+                attribute: attributes.join(" | "),
+            })
     }
 
     pub fn links(&self, selector: &str) -> Result<Vec<String>, HtmlSdkError> {
@@ -515,6 +529,13 @@ mod tests {
         });
         assert_eq!(document.required_text(".card .title").unwrap_err(), HtmlSdkError::MissingText {
             selector: ".card .title".to_owned()
+        });
+        assert_eq!(document.required_text_any(&[".missing", ".title"]).unwrap_err(), HtmlSdkError::MissingText {
+            selector: ".missing | .title".to_owned()
+        });
+        assert_eq!(document.required_attribute_any(&[".missing", ".card"], &["href", "data-id"]).unwrap_err(), HtmlSdkError::MissingAttribute {
+            selector: ".missing | .card".to_owned(),
+            attribute: "href | data-id".to_owned(),
         });
     }
 
