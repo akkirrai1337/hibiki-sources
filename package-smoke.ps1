@@ -50,7 +50,12 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
     }
     foreach ($expectedSourceId in $expectedSourceIds) {
         $manifest = @($index.sources | Where-Object { $_.sourceId -eq $expectedSourceId })[0]
-        if ($null -eq $manifest -or [string]$manifest.packageUrl -notmatch '^https://[^\s/]+(?:/[^\s]*)?$' -or
+        if ($null -eq $manifest -or $manifest.manifestFormatVersion -ne 1 -or
+            [string]$manifest.packageVersion -notmatch '^\d+\.\d+\.\d+$' -or
+            [string]::IsNullOrWhiteSpace([string]$manifest.sourceInfo.displayName) -or
+            $manifest.runtime.id -ne "wasm" -or $manifest.runtime.abi -ne "wasm32-wasi-preview1" -or
+            $manifest.entrypoint -ne "source.wasm" -or $null -eq $manifest.capabilities -or $manifest.capabilities.Count -eq 0 -or
+            [string]$manifest.packageUrl -notmatch '^https://[^\s/]+(?:/[^\s]*)?$' -or
             [string]$manifest.sha256 -notmatch '^[0-9a-fA-F]{64}$' -or [int64]$manifest.artifactSizeBytes -le 0) {
             throw "Repository index entry is invalid: $expectedSourceId"
         }
