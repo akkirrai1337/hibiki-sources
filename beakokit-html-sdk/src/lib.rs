@@ -373,14 +373,24 @@ impl HtmlDocument {
         }
         if value.starts_with("http://") || value.starts_with("https://") { return value.to_owned(); }
         if value.starts_with("//") { return format!("https:{value}"); }
-        let base = self.base_url.trim_end_matches('/');
-        if value.starts_with('/') {
-            let origin = base.split_once("//")
-                .map(|(_, remainder)| remainder.split('/').next().unwrap_or(remainder))
-                .unwrap_or(base);
-            return format!("https://{origin}{value}");
+        let base = self.base_url.trim();
+        let Some(scheme_end) = base.find("://") else { return value.to_owned(); };
+        let authority_start = scheme_end + 3;
+        let path_start = base[authority_start..].find('/').map(|index| authority_start + index).unwrap_or(base.len());
+        let origin = &base[..path_start];
+        let base_path = &base[path_start..];
+        let base_path = base_path.split(['?', '#']).next().unwrap_or(base_path);
+
+        if value.starts_with('?') || value.starts_with('#') {
+            return format!("{}{}{}", origin, if base_path.is_empty() { "/" } else { base_path }, value);
         }
-        format!("{base}/{value}")
+        let joined_path = if value.starts_with('/') {
+            value.to_owned()
+        } else {
+            let directory = base_path.rsplit_once('/').map(|(directory, _)| directory).unwrap_or("");
+            format!("{directory}/{value}")
+        };
+        format!("{origin}{}", normalize_path(&joined_path))
     }
 
     pub fn absolute_http_url(&self, value: &str) -> Option<String> {
@@ -402,6 +412,23 @@ fn clean_text(value: &str) -> Option<String> {
 
 fn srcset_first(value: &str) -> Option<&str> {
     value.split(',').next()?.split_whitespace().next().filter(|value| !value.is_empty())
+}
+
+fn normalize_path(value: &str) -> String {
+    let leading_slash = value.starts_with('/');
+    let trailing_slash = value.ends_with('/');
+    let mut segments = Vec::new();
+    for segment in value.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => { segments.pop(); }
+            segment => segments.push(segment),
+        }
+    }
+    let mut normalized = segments.join("/");
+    if leading_slash { normalized.insert(0, '/'); }
+    if trailing_slash && !normalized.ends_with('/') { normalized.push('/'); }
+    if normalized.is_empty() { "/".to_owned() } else { normalized }
 }
 
 #[derive(Debug)]
@@ -512,6 +539,9 @@ mod tests {
         assert_eq!(document.text(".card a").unwrap(), ["Test show"]);
         assert_eq!(document.select_any(&[".missing", ".card a"]).unwrap().len(), 1);
         assert_eq!(document.links(".card a").unwrap(), ["https://example.org/anime/test"]);
+        assert_eq!(document.absolute_url("../poster.webp"), "https://example.org/poster.webp");
+        assert_eq!(document.absolute_url("?page=2"), "https://example.org/catalog?page=2");
+        assert_eq!(document.absolute_url("#results"), "#results");
         assert_eq!(document.image_urls(".card img").unwrap(), ["https://cdn.example/test.jpg"]);
         assert_eq!(document.attributes_any(".card img", &["data-missing", "data-src"]).unwrap(), ["//cdn.example/test.jpg"]);
         let srcset = HtmlDocument::parse(r#"<img srcset="/small.jpg 480w, /large.jpg 960w">"#, "https://example.org");
