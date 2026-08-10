@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -125,7 +125,7 @@ fn title(value: &Value) -> Option<Value> {
         "synonyms": names.get("alternative").and_then(Value::as_str).unwrap_or("").split(',').map(str::trim).filter(|value| !value.is_empty()).collect::<Vec<_>>(),
         "year": year,
         "type": type_alias,
-        "episodeCount": value.get("episodes_total").and_then(Value::as_i64),
+        "episodeCount": value.get("episodes_total").and_then(non_negative_i64),
         "posterUrl": poster_path.map(|path| if path.starts_with("http") { path.to_owned() } else { format!("https://anilibria.top{path}") }),
         "status": value.get("is_ongoing").and_then(Value::as_bool).map(|ongoing| if ongoing { "ongoing" } else { "released" }),
         "description": value.get("description").and_then(Value::as_str),

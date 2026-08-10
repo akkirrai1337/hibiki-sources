@@ -6,7 +6,7 @@
   "year": "2023",
   "type": "TVSERIES",
   "anime_status": "released",
-  "episodes_count": 24,
+  "episodes_count": "24",
   "poster": "//cdn.example/poster.jpg",
   "description": "Description",
   "genres": [{ "alias": "action" }]

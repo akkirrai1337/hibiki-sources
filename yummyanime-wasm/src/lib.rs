@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -109,7 +109,7 @@ fn title(value: &Value) -> Option<Value> {
         "id": id, "russianName": russian, "englishName": english, "originalName": original,
         "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
         "synonyms": value.get("synonyms").or_else(|| value.get("aliases")).cloned().unwrap_or_else(|| json!([])),
-        "year": year, "type": type_alias, "episodeCount": value.get("episodes_count"),
+        "year": year, "type": type_alias, "episodeCount": value.get("episodes_count").and_then(non_negative_i64),
         "posterUrl": poster_url, "status": status,
         "description": value.get("description").and_then(Value::as_str)
             .filter(|v| !v.trim().is_empty())

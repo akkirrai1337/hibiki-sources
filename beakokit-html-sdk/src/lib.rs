@@ -94,6 +94,13 @@ pub fn non_empty_scalar(value: &Value) -> Option<String> {
         .or_else(|| value.as_i64().map(|value| value.to_string()))
 }
 
+/// Normalize API counters that may be encoded as either JSON numbers or strings.
+pub fn non_negative_i64(value: &Value) -> Option<i64> {
+    value.as_i64()
+        .or_else(|| value.as_str().and_then(|value| value.trim().parse::<i64>().ok()))
+        .filter(|value| *value >= 0)
+}
+
 /// Accept only a single conservative URL path segment from source data.
 pub fn safe_path_segment(value: &str) -> Option<&str> {
     let value = value.trim();
@@ -814,6 +821,9 @@ mod tests {
         assert_eq!(non_empty_scalar(&serde_json::json!("  episode-1  ")), Some("episode-1".to_owned()));
         assert_eq!(non_empty_scalar(&serde_json::json!("  ")), None);
         assert_eq!(non_empty_scalar(&serde_json::json!(42)), Some("42".to_owned()));
+        assert_eq!(super::non_negative_i64(&serde_json::json!(12)), Some(12));
+        assert_eq!(super::non_negative_i64(&serde_json::json!(" 12 ")), Some(12));
+        assert!(super::non_negative_i64(&serde_json::json!("-1")).is_none());
         assert_eq!(validate_runtime_request(&serde_json::json!({ "requestId": " search-1 ", "operation": "SEARCH", "payload": {} })).unwrap(), "search-1");
         assert_eq!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": {}, "protocolVersion": 1 })).unwrap(), "search-1");
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": {}, "protocolVersion": 2 })).is_err());
