@@ -448,7 +448,7 @@ pub extern "C" fn beakokit_alloc(length: i32) -> i32 {
 
 #[no_mangle]
 pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
-    if length < 0 || length as usize > MAX_RUNTIME_REQUEST_BYTES {
+    if pointer < 0 || length < 0 || length as usize > MAX_RUNTIME_REQUEST_BYTES {
         let response = runtime_error("invalid-request".to_owned(), "runtime request exceeds size limit");
         let response_pointer = beakokit_alloc(response.len() as i32) as usize;
         unsafe { core::ptr::copy_nonoverlapping(response.as_ptr(), response_pointer as *mut u8, response.len()); }
