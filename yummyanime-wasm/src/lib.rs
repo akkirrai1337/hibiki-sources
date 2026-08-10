@@ -60,6 +60,7 @@ fn scalar(value: &Value) -> Option<String> {
 }
 
 fn normalized_url(value: &str) -> String {
+    let value = value.trim();
     if value.starts_with("//") {
         format!("https:{value}")
     } else {
@@ -290,5 +291,10 @@ mod tests {
         assert_eq!(parsed["originalName"], "English title");
         assert_eq!(parsed["type"], Value::Null);
         assert_eq!(parsed["status"], Value::Null);
+    }
+
+    #[test]
+    fn trims_normalized_media_urls() {
+        assert_eq!(normalized_url("  //cdn.example/video  "), "https://cdn.example/video");
     }
 }
