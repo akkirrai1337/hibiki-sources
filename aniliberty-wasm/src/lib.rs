@@ -488,6 +488,39 @@ pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
     ((response_pointer as u64) << 32 | response.len() as u64) as i64
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_release_metadata_for_client() {
+        let parsed = title(&json!({
+            "id": 42,
+            "name": { "main": " Test title ", "english": "Test title EN", "alternative": "One, Two" },
+            "year": "2024",
+            "type": { "value": "TVSERIES" },
+            "episodes_total": 12,
+            "poster": { "src": "/poster.jpg" },
+            "is_ongoing": true,
+            "description": "Description",
+            "genres": [{ "name": "Action" }]
+        })).unwrap();
+        assert_eq!(parsed["id"], "42");
+        assert_eq!(parsed["russianName"], "Test title");
+        assert_eq!(parsed["type"], "tv");
+        assert_eq!(parsed["year"], 2024);
+        assert_eq!(parsed["episodeCount"], 12);
+        assert_eq!(parsed["status"], "ongoing");
+        assert_eq!(parsed["synonyms"], json!(["One", "Two"]));
+    }
+
+    #[test]
+    fn rejects_unsafe_release_ids_before_host_call() {
+        assert!(release("test", "../admin").is_err());
+        assert!(reference_options("test", "reference?id=1").is_err());
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 #[link(wasm_import_module = "host")]
 extern "C" {

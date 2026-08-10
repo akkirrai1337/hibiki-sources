@@ -251,6 +251,40 @@ static mut HEAP: usize = 4096;
     ((ptr as u64) << 32 | response.len() as u64) as i64
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalizes_api_metadata_for_client() {
+        let parsed = title(&json!({
+            "anime_id": 100,
+            "title": "Yummy title",
+            "title_en": "Yummy title EN",
+            "title_orig": "Yummy original",
+            "year": "2023",
+            "type": "TVSERIES",
+            "anime_status": "released",
+            "episodes_count": 24,
+            "poster": "//cdn.example/poster.jpg",
+            "description": "Description",
+            "genres": [{ "alias": "action" }]
+        })).unwrap();
+        assert_eq!(parsed["id"], "100");
+        assert_eq!(parsed["russianName"], "Yummy title");
+        assert_eq!(parsed["type"], "tv");
+        assert_eq!(parsed["year"], 2023);
+        assert_eq!(parsed["episodeCount"], 24);
+        assert_eq!(parsed["status"], "released");
+        assert_eq!(parsed["posterUrl"], "https://cdn.example/poster.jpg");
+    }
+
+    #[test]
+    fn rejects_unsafe_anime_ids_before_host_call() {
+        assert!(videos("test", "../admin").is_err());
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 #[link(wasm_import_module = "host")]
 extern "C" { #[link_name = "call"] fn host_call(pointer: *const u8, length: i32) -> i64; }
