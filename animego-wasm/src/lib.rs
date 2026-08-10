@@ -170,6 +170,10 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                 .collect::<Vec<_>>();
             let year = metadata.iter().find_map(|value| release_year(value));
             let type_alias = metadata.iter().find_map(|value| known_type(value));
+            let genres = metadata.iter()
+                .filter(|value| release_year(value).is_none() && known_type(value).is_none())
+                .cloned()
+                .collect::<Vec<_>>();
             let description = first_class_text(card_element, "ani-list__item-description");
 
             Ok(Some(json!({
@@ -181,7 +185,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                 "synonyms": [], "year": year, "type": type_alias,
                 "episodeCount": null, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": null,
                 "description": description.or_else(|| Some(name.clone())), "nextEpisodeAt": null,
-                "genres": metadata, "ratings": [], "ageRating": null, "viewCount": null,
+                "genres": genres, "ratings": [], "ageRating": null, "viewCount": null,
                 "screenshots": [], "trailer": null, "sourceMaterial": null, "studios": [],
                 "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
                 "season": null, "availableEpisodeCount": null, "posterFallbackUrl": poster_fallback
@@ -674,6 +678,7 @@ mod tests {
         assert_eq!(items[0]["russianName"], "Крутой учитель Онидзука");
         assert_eq!(items[0]["year"], 1999);
         assert_eq!(items[0]["type"], "tv");
+        assert_eq!(items[0]["genres"], json!(["Комедия"]));
         assert!(items[0]["posterUrl"].as_str().is_some());
     }
 
