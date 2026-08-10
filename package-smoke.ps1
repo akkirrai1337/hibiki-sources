@@ -10,9 +10,15 @@ function Assert-ManifestMatchesRepositoryIndex($manifestPaths, $indexPath) {
     $manifests = @{}
     foreach ($manifestPath in $manifestPaths) {
         $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        if ([string]::IsNullOrWhiteSpace([string]$manifest.sourceId)) { throw "Local manifest has a blank sourceId: $manifestPath" }
+        if ($manifests.ContainsKey([string]$manifest.sourceId)) { throw "Duplicate local manifest sourceId: $($manifest.sourceId)" }
         $manifests[[string]$manifest.sourceId] = $manifest
     }
     $index = (Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json).sources
+    $indexSourceIds = @($index | ForEach-Object { [string]$_.sourceId })
+    foreach ($sourceId in $manifests.Keys) {
+        if ($sourceId -notin $indexSourceIds) { throw "Local manifest $sourceId is missing from repository index" }
+    }
     foreach ($entry in $index) {
         $sourceId = [string]$entry.sourceId
         if (-not $manifests.ContainsKey($sourceId)) { throw "Repository index source $sourceId has no local manifest" }
