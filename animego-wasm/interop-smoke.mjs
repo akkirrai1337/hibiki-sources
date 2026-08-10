@@ -6,17 +6,6 @@ const wasmPath = process.env.ANIMEGO_WASM_PATH
   : new URL("./target/wasm32-wasip1/release/animego_wasm.wasm", import.meta.url);
 const catalogFixture = fs.readFileSync(new URL("./tests/fixtures/catalog-card.html", import.meta.url), "utf8");
 const detailsFixture = fs.readFileSync(new URL("./tests/fixtures/details.html", import.meta.url), "utf8");
-const filterFixture = `
-  <input name="type_tv" data-title="Сериал" value="tv">
-  <input name="status_released" data-title="Вышел" value="released">
-  <input name="genres_action" data-title="Экшен" value="action">
-`;
-const episodesFixture = `
-  <button data-episode="episode-2" data-episode-number="2" data-episode-title="Episode 2"></button>
-  <button data-episode="episode-1" data-episode-number="1" data-episode-title="Episode 1"></button>
-`;
-const playersFixture = `<a data-player="https://player.example/embed/episode-1" data-provider-title="Aksor" data-translation-title="Артист">player</a>`;
-
 const interopFilterFixture = `
   <input id="type_tv" name="type_tv" value="tv"><label for="type_tv">TV Series</label>
   <input id="status_released" name="status_released" value="released"><label for="status_released">Released</label>
