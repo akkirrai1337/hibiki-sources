@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -115,7 +115,7 @@ fn title(value: &Value) -> Option<Value> {
         });
     let raw_type = value.get("type").and_then(|value| value.get("value")).and_then(Value::as_str);
     let type_alias = raw_type.and_then(normalize_type).or_else(|| raw_type.map(str::to_owned));
-    let year = value.get("year").and_then(|year| year.as_i64().or_else(|| year.as_str().and_then(parse_year)));
+    let year = value.get("year").and_then(normalize_year);
     let description = value.get("description").and_then(Value::as_str)
         .map(str::trim)
         .filter(|description| !description.is_empty())

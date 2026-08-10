@@ -42,6 +42,13 @@ pub fn parse_year(value: &str) -> Option<i64> {
         .find(|year| (1900..=2100).contains(year))
 }
 
+/// Normalize a year that may be encoded as a JSON number or a formatted string.
+pub fn normalize_year(value: &Value) -> Option<i64> {
+    value.as_i64()
+        .filter(|year| (1900..=2100).contains(year))
+        .or_else(|| value.as_str().and_then(parse_year))
+}
+
 pub fn normalize_type(value: &str) -> Option<String> {
     let value = value.trim().to_lowercase().replace(['_', '-'], " ");
     let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -800,6 +807,9 @@ mod tests {
         assert_eq!(parse_year("1999-06-30"), Some(1999));
         assert_eq!(parse_year("release-20245"), None);
         assert_eq!(parse_year("catalog-1234-release-2024"), Some(2024));
+        assert_eq!(super::normalize_year(&serde_json::json!(2024)), Some(2024));
+        assert_eq!(super::normalize_year(&serde_json::json!(2430)), None);
+        assert_eq!(super::normalize_year(&serde_json::json!("release-2024")), Some(2024));
         assert_eq!(parse_year("title-23659"), None);
         assert_eq!(parse_year("30 июня 1999"), Some(1999));
         assert_eq!(parse_year("2430"), None);
