@@ -110,13 +110,16 @@ fn title(value: &Value) -> Option<Value> {
     let year = value.get("year").and_then(normalize_year);
     let description = value.get("description").and_then(non_empty_text)
         .unwrap_or_else(|| main_name.to_owned());
+    let synonyms = names.get("alternative").and_then(non_empty_text)
+        .map(|value| value.split(',').map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned).collect::<Vec<_>>())
+        .unwrap_or_default();
     Some(json!({
         "id": id,
         "russianName": main_name,
         "englishName": english_name,
         "originalName": original_name,
         "japaneseName": null,
-        "synonyms": names.get("alternative").and_then(Value::as_str).unwrap_or("").split(',').map(str::trim).filter(|value| !value.is_empty()).collect::<Vec<_>>(),
+        "synonyms": synonyms,
         "year": year,
         "type": type_alias,
         "episodeCount": value.get("episodes_total").and_then(non_negative_i64),
@@ -558,6 +561,11 @@ mod tests {
         assert_eq!(parsed["status"], "ongoing");
         assert_eq!(parsed["description"], "Test title");
         assert_eq!(parsed["synonyms"], json!(["One", "Two"]));
+        let with_blank_synonym = json!({
+            "id": "44",
+            "name": { "main": "Synonym title", "alternative": "  One, , Two  " }
+        });
+        assert_eq!(title(&with_blank_synonym).unwrap()["synonyms"], json!(["One", "Two"]));
         let with_blank_genre = json!({
             "id": "43",
             "name": { "main": "Genre title" },

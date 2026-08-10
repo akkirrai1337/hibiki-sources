@@ -103,10 +103,11 @@ fn title(value: &Value) -> Option<Value> {
     let year = value.get("year").and_then(normalize_year);
     let age_rating = value.get("min_age").and_then(|v| v.get("title").or_else(|| v.get("title_long")).or(Some(v))).and_then(non_empty_text);
     let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("alias").or_else(|| v.get("name")).or_else(|| v.get("title")).and_then(non_empty_text)).collect::<Vec<_>>()).unwrap_or_default();
+    let synonyms = value.get("synonyms").or_else(|| value.get("aliases")).map(string_values).unwrap_or_default();
     Some(json!({
         "id": id, "russianName": russian.clone().or_else(|| Some(display_name.clone())), "englishName": english, "originalName": original,
         "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
-        "synonyms": value.get("synonyms").or_else(|| value.get("aliases")).cloned().unwrap_or_else(|| json!([])),
+        "synonyms": synonyms,
         "year": year, "type": type_alias, "episodeCount": value.get("episodes_count").and_then(non_negative_i64),
         "posterUrl": poster_url, "status": status,
         "description": value.get("description").and_then(non_empty_text)
@@ -117,6 +118,13 @@ fn title(value: &Value) -> Option<Value> {
         "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [],
         "relatedAnime": [], "season": value.get("season"), "availableEpisodeCount": null, "posterFallbackUrl": null
     }))
+}
+
+fn string_values(value: &Value) -> Vec<String> {
+    match value {
+        Value::Array(items) => items.iter().filter_map(non_empty_text).collect(),
+        value => non_empty_text(value).into_iter().collect(),
+    }
 }
 
 fn array(body: &str) -> Result<Vec<Value>, String> {
@@ -333,6 +341,12 @@ mod tests {
         assert_eq!(parsed["episodeCount"], 24);
         assert_eq!(parsed["status"], "released");
         assert_eq!(parsed["posterUrl"], "https://cdn.example/poster.jpg");
+        let with_blank_synonym = json!({
+            "anime_id": "103",
+            "title": "Synonym title",
+            "synonyms": ["  One  ", "", 42, "Two"]
+        });
+        assert_eq!(title(&with_blank_synonym).unwrap()["synonyms"], json!(["One", "Two"]));
         let with_blank_genre = json!({
             "anime_id": "102",
             "title": "Genre title",
