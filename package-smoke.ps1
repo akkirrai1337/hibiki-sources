@@ -69,6 +69,14 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
     if ($null -eq $manifest.sourceInfo.languages -or $manifest.sourceInfo.languages.Count -eq 0) {
         throw "Package $packageName is missing sourceInfo.languages"
     }
+    foreach ($field in @("sourceInfo.languages", "capabilities", "hostCapabilities", "hostNetworkPolicy.allowedHosts")) {
+        $value = $manifest
+        foreach ($part in $field.Split('.')) { $value = $value.$part }
+        $items = @($value)
+        if (@($items | Sort-Object -Unique).Count -ne $items.Count) {
+            throw "Package $packageName field $field contains duplicate values"
+        }
+    }
     if ($manifest.runtime.id -ne "wasm" -or $manifest.runtime.abi -ne "wasm32-wasi-preview1") {
         throw "Package $packageName has an invalid WASM runtime declaration"
     }
