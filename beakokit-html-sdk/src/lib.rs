@@ -313,7 +313,7 @@ impl HtmlDocument {
         Ok(self.document.select(&link_selector).filter_map(|link| {
             let card = link.parent().and_then(ElementRef::wrap).unwrap_or(link);
             let url = first_attribute(link, &["href"])
-                .map(|value| self.absolute_url(&value));
+                .and_then(|value| self.absolute_http_url(&value));
             let title = first_attribute(link, &["title", "data-title"])
                 .and_then(|value| clean_text(&value))
                 .or_else(|| title_selectors.iter().find_map(|selector| {
@@ -545,6 +545,13 @@ mod tests {
         );
         let unsafe_cards = unsafe_document.linked_cards("a[href*='/anime/']", &[], "img").unwrap();
         assert_eq!(unsafe_cards[0].image_url, None);
+
+        let unsafe_link_document = HtmlDocument::parse(
+            r#"<article><a href="javascript:alert(1)">Unsafe</a></article>"#,
+            "https://example.org",
+        );
+        let unsafe_link_cards = unsafe_link_document.linked_cards("a", &[], "img").unwrap();
+        assert_eq!(unsafe_link_cards[0].url, None);
 
         let duplicate_document = HtmlDocument::parse(
             r#"<a href="/anime/one">One</a><a href="/anime/one">One again</a><a href="/anime/two">Two</a>"#,
