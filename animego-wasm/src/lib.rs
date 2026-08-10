@@ -410,6 +410,10 @@ fn page_items(items: Vec<Value>, offset: i64, limit: i64) -> Vec<Value> {
         .collect()
 }
 
+fn catalog_error_context(error: String, operation: &str, path: &str, offset: i64, limit: i64) -> String {
+    format!("{error}; operation={operation}; path={path}; offset={offset}; limit={limit}")
+}
+
 fn response_content(body: &str) -> Result<String, String> {
     let Ok(document) = JsonDocument::parse_limited(body, DEFAULT_MAX_DOCUMENT_BYTES) else {
         return Ok(body.to_owned());
@@ -525,7 +529,8 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
         RuntimeOperation::Latest => {
             let (offset, limit) = bounded_pagination(&request.payload);
             let path = catalog_page_path("/anime", offset);
-            let items = card_titles_with_diagnostics(&page(&request.request_id, &path)?, "LATEST")?;
+            let items = card_titles_with_diagnostics(&page(&request.request_id, &path)?, "LATEST")
+                .map_err(|error| catalog_error_context(error, "LATEST", &path, offset, limit))?;
             Ok(json!({ "items": page_items(items, offset, limit) }))
         }
         RuntimeOperation::Search => {
@@ -539,7 +544,8 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
                 let (sort, direction) = catalog_sort(p);
                 format!("{base}{page}?entities=true&sort={sort}&direction={direction}")
             };
-            let items = card_titles_with_diagnostics(&page(&request.request_id, &path)?, "SEARCH")?;
+            let items = card_titles_with_diagnostics(&page(&request.request_id, &path)?, "SEARCH")
+                .map_err(|error| catalog_error_context(error, "SEARCH", &path, offset, limit))?;
             Ok(json!({ "items": page_items(items, offset, limit) }))
         }
         RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; let id = safe_path_segment(id).ok_or("AnimeGo anime id is invalid")?; details(id, &page(&request.request_id, &format!("/anime/{id}"))?) }
@@ -687,6 +693,12 @@ mod tests {
         assert_eq!(page_items(items.clone(), 5, 3), vec![json!(5), json!(6), json!(7)]);
         let second_page = (20..40).map(|value| json!(value)).collect::<Vec<_>>();
         assert_eq!(page_items(second_page, 20, 3), vec![json!(20), json!(21), json!(22)]);
+    }
+
+    #[test]
+    fn adds_request_context_to_empty_catalog_errors() {
+        let error = catalog_error_context("no cards".to_owned(), "SEARCH", "/search/all?page=2", 20, 20);
+        assert_eq!(error, "no cards; operation=SEARCH; path=/search/all?page=2; offset=20; limit=20");
     }
 
     #[test]
