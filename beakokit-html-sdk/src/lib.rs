@@ -91,6 +91,16 @@ pub fn non_empty_scalar(value: &Value) -> Option<String> {
         .or_else(|| value.as_i64().map(|value| value.to_string()))
 }
 
+/// Accept only a single conservative URL path segment from source data.
+pub fn safe_path_segment(value: &str) -> Option<&str> {
+    let value = value.trim();
+    (!value.is_empty()
+        && value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~')
+        }))
+    .then_some(value)
+}
+
 /// Validate the common envelope before a source dispatches an operation.
 pub fn validate_runtime_request(value: &Value) -> Result<String, String> {
     let object = value.as_object().ok_or("runtime request must be an object")?;
@@ -573,7 +583,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
+    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_stable_host_get_request() {
@@ -715,6 +725,14 @@ mod tests {
         assert_eq!(HostResponse::from_value(&serde_json::json!({ "payload": { "statusCode": 503 } }), "fixture"), Err(HttpSdkError::Status { source: "fixture".to_owned(), status: 503 }));
         assert_eq!(HostResponse::from_value(&serde_json::json!({ "payload": { "body": "{}" } }), "fixture"), Err(HttpSdkError::MissingStatus { source: "fixture".to_owned() }));
         assert_eq!(HostResponse::from_value_limited(&serde_json::json!({ "payload": { "statusCode": 200, "body": "12345" } }), "fixture", 4), Err(HttpSdkError::BodyTooLarge { source: "fixture".to_owned(), actual: 5, maximum: 4 }));
+    }
+
+    #[test]
+    fn accepts_only_safe_path_segments() {
+        assert_eq!(safe_path_segment(" anime-123 "), Some("anime-123"));
+        assert!(safe_path_segment("../admin").is_none());
+        assert!(safe_path_segment("episode?id=1").is_none());
+        assert!(safe_path_segment(" ").is_none());
     }
 
     #[test]

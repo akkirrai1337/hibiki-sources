@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -401,16 +401,18 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
             };
             Ok(json!({ "items": card_titles_with_diagnostics(&page(&request.request_id, &path)?, "SEARCH")?.into_iter().skip((offset % 20) as usize).take(limit as usize).collect::<Vec<_>>() }))
         }
-        RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; details(id, &page(&request.request_id, &format!("/anime/{id}"))?) }
+        RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; let id = safe_path_segment(id).ok_or("AnimeGo anime id is invalid")?; details(id, &page(&request.request_id, &format!("/anime/{id}"))?) }
         RuntimeOperation::PlaybackGroups => {
             let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("playback titleId is missing")?;
             let numeric = id.rsplit('-').next().ok_or("AnimeGo title id has no numeric suffix")?;
+            let numeric = safe_path_segment(numeric).ok_or("AnimeGo numeric id is invalid")?;
             let episodes = episode_items(&response_content(&ajax(&request.request_id, &format!("/player/{numeric}"))?))?;
             Ok(json!({ "groups": if episodes.is_empty() { Vec::<Value>::new() } else { vec![json!({ "id": id, "title": "AnimeGo", "qualityLabel": null, "episodes": episodes })] } }))
         }
         RuntimeOperation::PlayerLinks => {
             let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("player links titleId is missing")?;
             let episode = request.payload.get("episodeId").and_then(Value::as_str).ok_or("player links episodeId is missing")?;
+            let episode = safe_path_segment(episode).ok_or("AnimeGo episode id is invalid")?;
             let html = response_content(&ajax(&request.request_id, &format!("/player/videos/{episode}"))?);
             let links = player_items(&html)?.into_iter().filter(|v| v.get("url").and_then(Value::as_str).is_some()).collect::<Vec<_>>();
             if id.is_empty() { return Err("AnimeGo title id is blank".to_owned()); }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -147,6 +147,7 @@ fn json_body(body: &str, operation: &str) -> Result<Value, String> {
 }
 
 fn release(request_id: &str, id: &str) -> Result<Value, String> {
+    let id = safe_path_segment(id).ok_or("AniLiberty release id is invalid")?;
     host_http(request_id, api_url(&format!("anime/releases/{id}")))
         .and_then(|body| release_value(&body))
 }
@@ -168,6 +169,7 @@ fn episode_number(value: &Value) -> Option<f64> {
 }
 
 fn reference_options(request_id: &str, reference: &str) -> Result<Value, String> {
+    let reference = safe_path_segment(reference).ok_or("AniLiberty reference id is invalid")?;
     let body = host_http(request_id, api_url(&format!("anime/catalog/references/{reference}")))?;
     let value = json_body(&body, "reference options")?;
     let items = value
