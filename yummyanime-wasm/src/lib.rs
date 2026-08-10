@@ -149,7 +149,7 @@ fn videos(request_id: &str, id: &str) -> Result<Vec<Value>, String> {
     array(&http(request_id, &format!("/anime/{id}/videos"), "")?)
 }
 
-fn number(value: &str) -> Option<f64> { value.replace(',', ".").parse::<f64>().ok() }
+fn number(value: &str) -> Option<f64> { value.trim().replace(',', ".").parse::<f64>().ok() }
 
 fn video_episode(video: &Value) -> Result<Option<(String, f64)>, String> {
     let Some(raw_number) = video.get("number") else { return Ok(None); };
@@ -398,6 +398,7 @@ mod tests {
     #[test]
     fn validates_yummyanime_video_episode_numbers() {
         assert_eq!(video_episode(&json!({"number":"2"})).unwrap(), Some(("2".to_owned(), 2.0)));
+        assert_eq!(video_episode(&json!({"number":" 2,5 "})).unwrap(), Some(("2,5".to_owned(), 2.5)));
         assert!(video_episode(&json!({"number":"broken"})).is_err());
         assert_eq!(video_episode(&json!({"title":"service video"})).unwrap(), None);
     }
