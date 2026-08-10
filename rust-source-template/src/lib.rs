@@ -155,3 +155,22 @@ extern "C" {
     #[allow(dead_code)]
     fn host_call(pointer: *const u8, length: i32) -> i64;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn allocator_rejects_invalid_sizes() {
+        beakokit_reset();
+        assert_eq!(beakokit_alloc(-1), -1);
+        assert!(beakokit_alloc(16) > 0);
+    }
+
+    #[test]
+    fn allocator_rejects_pointer_overflow() {
+        unsafe { HEAP = i32::MAX as usize - 1; }
+        assert_eq!(beakokit_alloc(2), -1);
+        beakokit_reset();
+    }
+}
