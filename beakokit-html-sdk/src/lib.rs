@@ -619,7 +619,9 @@ impl HtmlDocument {
             let cells = row.select(&Selector::parse(":scope > *").expect("valid scope selector"))
                 .collect::<Vec<_>>();
             for (index, cell) in cells.iter().enumerate() {
-                let Some(cell_text) = clean_element_text(*cell) else { continue; };
+                let Some(cell_text) = clean_element_text(*cell).or_else(|| {
+                    first_attribute(*cell, &["data-label", "aria-label"])
+                }) else { continue; };
                 if normalized_label(&cell_text) == label {
                     return Ok(cells.get(index + 1).and_then(|value| clean_element_text(*value)));
                 }
@@ -1139,6 +1141,15 @@ mod tests {
             "https://example.org",
         );
         assert_eq!(document.labeled_text(".row", "type").unwrap(), Some("TV".to_owned()));
+    }
+
+    #[test]
+    fn matches_attribute_labeled_fields() {
+        let document = HtmlDocument::parse(
+            r#"<div class="row"><span data-label="Status"></span><span>Ongoing</span></div>"#,
+            "https://example.org",
+        );
+        assert_eq!(document.labeled_text(".row", "status").unwrap(), Some("Ongoing".to_owned()));
     }
 
     #[test]
