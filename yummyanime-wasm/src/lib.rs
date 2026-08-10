@@ -224,6 +224,25 @@ fn filters() -> Value {
     json!({ "sortOptions": sorts, "typeOptions": types, "statusOptions": statuses, "genreOptions": [] })
 }
 
+fn string_filter_values(payload: &Value, field: &str) -> Result<Option<Vec<String>>, String> {
+    let Some(value) = payload.get(field) else { return Ok(None); };
+    let values = value
+        .as_array()
+        .ok_or_else(|| format!("YummyAnime filter field {field} must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            value
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .ok_or_else(|| format!("YummyAnime filter field {field} item {index} must be a string"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Some(values))
+}
+
 fn execute(request: RuntimeRequest) -> Result<Value, String> {
     match request.operation {
         RuntimeOperation::FilterCatalog => Ok(filters()),
@@ -240,7 +259,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
                 q.push_str(&format!("&sort={sort}"));
             }
             for (field, key) in [("yearFrom", "year_from"), ("yearTo", "year_to")] { if let Some(v) = p.get(field).and_then(normalize_year).map(|value| value.to_string()) { q.push_str(&format!("&{key}={}", enc(&v))); } }
-            for (field, key) in [("typeAliases", "types"), ("statusAliases", "statuses"), ("includedGenreAliases", "genres"), ("excludedGenreAliases", "genres_exclude")] { if let Some(values) = p.get(field).and_then(Value::as_array) { let joined = values.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","); if !joined.is_empty() { q.push_str(&format!("&{key}={}", enc(&joined))); } } }
+            for (field, key) in [("typeAliases", "types"), ("statusAliases", "statuses"), ("includedGenreAliases", "genres"), ("excludedGenreAliases", "genres_exclude")] { if let Some(values) = string_filter_values(p, field)? { let joined = values.join(","); if !joined.is_empty() { q.push_str(&format!("&{key}={}", enc(&joined))); } } }
             let items = array(&http(&request.request_id, "/anime", &q)?)?;
             Ok(json!({ "items": catalog_titles(&items)? }))
         }
@@ -375,5 +394,12 @@ mod tests {
         assert!(validate_dubbing_groups(&[json!({"number":"1"})]).is_err());
         assert!(validate_dubbing_groups(&[json!({"data":{"dubbing":"Dub"}})]).is_ok());
         assert!(validate_dubbing_groups(&[]).is_ok());
+    }
+
+    #[test]
+    fn validates_yummyanime_filter_arrays() {
+        assert_eq!(string_filter_values(&json!({"types":["tv", " movie "]}), "types").unwrap(), Some(vec!["tv".to_owned(), "movie".to_owned()]));
+        assert!(string_filter_values(&json!({"types":"tv"}), "types").is_err());
+        assert!(string_filter_values(&json!({"types":["tv", 1]}), "types").is_err());
     }
 }
