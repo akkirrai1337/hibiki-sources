@@ -69,6 +69,17 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
     if ($null -eq $manifest.sourceInfo.languages -or $manifest.sourceInfo.languages.Count -eq 0) {
         throw "Package $packageName is missing sourceInfo.languages"
     }
+    if ([string]::IsNullOrWhiteSpace([string]$manifest.sourceInfo.primaryLanguage) -or
+        @($manifest.sourceInfo.languages) -notcontains [string]$manifest.sourceInfo.primaryLanguage) {
+        throw "Package $packageName has an invalid sourceInfo.primaryLanguage"
+    }
+    if ($null -eq $manifest.hostCapabilities -or @($manifest.hostCapabilities).Count -eq 0) {
+        throw "Package $packageName is missing hostCapabilities"
+    }
+    if ($null -eq $manifest.hostNetworkPolicy -or $null -eq $manifest.hostNetworkPolicy.allowedHosts -or
+        @($manifest.hostNetworkPolicy.allowedHosts).Count -eq 0) {
+        throw "Package $packageName is missing hostNetworkPolicy.allowedHosts"
+    }
     foreach ($field in @("sourceInfo.languages", "capabilities", "hostCapabilities", "hostNetworkPolicy.allowedHosts")) {
         $value = $manifest
         foreach ($part in $field.Split('.')) { $value = $value.$part }
