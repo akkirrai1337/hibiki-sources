@@ -147,7 +147,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
             let href = card.url.as_deref()?;
             let id = anime_slug(href)?;
             let card_element = card.element;
-            let name = card.title.unwrap_or_else(|| id.clone());
+            let name = card.title.filter(|value| !value.trim().is_empty())?;
             let original = first_class_text(card_element, "fw-lighter").unwrap_or_else(|| name.clone());
             let source_poster = card.image_url;
             let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
@@ -522,6 +522,23 @@ mod tests {
 
         assert_eq!(items[0]["russianName"], "Монолог фармацевта 2");
         assert_eq!(items[0]["originalName"], "Kusuriya no Hitorigoto 2nd Season");
+    }
+
+    #[test]
+    fn uses_poster_alt_text_instead_of_publishing_a_service_slug() {
+        let html = r#"
+            <a href='/anime/example-title-123'><img alt='Example title' src='poster.webp'></a>
+        "#;
+        let items = card_titles_with_diagnostics(html, "SEARCH").expect("catalog cards");
+
+        assert_eq!(items[0]["russianName"], "Example title");
+        assert_ne!(items[0]["russianName"], "example-title-123");
+    }
+
+    #[test]
+    fn skips_cards_without_a_display_title() {
+        let html = "<a href='/anime/example-title-123'><img src='poster.webp'></a>";
+        assert!(card_titles_with_diagnostics(html, "SEARCH").is_err());
     }
 
     #[test]

@@ -464,6 +464,9 @@ impl HtmlDocument {
                 .or_else(|| title_selectors.iter().find_map(|selector| {
                     card.select(selector).find_map(clean_element_text)
                 }))
+                .or_else(|| card.select(&image_selector).find_map(|image| {
+                    first_attribute(image, &["alt", "aria-label"]).and_then(|value| clean_text(&value))
+                }))
                 .or_else(|| clean_element_text(link));
             let image_url = card.select(&image_selector).find_map(|image| {
                 let value = first_attribute(image, &["src", "data-src", "data-original"])
