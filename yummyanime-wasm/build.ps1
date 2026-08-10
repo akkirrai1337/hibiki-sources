@@ -10,6 +10,7 @@ $artifactDirectory = Join-Path $projectRoot "..\artifacts"
 $stagingDirectory = Join-Path $projectRoot "..\.yummyanime-package-staging"
 $wasmPath = Join-Path $projectRoot "target\wasm32-wasip1\release\yummyanime_wasm.wasm"
 $archivePath = Join-Path $artifactDirectory $OutputName
+. (Join-Path $PSScriptRoot "..\scripts\validate-package-manifest.ps1")
 
 trap {
     $errorRecord = $_
@@ -46,6 +47,8 @@ if ($PackageUrl) {
     $manifest.packageUrl = $PackageUrl
     [System.IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 20), [System.Text.UTF8Encoding]::new($false))
 }
+$manifest = Get-Content -Raw -LiteralPath (Join-Path $stagingDirectory "manifest.json") | ConvertFrom-Json
+Assert-PackageManifest $manifest
 $publishedManifest = Get-Content -Raw -LiteralPath (Join-Path $stagingDirectory "manifest.json")
 if ([System.IO.File]::Exists($archivePath)) { [System.IO.File]::Delete($archivePath) }
 Compress-Archive -Path (Join-Path $stagingDirectory "manifest.json"), (Join-Path $stagingDirectory "source.wasm") -DestinationPath $archivePath -CompressionLevel Optimal
