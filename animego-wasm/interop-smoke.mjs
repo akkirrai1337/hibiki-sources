@@ -16,10 +16,12 @@ const interopEpisodesFixture = `
   <button data-episode-id="episode-1" data-number="1" data-title="Episode 1"></button>
 `;
 const interopPlayersFixture = `<a data-video="https://player.example/embed/episode-1" data-provider="Aksor" data-translation="Dub">player</a>`;
+const requestedUrls = [];
 
 function responseFor(url) {
+  requestedUrls.push(url);
   let body;
-  if (url.includes("/search/all") || url.includes("/anime/filter") || url === "https://animego.me/anime") {
+  if (url.includes("/search/all") || url.includes("/anime/filter") || /^https:\/\/animego\.me\/anime(?:\/\d+)?$/.test(url)) {
     body = JSON.stringify({ status: "success", data: { content: catalogFixture + interopFilterFixture } });
   } else if (url.includes("/anime/krutoy-uchitel-onidzuka-556")) {
     body = detailsFixture;
@@ -111,6 +113,15 @@ const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0
 if (search.errorCode || search.payload?.items?.[0]?.id !== "krutoy-uchitel-onidzuka-556") {
   throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 }
+const searchPageTwo = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 20 });
+if (searchPageTwo.errorCode || !requestedUrls.at(-1)?.includes("page=2")) {
+  throw new Error(`SEARCH pagination failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(searchPageTwo)}`);
+}
+
+const latestPageTwo = call(instance, "LATEST", { limit: 20, offset: 20 });
+if (latestPageTwo.errorCode || !requestedUrls.at(-1)?.endsWith("/anime/2")) {
+  throw new Error(`LATEST pagination failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(latestPageTwo)}`);
+}
 
 const filters = call(instance, "FILTER_CATALOG", {});
 if (filters.errorCode || filters.payload?.typeOptions?.length !== 1 || filters.payload?.typeOptions?.[0]?.title !== "TV Series" || filters.payload?.genreOptions?.length !== 1 || filters.payload?.genreOptions?.[0]?.title !== "Action") {
@@ -137,4 +148,4 @@ if (links.errorCode || !links.payload?.links?.[0]?.url?.includes("player.example
   throw new Error(`PLAYER_LINKS failed: ${JSON.stringify(links)}`);
 }
 
-console.log("AnimeGo package WASM smoke passed: SEARCH, FILTER_CATALOG, DETAILS, PLAYBACK_GROUPS, PLAYER_LINKS");
+console.log("AnimeGo package WASM smoke passed: SEARCH, SEARCH_PAGINATION, LATEST_PAGINATION, FILTER_CATALOG, DETAILS, PLAYBACK_GROUPS, PLAYER_LINKS");
