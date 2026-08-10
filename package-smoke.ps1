@@ -80,6 +80,11 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
         @($manifest.hostNetworkPolicy.allowedHosts).Count -eq 0) {
         throw "Package $packageName is missing hostNetworkPolicy.allowedHosts"
     }
+    foreach ($allowedHost in @($manifest.hostNetworkPolicy.allowedHosts)) {
+        if ([string]$allowedHost -notmatch '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$') {
+            throw "Package $packageName has an invalid hostNetworkPolicy.allowedHosts value: $allowedHost"
+        }
+    }
     foreach ($field in @("sourceInfo.languages", "capabilities", "hostCapabilities", "hostNetworkPolicy.allowedHosts")) {
         $value = $manifest
         foreach ($part in $field.Split('.')) { $value = $value.$part }

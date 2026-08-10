@@ -86,6 +86,11 @@ function Assert-PackageManifest {
         throw "Package manifest must declare hostNetworkPolicy"
     }
     Assert-ManifestStringArray $Manifest.hostNetworkPolicy.allowedHosts "hostNetworkPolicy.allowedHosts" -Required
+    foreach ($allowedHost in @($Manifest.hostNetworkPolicy.allowedHosts)) {
+        if ($allowedHost -notmatch '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$') {
+            throw "Package manifest hostNetworkPolicy.allowedHosts contains an invalid host: $allowedHost"
+        }
+    }
     Assert-ManifestString $Manifest.sha256 "sha256"
     if ($Manifest.sha256 -notmatch '^[a-fA-F0-9]{64}$') {
         throw "Package manifest has an invalid sha256"
