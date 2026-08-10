@@ -132,7 +132,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
 
     let parsed = document
         .linked_cards_unique(
-            "a[href*='/anime/']",
+            "a[href*='/anime/'], a[data-href*='/anime/'], a[data-url*='/anime/'], a[data-link*='/anime/']",
             &[".ani-list__item-title", ".ani-grid__item-title", ".title", "h2", "h3"],
             "img",
         )
@@ -652,6 +652,14 @@ mod tests {
 
         assert_eq!(items[0]["russianName"], "Example title");
         assert_ne!(items[0]["russianName"], "example-title-123");
+    }
+
+    #[test]
+    fn parses_ajax_card_links_without_href() {
+        let html = r#"<a data-href='/anime/ajax-title-123'><img alt='AJAX title' src='poster.webp'></a>"#;
+        let items = card_titles_with_diagnostics(html, "SEARCH").expect("catalog cards");
+        assert_eq!(items[0]["id"], "ajax-title-123");
+        assert_eq!(items[0]["russianName"], "AJAX title");
     }
 
     #[test]
