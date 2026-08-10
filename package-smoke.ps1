@@ -6,6 +6,38 @@ $names = @("ani-liberty-package-$runId.zip", "yummyanime-package-$runId.zip", "a
 $expectedSourceIds = @("ani-liberty", "yummy-anime", "animego")
 $unpackRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("beakokit-package-smoke-" + $runId)
 
+function Assert-ManifestMatchesRepositoryIndex($manifestPaths, $indexPath) {
+    $manifests = @{}
+    foreach ($manifestPath in $manifestPaths) {
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        $manifests[[string]$manifest.sourceId] = $manifest
+    }
+    $index = (Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json).sources
+    foreach ($entry in $index) {
+        $sourceId = [string]$entry.sourceId
+        if (-not $manifests.ContainsKey($sourceId)) { throw "Repository index source $sourceId has no local manifest" }
+        $manifest = $manifests[$sourceId]
+        foreach ($field in @("sourceId", "packageVersion", "entrypoint")) {
+            if ([string]$manifest.$field -ne [string]$entry.$field) {
+                throw "Repository index $sourceId field $field differs from local manifest"
+            }
+        }
+        if ((ConvertTo-Json @($manifest.capabilities) -Compress) -ne (ConvertTo-Json @($entry.capabilities) -Compress)) {
+            throw "Repository index $sourceId capabilities differ from local manifest"
+        }
+        if ([string]$manifest.runtime.id -ne [string]$entry.runtime.id -or
+            [string]$manifest.runtime.abi -ne [string]$entry.runtime.abi) {
+            throw "Repository index $sourceId runtime differs from local manifest"
+        }
+    }
+}
+
+Assert-ManifestMatchesRepositoryIndex @(
+    (Join-Path $repositoryRoot "aniliberty-wasm\package\manifest.json"),
+    (Join-Path $repositoryRoot "yummyanime-wasm\package\manifest.json"),
+    (Join-Path $repositoryRoot "animego-wasm\package\manifest.json")
+) (Join-Path $repositoryRoot "repository\index.json")
+
 function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) {
     if (-not [System.IO.File]::Exists($manifestPath)) {
         throw "Package $packageName does not contain manifest.json"
