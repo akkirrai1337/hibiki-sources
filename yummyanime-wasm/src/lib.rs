@@ -257,19 +257,8 @@ mod tests {
 
     #[test]
     fn normalizes_api_metadata_for_client() {
-        let parsed = title(&json!({
-            "anime_id": 100,
-            "title": "Yummy title",
-            "title_en": "Yummy title EN",
-            "title_orig": "Yummy original",
-            "year": "2023",
-            "type": "TVSERIES",
-            "anime_status": "released",
-            "episodes_count": 24,
-            "poster": "//cdn.example/poster.jpg",
-            "description": "Description",
-            "genres": [{ "alias": "action" }]
-        })).unwrap();
+        let fixture: Value = serde_json::from_str(include_str!("../tests/fixtures/anime.json")).unwrap();
+        let parsed = title(&fixture).unwrap();
         assert_eq!(parsed["id"], "100");
         assert_eq!(parsed["russianName"], "Yummy title");
         assert_eq!(parsed["type"], "tv");

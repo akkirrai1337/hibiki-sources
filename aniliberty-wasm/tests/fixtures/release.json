@@ -1,0 +1,11 @@
+{
+  "id": 42,
+  "name": { "main": " Test title ", "english": "Test title EN", "alternative": "One, Two" },
+  "year": "2024",
+  "type": { "value": "TVSERIES" },
+  "episodes_total": 12,
+  "poster": { "src": "/poster.jpg" },
+  "is_ongoing": true,
+  "description": "Description",
+  "genres": [{ "name": "Action" }]
+}

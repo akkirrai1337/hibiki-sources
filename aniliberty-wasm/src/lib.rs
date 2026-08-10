@@ -494,17 +494,8 @@ mod tests {
 
     #[test]
     fn normalizes_release_metadata_for_client() {
-        let parsed = title(&json!({
-            "id": 42,
-            "name": { "main": " Test title ", "english": "Test title EN", "alternative": "One, Two" },
-            "year": "2024",
-            "type": { "value": "TVSERIES" },
-            "episodes_total": 12,
-            "poster": { "src": "/poster.jpg" },
-            "is_ongoing": true,
-            "description": "Description",
-            "genres": [{ "name": "Action" }]
-        })).unwrap();
+        let fixture: Value = serde_json::from_str(include_str!("../tests/fixtures/release.json")).unwrap();
+        let parsed = title(&fixture).unwrap();
         assert_eq!(parsed["id"], "42");
         assert_eq!(parsed["russianName"], "Test title");
         assert_eq!(parsed["type"], "tv");

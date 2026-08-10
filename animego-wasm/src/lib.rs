@@ -463,6 +463,14 @@ mod tests {
     }
 
     #[test]
+    fn accepts_only_safe_anime_slugs() {
+        assert_eq!(anime_slug("/anime/krutoy-uchitel-onidzuka-556"), Some("krutoy-uchitel-onidzuka-556".to_owned()));
+        assert_eq!(anime_slug("https://animego.org/anime/title-123?tab=episodes"), Some("title-123".to_owned()));
+        assert_eq!(anime_slug("/admin/title-123"), None);
+        assert_eq!(anime_slug("/anime/../123"), None);
+    }
+
+    #[test]
     fn reports_oversized_html_with_operation_context() {
         let html = "x".repeat(DEFAULT_MAX_DOCUMENT_BYTES + 1);
         let error = match parse_html(&html, "catalog") {
