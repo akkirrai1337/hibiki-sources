@@ -42,9 +42,24 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
 
 try {
     New-Item -ItemType Directory -Force -Path $unpackRoot | Out-Null
-    & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0]
-    & (Join-Path $repositoryRoot "yummyanime-wasm\build.ps1") -OutputName $names[1]
-    & (Join-Path $repositoryRoot "animego-wasm\build.ps1") -OutputName $names[2]
+    $indexPath = Join-Path $unpackRoot "index.json"
+    [System.IO.File]::WriteAllText(
+        $indexPath,
+        '{"apiVersion":1,"sources":[{"sourceId":"fixture-source","packageVersion":"1.0.0"}]}',
+        [System.Text.UTF8Encoding]::new($false)
+    )
+    & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0] -PackageUrl ("https://example.invalid/" + $names[0]) -RepositoryIndexPath $indexPath
+    & (Join-Path $repositoryRoot "yummyanime-wasm\build.ps1") -OutputName $names[1] -PackageUrl ("https://example.invalid/" + $names[1]) -RepositoryIndexPath $indexPath
+    & (Join-Path $repositoryRoot "animego-wasm\build.ps1") -OutputName $names[2] -PackageUrl ("https://example.invalid/" + $names[2]) -RepositoryIndexPath $indexPath
+
+    $index = Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json
+    $indexSourceIds = @($index.sources | ForEach-Object sourceId)
+    $expectedIndexIds = @("fixture-source") + $expectedSourceIds
+    if ($indexSourceIds.Count -ne $expectedIndexIds.Count -or
+        @($indexSourceIds | Sort-Object -Unique).Count -ne $indexSourceIds.Count -or
+        @($expectedIndexIds | Where-Object { $_ -notin $indexSourceIds }).Count -gt 0) {
+        throw "Repository index merge validation failed: $($indexSourceIds -join ', ')"
+    }
 
     $paths = @()
     for ($index = 0; $index -lt $names.Count; $index++) {

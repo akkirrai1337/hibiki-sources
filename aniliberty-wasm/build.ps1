@@ -69,7 +69,11 @@ if ($RepositoryIndexPath) {
     $manifest = $publishedManifest | ConvertFrom-Json
     $manifest.sha256 = $hash
     $manifest.artifactSizeBytes = $artifact.Length
-    $indexPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $RepositoryIndexPath))
+    $indexPath = if ([System.IO.Path]::IsPathRooted($RepositoryIndexPath)) {
+        [System.IO.Path]::GetFullPath($RepositoryIndexPath)
+    } else {
+        [System.IO.Path]::GetFullPath((Join-Path $projectRoot $RepositoryIndexPath))
+    }
     New-Item -ItemType Directory -Force -Path ([System.IO.Path]::GetDirectoryName($indexPath)) | Out-Null
     if ([System.IO.File]::Exists($indexPath)) {
         $index = Get-Content -Raw -LiteralPath $indexPath | ConvertFrom-Json
