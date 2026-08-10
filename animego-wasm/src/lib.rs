@@ -292,26 +292,45 @@ fn filters(html: &str) -> Result<Value, String> {
     }))
 }
 
-fn filter_path(p: &Value) -> String {
+fn string_filter_values(payload: &Value, field: &str) -> Result<Option<Vec<String>>, String> {
+    let Some(value) = payload.get(field) else { return Ok(None); };
+    let values = value
+        .as_array()
+        .ok_or_else(|| format!("AnimeGo filter field {field} must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            value
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .ok_or_else(|| format!("AnimeGo filter field {field} item {index} must be a string"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Some(values))
+}
+
+fn filter_path(p: &Value) -> Result<String, String> {
     let mut parts = Vec::new();
     let from = p.get("yearFrom").and_then(normalize_year).map(|value| value.to_string()); let to = p.get("yearTo").and_then(normalize_year).map(|value| value.to_string());
     if let Some(from) = from { parts.push(if let Some(to) = to { format!("year-from-{}-to-{}", enc(&from), enc(&to)) } else { format!("year-from-{}", enc(&from)) }); }
     else if let Some(to) = to { parts.push(format!("year-to-{}", enc(&to))); }
     let mut genres = Vec::new();
-    if let Some(values) = p.get("includedGenreAliases").and_then(Value::as_array) {
-        genres.extend(values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).map(enc));
+    if let Some(values) = string_filter_values(p, "includedGenreAliases")? {
+        genres.extend(values.iter().map(|value| enc(value)));
     }
-    if let Some(values) = p.get("excludedGenreAliases").and_then(Value::as_array) {
-        genres.extend(values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).map(|v| format!("!{}", enc(v))));
+    if let Some(values) = string_filter_values(p, "excludedGenreAliases")? {
+        genres.extend(values.iter().map(|value| format!("!{}", enc(value))));
     }
     if !genres.is_empty() { parts.push(format!("genres-is-{}", genres.join("-or-"))); }
     for (field, prefix) in [("typeAliases", "type-is"), ("statusAliases", "status-is")] {
-        if let Some(values) = p.get(field).and_then(Value::as_array) {
-            let values = values.iter().filter_map(Value::as_str).filter(|v| !v.is_empty()).map(enc).collect::<Vec<_>>();
+        if let Some(values) = string_filter_values(p, field)? {
+            let values = values.iter().map(|value| enc(value)).collect::<Vec<_>>();
             if !values.is_empty() { parts.push(format!("{prefix}-{}", values.join("-or-"))); }
         }
     }
-    if parts.is_empty() { "/anime".to_owned() } else { format!("/anime/filter/{}/apply", parts.join("/")) }
+    Ok(if parts.is_empty() { "/anime".to_owned() } else { format!("/anime/filter/{}/apply", parts.join("/")) })
 }
 
 fn catalog_sort(p: &Value) -> (&'static str, &'static str) {
@@ -435,7 +454,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
             let path = if !query.is_empty() {
                 format!("/search/all?q={}&page={}", enc(query), offset / 20 + 1)
             } else {
-                let base = filter_path(p);
+                let base = filter_path(p)?;
                 let page = if offset > 0 { format!("/{}", offset / 20 + 1) } else { String::new() };
                 let (sort, direction) = catalog_sort(p);
                 format!("{base}{page}?entities=true&sort={sort}&direction={direction}")
@@ -532,6 +551,13 @@ mod tests {
     }
 
     #[test]
+    fn validates_animego_filter_arrays() {
+        assert_eq!(string_filter_values(&json!({"types":["tv", " movie "]}), "types").unwrap(), Some(vec!["tv".to_owned(), "movie".to_owned()]));
+        assert!(string_filter_values(&json!({"types":"tv"}), "types").is_err());
+        assert!(string_filter_values(&json!({"types":["tv", 1]}), "types").is_err());
+    }
+
+    #[test]
     fn encodes_filter_values_before_building_catalog_path() {
         let path = filter_path(&json!({
             "yearFrom": "2020",
@@ -539,7 +565,7 @@ mod tests {
             "includedGenreAliases": ["action/romance"],
             "excludedGenreAliases": ["?unsafe"],
             "typeAliases": ["tv series"]
-        }));
+        })).expect("filter path");
 
         assert_eq!(path, "/anime/filter/year-from-2020/genres-is-action%2Fromance-or-!%3Funsafe/type-is-tv%20series/apply");
     }
