@@ -679,11 +679,23 @@ fn image_attribute(element: ElementRef<'_>) -> Option<String> {
         ["srcset", "data-srcset", "data-lazy-srcset"]
             .into_iter()
             .find_map(|attribute| element.value().attr(attribute).and_then(srcset_first).map(str::to_owned))
+    }).or_else(|| {
+        first_attribute(element, &["data-background-image", "data-background", "data-bg"])
+    }).or_else(|| {
+        element.value().attr("style").and_then(style_url)
     })
 }
 
 fn json_ld_object(value: Value) -> Option<Value> {
     value.is_object().then_some(value)
+}
+
+fn style_url(value: &str) -> Option<String> {
+    let start = value.to_ascii_lowercase().find("url(")? + 4;
+    let value = value.get(start..)?.split(')').next()?.trim();
+    let value = value.strip_prefix(['\'', '"']).unwrap_or(value);
+    let value = value.strip_suffix(['\'', '"']).unwrap_or(value);
+    (!value.trim().is_empty()).then_some(value.trim().to_owned())
 }
 
 fn normalize_path(value: &str) -> String {
@@ -875,6 +887,11 @@ mod tests {
         );
         assert_eq!(lazy.image_urls("img").unwrap(), ["https://example.org/lazy.jpg", "https://example.org/small.webp"]);
         assert_eq!(lazy.first_image_url("video").unwrap(), Some("https://example.org/poster.jpg".to_owned()));
+        let backgrounds = HtmlDocument::parse(
+            r#"<div data-background-image="/data.jpg"></div><div style="background-image: url('/style.webp')"></div><div style="background-image: url(javascript:alert(1))"></div>"#,
+            "https://example.org",
+        );
+        assert_eq!(backgrounds.image_urls("div").unwrap(), ["https://example.org/data.jpg", "https://example.org/style.webp"]);
         let json_ld = HtmlDocument::parse(
             r#"<script type="application/ld+json">not json</script><script type="application/ld+json">[{"@type":"TVSeries","name":"Demo"}]</script><script type="application/ld+json">{"@graph":[{"@type":"Movie","name":"Film"}]}</script>"#,
             "https://example.org",
