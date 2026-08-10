@@ -124,6 +124,11 @@ pub fn validate_runtime_request(value: &Value) -> Result<String, String> {
         .filter(|value| !value.is_empty()).ok_or("runtime operation is missing or blank")?;
     if operation.len() > MAX_RUNTIME_OPERATION_BYTES { return Err("runtime operation is too long".to_owned()); }
     if operation.chars().any(char::is_control) { return Err("runtime operation contains control characters".to_owned()); }
+    if let Some(version) = object.get("protocolVersion") {
+        if version.as_u64() != Some(HOST_PROTOCOL_VERSION as u64) {
+            return Err("unsupported runtime protocol version".to_owned());
+        }
+    }
     if !object.get("payload").is_some_and(Value::is_object) {
         return Err("runtime payload must be an object".to_owned());
     }
@@ -810,6 +815,9 @@ mod tests {
         assert_eq!(non_empty_scalar(&serde_json::json!("  ")), None);
         assert_eq!(non_empty_scalar(&serde_json::json!(42)), Some("42".to_owned()));
         assert_eq!(validate_runtime_request(&serde_json::json!({ "requestId": " search-1 ", "operation": "SEARCH", "payload": {} })).unwrap(), "search-1");
+        assert_eq!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": {}, "protocolVersion": 1 })).unwrap(), "search-1");
+        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": {}, "protocolVersion": 2 })).is_err());
+        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": {}, "protocolVersion": "1" })).is_err());
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "  ", "operation": "SEARCH", "payload": {} })).is_err());
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search\n1", "operation": "SEARCH", "payload": {} })).is_err());
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEA\nRCH", "payload": {} })).is_err());
