@@ -564,12 +564,12 @@ impl HtmlDocument {
     pub fn labeled_text(&self, row_selector: &str, label: &str) -> Result<Option<String>, HtmlSdkError> {
         let row_selector = Selector::parse(row_selector)
             .map_err(|_| HtmlSdkError::InvalidSelector(row_selector.to_owned()))?;
-        let label = clean_text(label).unwrap_or_default();
+        let label = normalized_label(label);
         for row in self.document.select(&row_selector) {
             let cells = row.select(&Selector::parse(":scope > *").expect("valid scope selector"))
                 .collect::<Vec<_>>();
             for (index, cell) in cells.iter().enumerate() {
-                if clean_element_text(*cell).as_deref() == Some(label.as_str()) {
+                if clean_element_text(*cell).as_deref().map(normalized_label).as_deref() == Some(label.as_str()) {
                     return Ok(cells.get(index + 1).and_then(|value| clean_element_text(*value)));
                 }
             }
@@ -627,6 +627,14 @@ pub fn clean_element_text(element: ElementRef<'_>) -> Option<String> {
 fn clean_text(value: &str) -> Option<String> {
     let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
     (!value.is_empty()).then_some(value)
+}
+
+fn normalized_label(value: &str) -> String {
+    clean_text(value)
+        .unwrap_or_default()
+        .trim_end_matches(':')
+        .trim()
+        .to_lowercase()
 }
 
 fn srcset_first(value: &str) -> Option<&str> {
@@ -910,6 +918,15 @@ mod tests {
         });
         let fallback = HtmlDocument::parse(r#"<div class="primary"></div><a class="fallback" href="/fallback"></a>"#, "https://example.org");
         assert_eq!(fallback.required_attribute_any(&[".primary", ".fallback"], &["href"]).unwrap(), "/fallback");
+    }
+
+    #[test]
+    fn matches_labeled_fields_with_trailing_colons() {
+        let document = HtmlDocument::parse(
+            r#"<div class="row"><span>Type:</span><span>TV</span></div>"#,
+            "https://example.org",
+        );
+        assert_eq!(document.labeled_text(".row", "type").unwrap(), Some("TV".to_owned()));
     }
 
     #[test]
