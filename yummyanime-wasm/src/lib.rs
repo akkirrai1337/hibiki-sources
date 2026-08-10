@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, normalize_status, normalize_type, parse_year, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -58,7 +58,7 @@ fn enc(value: &str) -> String {
 }
 
 fn scalar(value: &Value) -> Option<String> {
-    value.as_str().map(str::to_owned).or_else(|| value.as_i64().map(|v| v.to_string()))
+    non_empty_scalar(value)
 }
 
 fn normalized_url(value: &str) -> String {

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, normalize_type, parse_year, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -303,9 +303,7 @@ trait ValueString {
 
 impl ValueString for Value {
     fn to_string_value(&self) -> Option<String> {
-        self.as_str()
-            .map(str::to_owned)
-            .or_else(|| self.as_i64().map(|value| value.to_string()))
+        non_empty_scalar(self)
     }
 }
 

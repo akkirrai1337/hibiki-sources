@@ -80,6 +80,15 @@ pub fn is_http_url(value: &str) -> bool {
     !host.is_empty() && !host.contains(':')
 }
 
+/// Convert a JSON scalar into a trimmed, non-empty string for protocol IDs.
+pub fn non_empty_scalar(value: &Value) -> Option<String> {
+    value.as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .or_else(|| value.as_i64().map(|value| value.to_string()))
+}
+
 /// Return the first non-empty attribute from a fallback list.
 pub fn first_attribute(element: ElementRef<'_>, attributes: &[&str]) -> Option<String> {
     attributes.iter().find_map(|attribute| {
@@ -533,7 +542,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, first_attribute, host_get_request, is_http_url, normalize_status, normalize_type, parse_year, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION};
+    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION};
 
     #[test]
     fn builds_a_stable_host_get_request() {
@@ -700,5 +709,8 @@ mod tests {
         assert!(!is_http_url("https://example.org:0/video"));
         assert!(!is_http_url("https://example.org:65536/video"));
         assert!(!is_http_url("https://user@example.org/video"));
+        assert_eq!(non_empty_scalar(&serde_json::json!("  episode-1  ")), Some("episode-1".to_owned()));
+        assert_eq!(non_empty_scalar(&serde_json::json!("  ")), None);
+        assert_eq!(non_empty_scalar(&serde_json::json!(42)), Some("42".to_owned()));
     }
 }
