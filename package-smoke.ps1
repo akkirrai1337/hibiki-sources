@@ -66,7 +66,9 @@ try {
         $artifact = Get-Item -LiteralPath $artifactPath
         $artifactHash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
         $manifest = @($index.sources | Where-Object { $_.sourceId -eq $expectedSourceIds[$packageIndex] })[0]
-        if ($manifest.artifactSizeBytes -ne $artifact.Length -or
+        $expectedPackageUrl = "https://example.invalid/$($names[$packageIndex])"
+        if ($manifest.packageUrl -ne $expectedPackageUrl -or
+            $manifest.artifactSizeBytes -ne $artifact.Length -or
             ([string]$manifest.sha256).ToLowerInvariant() -ne $artifactHash) {
             throw "Repository index artifact metadata mismatch for $($names[$packageIndex])"
         }
