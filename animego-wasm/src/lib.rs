@@ -330,8 +330,6 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
         .into_iter()
         .filter_map(|episode| {
             let id = element_attr(episode, "data-episode")?;
-            if seen_ids.iter().any(|seen| seen == &id) { return None; }
-            seen_ids.push(id.clone());
             let number = element_attr(episode, "data-episode-number")
                 .and_then(|value| value.replace(',', ".").parse::<f64>().ok())
                 .or_else(|| {
@@ -339,6 +337,8 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
                     text(&content).split_whitespace()
                         .find_map(|part| part.replace(',', ".").parse::<f64>().ok())
                 }).filter(|value| *value >= 0.0)?;
+            if seen_ids.iter().any(|seen| seen == &id) { return None; }
+            seen_ids.push(id.clone());
             Some(json!({
                 "id": id,
                 "number": number,
@@ -356,6 +356,7 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
 
 fn player_items(html: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "players")?;
+    let mut seen_urls = Vec::new();
     Ok(document
         .select("[data-player]")
         .unwrap_or_default()
@@ -363,6 +364,8 @@ fn player_items(html: &str) -> Result<Vec<Value>, String> {
         .filter_map(|player| {
             let raw_url = element_attr(player, "data-player")?;
             let url = document.absolute_http_url(&raw_url)?;
+            if seen_urls.iter().any(|seen| seen == &url) { return None; }
+            seen_urls.push(url.clone());
             Some(json!({
                 "url": url,
                 "type": "EMBED",
@@ -618,6 +621,18 @@ mod tests {
     }
 
     #[test]
+    fn keeps_a_valid_episode_when_an_invalid_duplicate_comes_first() {
+        let html = r#"
+            <button data-episode="ep-1" data-episode-number="broken">broken</button>
+            <button data-episode="ep-1" data-episode-number="1">1</button>
+        "#;
+        let episodes = episode_items(html).expect("episodes");
+
+        assert_eq!(episodes.len(), 1);
+        assert_eq!(episodes[0]["number"], 1.0);
+    }
+
+    #[test]
     fn parses_player_links_by_attributes_without_raw_html_scanning() {
         let html = r#"
             <a data-player="/embed/one" data-provider-title="Aksor" data-translation-title="Dub"></a>
@@ -627,6 +642,18 @@ mod tests {
         assert_eq!(players.len(), 1);
         assert_eq!(players[0]["url"], "https://animego.me/embed/one");
         assert_eq!(players[0]["playerName"], "Aksor");
+    }
+
+    #[test]
+    fn deduplicates_player_urls() {
+        let html = r#"
+            <a data-player="/embed/one" data-provider-title="Aksor"></a>
+            <a data-player="https://animego.me/embed/one" data-provider-title="Aksor"></a>
+            <a data-player="/embed/two" data-provider-title="Other"></a>
+        "#;
+        let players = player_items(html).expect("players");
+
+        assert_eq!(players.len(), 2);
     }
 }
 
