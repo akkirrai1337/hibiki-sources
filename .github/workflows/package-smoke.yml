@@ -5,6 +5,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: package-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   package-smoke:
     runs-on: windows-latest
@@ -21,6 +28,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip1
+
+      - name: Cache Rust dependencies and build output
+        uses: Swatinem/rust-cache@v2
 
       - name: Run package and interop smoke
         shell: pwsh
