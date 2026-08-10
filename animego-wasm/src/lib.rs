@@ -248,6 +248,13 @@ fn genre_values(value: Option<&Value>) -> Vec<String> {
     genres
 }
 
+fn first_named_text(value: &Value, name: &str) -> Option<String> {
+    value
+        .get(name)
+        .and_then(first_non_empty_text)
+        .or_else(|| value.as_array()?.iter().find_map(|item| first_named_text(item, name)))
+}
+
 fn release_year(value: &str) -> Option<i64> {
     parse_year(value)
 }
@@ -317,13 +324,26 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
             vec![json!({ "source": "AnimeGo", "value": value, "votes": votes })]
         })
         .unwrap_or_default();
+    let synonyms = document
+        .text(".entity__title-synonyms li")
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|value| value != &name)
+        .collect::<Vec<_>>();
+    let source_material = field_value(&["Первоисточник", "Source material", "Primary source"]);
+    let studios = schema
+        .as_ref()
+        .and_then(|value| value.get("productionCompany"))
+        .and_then(|value| first_named_text(value, "name"))
+        .map(|value| vec![value])
+        .unwrap_or_default();
     Ok(json!({
         "id": id, "russianName": name, "englishName": if original != name { Some(original.clone()) } else { None::<String> },
-        "originalName": original, "japaneseName": null, "synonyms": [], "year": year, "type": type_alias,
+        "originalName": original, "japaneseName": null, "synonyms": synonyms, "year": year, "type": type_alias,
         "episodeCount": episode_count, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
         "description": description.or(Some(name)), "nextEpisodeAt": null, "genres": genre_values(schema.as_ref().and_then(|v| v.get("genre"))), "ratings": ratings,
         "ageRating": schema.as_ref().and_then(|v| v.get("contentRating")), "viewCount": null, "screenshots": [], "trailer": null,
-        "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
+        "sourceMaterial": source_material, "studios": studios, "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
         "season": null, "availableEpisodeCount": episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()).filter(|value| *value >= 0), "posterFallbackUrl": poster_fallback
     }))
 }
@@ -976,6 +996,20 @@ mod tests {
         assert_eq!(title["ratings"][0]["source"], "AnimeGo");
         assert_eq!(title["ratings"][0]["value"], 9.1);
         assert_eq!(title["ratings"][0]["votes"], 42);
+    }
+
+    #[test]
+    fn reads_detail_relationship_metadata() {
+        let html = r#"
+            <h1>Relationship metadata</h1>
+            <script type="application/ld+json">{"@type":"TVSeries","productionCompany":[{"name":"Studio Example"}]}</script>
+            <div class="entity-row"><div>Source material</div><div>Manga</div></div>
+            <div class="entity__title-synonyms"><ul><li>Alias One</li><li>Alias Two</li></ul></div>
+        "#;
+        let title = details("relationship-metadata-123", html).expect("details");
+        assert_eq!(title["synonyms"], json!(["Alias One", "Alias Two"]));
+        assert_eq!(title["sourceMaterial"], "Manga");
+        assert_eq!(title["studios"], json!(["Studio Example"]));
     }
 
     #[test]
