@@ -65,8 +65,19 @@ pub fn is_http_url(value: &str) -> bool {
     let remainder = value.strip_prefix("http://")
         .or_else(|| value.strip_prefix("https://"));
     let Some(remainder) = remainder else { return false; };
-    let host = remainder.split(['/', '?', '#']).next().unwrap_or_default();
-    !host.is_empty() && !value.chars().any(char::is_whitespace)
+    if value.chars().any(char::is_whitespace) { return false; }
+    let authority = remainder.split(['/', '?', '#']).next().unwrap_or_default();
+    if authority.is_empty() || authority.contains('@') { return false; }
+    let (host, port) = if let Some((host, port)) = authority.rsplit_once(':') {
+        if host.is_empty() || port.is_empty() || port.parse::<u16>().ok().filter(|port| *port > 0).is_none() {
+            return false;
+        }
+        (host, Some(port))
+    } else {
+        (authority, None)
+    };
+    let _ = port;
+    !host.is_empty() && !host.contains(':')
 }
 
 /// Return the first non-empty attribute from a fallback list.
@@ -685,5 +696,9 @@ mod tests {
         assert!(!is_http_url("https://"));
         assert!(!is_http_url("https://example.org/video path"));
         assert!(is_http_url("https://example.org:443/video"));
+        assert!(!is_http_url("https://example.org:not-a-port/video"));
+        assert!(!is_http_url("https://example.org:0/video"));
+        assert!(!is_http_url("https://example.org:65536/video"));
+        assert!(!is_http_url("https://user@example.org/video"));
     }
 }
