@@ -452,8 +452,8 @@ pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
         unsafe { core::slice::from_raw_parts(pointer as *const u8, length.max(0) as usize) };
     let response = match serde_json::from_slice::<Value>(request) {
         Ok(value) => match validate_runtime_request(&value) {
-            Ok(()) => match serde_json::from_value::<RuntimeRequest>(value) {
-                Ok(request) => execute(request),
+            Ok(request_id) => match serde_json::from_value::<RuntimeRequest>(value) {
+                Ok(mut request) => { request.request_id = request_id; execute(request) },
                 Err(error) => runtime_error("invalid-request".to_owned(), error.to_string()),
             },
             Err(error) => runtime_error("invalid-request".to_owned(), error),

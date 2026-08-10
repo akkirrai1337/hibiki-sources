@@ -213,8 +213,8 @@ static mut HEAP: usize = 4096;
     let input = unsafe { core::slice::from_raw_parts(pointer as *const u8, length.max(0) as usize) };
     let response = match serde_json::from_slice::<Value>(input) {
         Ok(value) => match validate_runtime_request(&value) {
-            Ok(()) => match serde_json::from_value::<RuntimeRequest>(value) {
-                Ok(request) => { let request_id = request.request_id.clone(); match execute(request) {
+            Ok(request_id) => match serde_json::from_value::<RuntimeRequest>(value) {
+                Ok(mut request) => { request.request_id = request_id; let request_id = request.request_id.clone(); match execute(request) {
                     Ok(payload) => serde_json::to_vec(&RuntimeResponse { request_id, payload: Some(payload), error_code: None, error_message: None, protocol_version: RUNTIME_PROTOCOL_VERSION }).unwrap(),
                     Err(message) => error(request_id, message),
                 } }

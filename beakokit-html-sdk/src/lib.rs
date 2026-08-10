@@ -91,7 +91,7 @@ pub fn non_empty_scalar(value: &Value) -> Option<String> {
 }
 
 /// Validate the common envelope before a source dispatches an operation.
-pub fn validate_runtime_request(value: &Value) -> Result<(), String> {
+pub fn validate_runtime_request(value: &Value) -> Result<String, String> {
     let object = value.as_object().ok_or("runtime request must be an object")?;
     let request_id = object.get("requestId").and_then(Value::as_str).map(str::trim)
         .filter(|value| !value.is_empty()).ok_or("runtime requestId is missing or blank")?;
@@ -102,7 +102,7 @@ pub fn validate_runtime_request(value: &Value) -> Result<(), String> {
     if !object.get("payload").is_some_and(Value::is_object) {
         return Err("runtime payload must be an object".to_owned());
     }
-    Ok(())
+    Ok(request_id.to_owned())
 }
 
 /// Return the first non-empty attribute from a fallback list.
@@ -728,7 +728,7 @@ mod tests {
         assert_eq!(non_empty_scalar(&serde_json::json!("  episode-1  ")), Some("episode-1".to_owned()));
         assert_eq!(non_empty_scalar(&serde_json::json!("  ")), None);
         assert_eq!(non_empty_scalar(&serde_json::json!(42)), Some("42".to_owned()));
-        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": {} })).is_ok());
+        assert_eq!(validate_runtime_request(&serde_json::json!({ "requestId": " search-1 ", "operation": "SEARCH", "payload": {} })).unwrap(), "search-1");
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "  ", "operation": "SEARCH", "payload": {} })).is_err());
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": null })).is_err());
         assert_eq!(MAX_RUNTIME_REQUEST_BYTES, 256 * 1024);
