@@ -67,9 +67,31 @@ Assert-RepositoryIndex (Join-Path $repositoryRoot "repository\index.json") @("an
 try {
     New-Item -ItemType Directory -Force -Path $unpackRoot | Out-Null
     $indexPath = Join-Path $unpackRoot "index.json"
+    $fixtureManifest = [pscustomobject]@{
+        manifestFormatVersion = 1
+        sourceId = "fixture-source"
+        packageVersion = "1.0.0"
+        sourceInfo = [pscustomobject]@{
+            displayName = "Fixture Source"
+            languages = @("en")
+            primaryLanguage = "en"
+        }
+        apiVersion = 1
+        hostApiVersion = 1
+        runtime = [pscustomobject]@{ id = "wasm"; abi = "wasm32-wasi-preview1" }
+        entrypoint = "source.wasm"
+        packageUrl = "https://example.invalid/fixture-source.zip"
+        sha256 = ("0" * 64)
+        artifactSizeBytes = 1
+        minClientVersion = 0
+        capabilities = @("SEARCH")
+        hostCapabilities = @("NETWORK")
+        hostNetworkPolicy = [pscustomobject]@{ allowedHosts = @("example.invalid") }
+    }
+    $fixtureIndex = [pscustomobject]@{ apiVersion = 1; sources = @($fixtureManifest) }
     [System.IO.File]::WriteAllText(
         $indexPath,
-        '{"apiVersion":1,"sources":[{"sourceId":"fixture-source","packageVersion":"1.0.0"}]}',
+        ($fixtureIndex | ConvertTo-Json -Depth 20),
         [System.Text.UTF8Encoding]::new($false)
     )
     & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0] -PackageUrl ("https://example.invalid/" + $names[0]) -RepositoryIndexPath $indexPath
