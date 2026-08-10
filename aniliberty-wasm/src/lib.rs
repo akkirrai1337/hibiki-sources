@@ -174,14 +174,18 @@ fn reference_options(request_id: &str, reference: &str) -> Result<Value, String>
     let reference = safe_path_segment(reference).ok_or("AniLiberty reference id is invalid")?;
     let body = host_http(request_id, api_url(&format!("anime/catalog/references/{reference}")))?;
     let value = json_body(&body, "reference options")?;
-    let items = value
+    let items = reference_items(&value)?;
+    Ok(Value::Array(reference_option_values(&items)))
+}
+
+fn reference_items(value: &Value) -> Result<Vec<Value>, String> {
+    value
         .get("data")
         .or_else(|| value.get("items"))
+        .or(Some(value))
         .and_then(Value::as_array)
-        .or_else(|| value.as_array())
         .cloned()
-        .unwrap_or_default();
-    Ok(Value::Array(reference_option_values(&items)))
+        .ok_or_else(|| "AniLiberty reference response expected an array".to_owned())
 }
 
 fn reference_option_values(items: &[Value]) -> Vec<Value> {
@@ -540,5 +544,11 @@ mod tests {
     fn rejects_malformed_catalog_collections() {
         assert!(catalog_items(&json!({"data":{"unexpected":true}})).is_err());
         assert_eq!(catalog_items(&json!({"data":[]})).unwrap(), Vec::<Value>::new());
+    }
+
+    #[test]
+    fn rejects_malformed_reference_collections() {
+        assert!(reference_items(&json!({"data":{"unexpected":true}})).is_err());
+        assert_eq!(reference_items(&json!({"items":[]})).unwrap(), Vec::<Value>::new());
     }
 }
