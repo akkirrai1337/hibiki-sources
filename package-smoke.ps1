@@ -85,6 +85,23 @@ try {
         @($expectedIndexIds | Where-Object { $_ -notin $indexSourceIds }).Count -gt 0) {
         throw "Repository index merge validation failed: $($indexSourceIds -join ', ')"
     }
+
+    $invalidIndexPath = Join-Path $unpackRoot "invalid-index.json"
+    $invalidIndexContent = '{"apiVersion":1,"sources":[{"sourceId":"duplicate"},{"sourceId":"duplicate"}]}'
+    [System.IO.File]::WriteAllText($invalidIndexPath, $invalidIndexContent, [System.Text.UTF8Encoding]::new($false))
+    try {
+        & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") `
+            -OutputName $names[0] `
+            -PackageUrl ("https://example.invalid/" + $names[0]) `
+            -RepositoryIndexPath $invalidIndexPath
+        throw "Publishing accepted an invalid repository index"
+    } catch {
+        if ($_.Exception.Message -eq "Publishing accepted an invalid repository index") { throw }
+    }
+    if ((Get-Content -LiteralPath $invalidIndexPath -Raw) -ne $invalidIndexContent) {
+        throw "Invalid repository index was modified after validation failure"
+    }
+
     for ($packageIndex = 0; $packageIndex -lt $names.Count; $packageIndex++) {
         $artifactPath = Join-Path $artifactDirectory $names[$packageIndex]
         $artifact = Get-Item -LiteralPath $artifactPath
