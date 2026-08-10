@@ -186,7 +186,11 @@ fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
 }
 
 fn player_links(request_id: &str, id: &str, episode_id: &str) -> Result<Value, String> {
-    let links = videos(request_id, id)?.into_iter().filter(|v| scalar(v.get("number").unwrap_or(&Value::Null)).as_deref() == Some(episode_id)).filter_map(|v| {
+    let matching = videos(request_id, id)?.into_iter().filter(|v| scalar(v.get("number").unwrap_or(&Value::Null)).as_deref() == Some(episode_id)).collect::<Vec<_>>();
+    if matching.is_empty() {
+        return Err(format!("YummyAnime episode was not found: {episode_id}"));
+    }
+    let links = matching.into_iter().filter_map(|v| {
         let url = normalized_url(v.get("iframe_url").and_then(Value::as_str)?);
         if !is_http_url(&url) { return None; }
         let player = v.pointer("/data/player").and_then(Value::as_str).unwrap_or("YummyAnime").trim_start_matches("Плеер ").trim().to_owned();
