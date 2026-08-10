@@ -106,6 +106,12 @@ pub fn safe_path_segment(value: &str) -> Option<&str> {
     .then_some(value)
 }
 
+/// Accept only a bounded decimal path segment for endpoints that use numeric IDs.
+pub fn safe_numeric_segment(value: &str) -> Option<&str> {
+    let value = safe_path_segment(value)?;
+    value.bytes().all(|byte| byte.is_ascii_digit()).then_some(value)
+}
+
 /// Validate the common envelope before a source dispatches an operation.
 pub fn validate_runtime_request(value: &Value) -> Result<String, String> {
     let object = value.as_object().ok_or("runtime request must be an object")?;
@@ -767,6 +773,8 @@ mod tests {
         assert!(safe_path_segment(".").is_none());
         assert!(safe_path_segment("..").is_none());
         assert!(safe_path_segment(&"a".repeat(super::MAX_PATH_SEGMENT_BYTES + 1)).is_none());
+        assert_eq!(super::safe_numeric_segment(" 123 "), Some("123"));
+        assert!(super::safe_numeric_segment("12a").is_none());
         assert!(safe_path_segment("episode?id=1").is_none());
         assert!(safe_path_segment(" ").is_none());
     }
