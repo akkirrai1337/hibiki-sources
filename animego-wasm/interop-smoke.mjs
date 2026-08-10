@@ -124,7 +124,7 @@ if (search.errorCode || search.payload?.items?.[0]?.id !== "krutoy-uchitel-onidz
 }
 
 const filters = call(instance, "FILTER_CATALOG", {});
-if (filters.errorCode || filters.payload?.typeOptions?.length !== 1 || filters.payload?.genreOptions?.length !== 1) {
+if (filters.errorCode || filters.payload?.typeOptions?.length !== 1 || filters.payload?.typeOptions?.[0]?.title !== "TV Series" || filters.payload?.genreOptions?.length !== 1 || filters.payload?.genreOptions?.[0]?.title !== "Action") {
   throw new Error(`FILTER_CATALOG failed: ${JSON.stringify(filters)}`);
 }
 
@@ -134,7 +134,7 @@ if (details.errorCode || details.payload?.id !== "krutoy-uchitel-onidzuka-556" |
 }
 
 const groups = call(instance, "PLAYBACK_GROUPS", { titleId: "krutoy-uchitel-onidzuka-556" });
-if (groups.errorCode || groups.payload?.groups?.[0]?.episodes?.[0]?.id !== "episode-1") {
+if (groups.errorCode || groups.payload?.groups?.[0]?.episodes?.[0]?.id !== "episode-1" || groups.payload?.groups?.[0]?.episodes?.[0]?.number !== 1 || groups.payload?.groups?.[0]?.episodes?.[0]?.title !== "Episode 1") {
   throw new Error(`PLAYBACK_GROUPS failed: ${JSON.stringify(groups)}`);
 }
 
@@ -144,7 +144,7 @@ const links = call(instance, "PLAYER_LINKS", {
   episodeId: "episode-1",
   episodeNumber: 1,
 });
-if (links.errorCode || !links.payload?.links?.[0]?.url?.includes("player.example")) {
+if (links.errorCode || !links.payload?.links?.[0]?.url?.includes("player.example") || links.payload?.links?.[0]?.playerName !== "Aksor" || links.payload?.links?.[0]?.translation !== "Dub") {
   throw new Error(`PLAYER_LINKS failed: ${JSON.stringify(links)}`);
 }
 
