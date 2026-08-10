@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -444,8 +444,14 @@ pub extern "C" fn beakokit_alloc(length: i32) -> i32 {
 pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
     let request =
         unsafe { core::slice::from_raw_parts(pointer as *const u8, length.max(0) as usize) };
-    let response = match serde_json::from_slice::<RuntimeRequest>(request) {
-        Ok(request) => execute(request),
+    let response = match serde_json::from_slice::<Value>(request) {
+        Ok(value) => match validate_runtime_request(&value) {
+            Ok(()) => match serde_json::from_value::<RuntimeRequest>(value) {
+                Ok(request) => execute(request),
+                Err(error) => runtime_error("invalid-request".to_owned(), error.to_string()),
+            },
+            Err(error) => runtime_error("invalid-request".to_owned(), error),
+        },
         Err(error) => runtime_error("invalid-request".to_owned(), error.to_string()),
     };
     let response_pointer = beakokit_alloc(response.len() as i32) as usize;

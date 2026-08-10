@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -205,14 +205,17 @@ static mut HEAP: usize = 4096;
 #[no_mangle] pub extern "C" fn beakokit_alloc(length: i32) -> i32 { unsafe { let ptr = HEAP; HEAP += length.max(0) as usize; ptr as i32 } }
 #[no_mangle] pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
     let input = unsafe { core::slice::from_raw_parts(pointer as *const u8, length.max(0) as usize) };
-    let response = match serde_json::from_slice::<RuntimeRequest>(input) {
-        Ok(request) => {
-            let request_id = request.request_id.clone();
-            match execute(request) {
-                Ok(payload) => serde_json::to_vec(&RuntimeResponse { request_id, payload: Some(payload), error_code: None, error_message: None, protocol_version: RUNTIME_PROTOCOL_VERSION }).unwrap(),
-                Err(message) => error(request_id, message),
-            }
-        }
+    let response = match serde_json::from_slice::<Value>(input) {
+        Ok(value) => match validate_runtime_request(&value) {
+            Ok(()) => match serde_json::from_value::<RuntimeRequest>(value) {
+                Ok(request) => { let request_id = request.request_id.clone(); match execute(request) {
+                    Ok(payload) => serde_json::to_vec(&RuntimeResponse { request_id, payload: Some(payload), error_code: None, error_message: None, protocol_version: RUNTIME_PROTOCOL_VERSION }).unwrap(),
+                    Err(message) => error(request_id, message),
+                } }
+                Err(parse_error) => error("invalid-request".to_owned(), parse_error.to_string()),
+            },
+            Err(validation_error) => error("invalid-request".to_owned(), validation_error),
+        },
         Err(e) => error("invalid-request".to_owned(), e.to_string()),
     };
     let ptr = beakokit_alloc(response.len() as i32) as usize;

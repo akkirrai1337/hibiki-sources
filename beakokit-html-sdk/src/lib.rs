@@ -89,6 +89,21 @@ pub fn non_empty_scalar(value: &Value) -> Option<String> {
         .or_else(|| value.as_i64().map(|value| value.to_string()))
 }
 
+/// Validate the common envelope before a source dispatches an operation.
+pub fn validate_runtime_request(value: &Value) -> Result<(), String> {
+    let object = value.as_object().ok_or("runtime request must be an object")?;
+    let request_id = object.get("requestId").and_then(Value::as_str).map(str::trim)
+        .filter(|value| !value.is_empty()).ok_or("runtime requestId is missing or blank")?;
+    if request_id.len() > 128 { return Err("runtime requestId is too long".to_owned()); }
+    if object.get("operation").and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()).is_none() {
+        return Err("runtime operation is missing or blank".to_owned());
+    }
+    if !object.get("payload").is_some_and(Value::is_object) {
+        return Err("runtime payload must be an object".to_owned());
+    }
+    Ok(())
+}
+
 /// Return the first non-empty attribute from a fallback list.
 pub fn first_attribute(element: ElementRef<'_>, attributes: &[&str]) -> Option<String> {
     attributes.iter().find_map(|attribute| {
@@ -542,7 +557,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION};
+    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION};
 
     #[test]
     fn builds_a_stable_host_get_request() {
@@ -712,5 +727,8 @@ mod tests {
         assert_eq!(non_empty_scalar(&serde_json::json!("  episode-1  ")), Some("episode-1".to_owned()));
         assert_eq!(non_empty_scalar(&serde_json::json!("  ")), None);
         assert_eq!(non_empty_scalar(&serde_json::json!(42)), Some("42".to_owned()));
+        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": {} })).is_ok());
+        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "  ", "operation": "SEARCH", "payload": {} })).is_err());
+        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": null })).is_err());
     }
 }
