@@ -7,9 +7,9 @@ const wasmPath = process.env.ANIMEGO_WASM_PATH
 const catalogFixture = fs.readFileSync(new URL("./tests/fixtures/catalog-card.html", import.meta.url), "utf8");
 const detailsFixture = fs.readFileSync(new URL("./tests/fixtures/details.html", import.meta.url), "utf8");
 const interopFilterFixture = `
-  <input id="type_tv" name="type_tv" value="tv"><label for="type_tv">TV Series</label>
-  <input id="status_released" name="status_released" value="released"><label for="status_released">Released</label>
-  <input id="genres_action" name="genres_action" value="action"><label for="genres_action">Action</label>
+  <select name="type"><option value="tv">TV Series</option></select>
+  <select name="status"><option value="released">Released</option></select>
+  <select name="genres"><option value="action">Action</option></select>
 `;
 const interopEpisodesFixture = `
   <button data-episode-id="episode-2" data-number="2" data-title="Episode 2"></button>
