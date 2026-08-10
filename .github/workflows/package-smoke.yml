@@ -40,6 +40,14 @@ jobs:
           cargo clippy --manifest-path yummyanime-wasm/Cargo.toml --target wasm32-wasip1 -- -D warnings
           cargo clippy --manifest-path animego-wasm/Cargo.toml --target wasm32-wasip1 -- -D warnings
 
+      - name: Run Rust tests
+        shell: pwsh
+        run: |
+          cargo test --manifest-path beakokit-html-sdk/Cargo.toml
+          cargo test --manifest-path aniliberty-wasm/Cargo.toml
+          cargo test --manifest-path yummyanime-wasm/Cargo.toml
+          cargo test --manifest-path animego-wasm/Cargo.toml
+
       - name: Run package and interop smoke
         shell: pwsh
         run: .\package-smoke.ps1
