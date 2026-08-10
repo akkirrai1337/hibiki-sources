@@ -102,7 +102,7 @@ fn title(value: &Value) -> Option<Value> {
     let status = raw_status.and_then(normalize_status);
     let year = value.get("year").and_then(normalize_year);
     let age_rating = value.get("min_age").and_then(|v| v.get("title").or_else(|| v.get("title_long")).or(Some(v))).and_then(non_empty_text);
-    let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("alias").or_else(|| v.get("name")).or_else(|| v.get("title")).and_then(Value::as_str).map(str::to_owned)).collect::<Vec<_>>()).unwrap_or_default();
+    let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("alias").or_else(|| v.get("name")).or_else(|| v.get("title")).and_then(non_empty_text)).collect::<Vec<_>>()).unwrap_or_default();
     Some(json!({
         "id": id, "russianName": russian.clone().or_else(|| Some(display_name.clone())), "englishName": english, "originalName": original,
         "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
@@ -333,6 +333,12 @@ mod tests {
         assert_eq!(parsed["episodeCount"], 24);
         assert_eq!(parsed["status"], "released");
         assert_eq!(parsed["posterUrl"], "https://cdn.example/poster.jpg");
+        let with_blank_genre = json!({
+            "anime_id": "102",
+            "title": "Genre title",
+            "genres": [{ "name": "  Action  " }, { "name": "   " }, { "title": "Drama" }]
+        });
+        assert_eq!(title(&with_blank_genre).unwrap()["genres"], json!(["Action", "Drama"]));
     }
 
     #[test]

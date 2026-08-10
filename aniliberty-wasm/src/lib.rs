@@ -127,7 +127,7 @@ fn title(value: &Value) -> Option<Value> {
         "status": value.get("is_ongoing").and_then(Value::as_bool).map(|ongoing| if ongoing { "ongoing" } else { "released" }),
         "description": description,
         "nextEpisodeAt": null,
-        "genres": value.get("genres").and_then(Value::as_array).map(|genres| genres.iter().filter_map(|genre| genre.get("name").or_else(|| genre.get("description"))).filter_map(Value::as_str).collect::<Vec<_>>()).unwrap_or_default(),
+        "genres": value.get("genres").and_then(Value::as_array).map(|genres| genres.iter().filter_map(|genre| genre.get("name").or_else(|| genre.get("description"))).filter_map(non_empty_text).collect::<Vec<_>>()).unwrap_or_default(),
         "ratings": [], "ageRating": null, "viewCount": null, "screenshots": [], "trailer": null,
         "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [],
         "franchiseAnime": [], "relatedAnime": [], "season": null, "availableEpisodeCount": null,
@@ -558,6 +558,12 @@ mod tests {
         assert_eq!(parsed["status"], "ongoing");
         assert_eq!(parsed["description"], "Test title");
         assert_eq!(parsed["synonyms"], json!(["One", "Two"]));
+        let with_blank_genre = json!({
+            "id": "43",
+            "name": { "main": "Genre title" },
+            "genres": [{ "name": "  Action  " }, { "name": "   " }, { "description": "Drama" }]
+        });
+        assert_eq!(title(&with_blank_genre).unwrap()["genres"], json!(["Action", "Drama"]));
     }
 
     #[test]
