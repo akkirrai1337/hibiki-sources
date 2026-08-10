@@ -154,11 +154,23 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                 .select(&metadata_selector)
                 .filter_map(clean_element_text)
                 .filter(|value| !value.is_empty())
+                .chain(
+                    [
+                        "data-year",
+                        "data-release-year",
+                        "data-type",
+                        "data-kind",
+                        "data-status",
+                    ]
+                    .into_iter()
+                    .filter_map(|attribute| element_attr(card_element, attribute)),
+                )
                 .collect::<Vec<_>>();
             let year = metadata.iter().find_map(|value| release_year(value));
             let type_alias = metadata.iter().find_map(|value| known_type(value));
+            let status = metadata.iter().find_map(|value| status_alias(value));
             let genres = metadata.iter()
-                .filter(|value| release_year(value).is_none() && known_type(value).is_none())
+                .filter(|value| release_year(value).is_none() && known_type(value).is_none() && status_alias(value).is_none())
                 .cloned()
                 .collect::<Vec<_>>();
             let description = first_class_text(card_element, "ani-list__item-description");
@@ -170,7 +182,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                 "originalName": original,
                 "japaneseName": null,
                 "synonyms": [], "year": year, "type": type_alias,
-                "episodeCount": null, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": null,
+                "episodeCount": null, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
                 "description": description.or_else(|| Some(name.clone())), "nextEpisodeAt": null,
                 "genres": genres, "ratings": [], "ageRating": null, "viewCount": null,
                 "screenshots": [], "trailer": null, "sourceMaterial": null, "studios": [],
@@ -707,6 +719,19 @@ mod tests {
         let html = r#"<article><a href='/anime/background-title-123'><div data-background-image='/poster.webp'>Background title</div></a></article>"#;
         let items = card_titles_with_diagnostics(html, "SEARCH").expect("catalog cards");
         assert_eq!(items[0]["posterUrl"], "https://animego.me/poster.webp");
+    }
+
+    #[test]
+    fn reads_card_metadata_from_data_attributes() {
+        let html = r#"
+            <article data-year="2022" data-type="TV Series" data-status="Ongoing">
+                <a href="/anime/data-card-123"><img alt="Data card" src="poster.webp"></a>
+            </article>
+        "#;
+        let items = card_titles_with_diagnostics(html, "SEARCH").expect("catalog cards");
+        assert_eq!(items[0]["year"], 2022);
+        assert_eq!(items[0]["type"], "tv");
+        assert_eq!(items[0]["status"], "ongoing");
     }
 
     #[test]
