@@ -5,7 +5,17 @@ const wasmPath = process.env.ANIMEGO_WASM_PATH
   ? pathToFileURL(process.env.ANIMEGO_WASM_PATH)
   : new URL("./target/wasm32-wasip1/release/animego_wasm.wasm", import.meta.url);
 const catalogFixture = fs.readFileSync(new URL("./tests/fixtures/catalog-card.html", import.meta.url), "utf8");
-const detailsFixture = fs.readFileSync(new URL("./tests/fixtures/details.html", import.meta.url), "utf8");
+const interopDetailsFixture = `
+  <h1>Complete interop title</h1>
+  <script type="application/ld+json">
+    {"@type":"TVSeries","name":"Minimal"}
+  </script>
+  <script type="application/ld+json">
+    {"@type":"TVSeries","name":"Complete interop title","image":"/interop-poster.jpg","genre":["Action"],"aggregateRating":{"ratingValue":"8.8","ratingCount":12},"productionCompany":{"name":"Interop Studio"}}
+  </script>
+  <div class="entity-row"><div>Source material</div><div>Manga</div></div>
+  <div class="entity__title-synonyms"><ul><li>Interop alias</li></ul></div>
+`;
 const interopFilterFixture = `
   <select name="type"><option value="tv">TV Series</option></select>
   <select name="status"><option value="released">Released</option></select>
@@ -24,7 +34,7 @@ function responseFor(url) {
   if (url.includes("/search/all") || url.includes("/anime/filter") || /^https:\/\/animego\.me\/anime(?:\/\d+)?$/.test(url)) {
     body = JSON.stringify({ status: "success", data: { content: catalogFixture + interopFilterFixture } });
   } else if (url.includes("/anime/krutoy-uchitel-onidzuka-556")) {
-    body = detailsFixture;
+    body = interopDetailsFixture;
   } else if (url.includes("/player/videos/episode-1")) {
     body = interopPlayersFixture;
   } else if (url.includes("/player/556")) {
@@ -129,7 +139,7 @@ if (filters.errorCode || filters.payload?.typeOptions?.length !== 1 || filters.p
 }
 
 const details = call(instance, "DETAILS", { id: "krutoy-uchitel-onidzuka-556" });
-if (details.errorCode || details.payload?.id !== "krutoy-uchitel-onidzuka-556" || details.payload?.episodeCount !== 43) {
+if (details.errorCode || details.payload?.id !== "krutoy-uchitel-onidzuka-556" || details.payload?.originalName !== "Complete interop title" || details.payload?.ratings?.[0]?.value !== 8.8 || details.payload?.ratings?.[0]?.votes !== 12 || details.payload?.synonyms?.[0] !== "Interop alias" || details.payload?.sourceMaterial !== "Manga" || details.payload?.studios?.[0] !== "Interop Studio") {
   throw new Error(`DETAILS failed: ${JSON.stringify(details)}`);
 }
 
