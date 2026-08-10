@@ -39,6 +39,7 @@ pub fn parse_year(value: &str) -> Option<i64> {
 
 pub fn normalize_type(value: &str) -> Option<String> {
     let value = value.trim().to_lowercase().replace(['_', '-'], " ");
+    let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
     match value.as_str() {
         "tv" | "tvseries" | "tv series" | "serial" | "сериал" => Some("tv".to_owned()),
         "movie" | "film" | "фильм" => Some("movie".to_owned()),
@@ -50,9 +51,10 @@ pub fn normalize_type(value: &str) -> Option<String> {
 
 pub fn normalize_status(value: &str) -> Option<String> {
     let value = value.trim().to_lowercase().replace(['_', '-'], " ");
+    let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
     match value.as_str() {
-        "released" | "completed" | "finished" | "вышел" => Some("released".to_owned()),
-        "ongoing" | "airing" | "releasing" | "онгоинг" | "выходит" => Some("ongoing".to_owned()),
+        "released" | "completed" | "finished" | "finished airing" | "вышел" => Some("released".to_owned()),
+        "ongoing" | "airing" | "currently airing" | "releasing" | "онгоинг" | "выходит" => Some("ongoing".to_owned()),
         "announcement" | "announced" | "анонс" => Some("announcement".to_owned()),
         _ => None,
     }
@@ -604,8 +606,10 @@ mod tests {
         assert_eq!(parse_year("unknown"), None);
         assert_eq!(normalize_type("TVSERIES"), Some("tv".to_owned()));
         assert_eq!(normalize_type("TV-Series"), Some("tv".to_owned()));
+        assert_eq!(normalize_type("TV   Series"), Some("tv".to_owned()));
         assert_eq!(normalize_status("вышел"), Some("released".to_owned()));
-        assert_eq!(normalize_status("finished-airing"), None);
+        assert_eq!(normalize_status("finished-airing"), Some("released".to_owned()));
+        assert_eq!(normalize_status("currently airing"), Some("ongoing".to_owned()));
         assert!(is_http_url("https://example.org/video"));
         assert!(!is_http_url("javascript:alert(1)"));
         assert!(!is_http_url("https://"));
