@@ -32,6 +32,14 @@ jobs:
       - name: Cache Rust dependencies and build output
         uses: Swatinem/rust-cache@v2
 
+      - name: Run Clippy
+        shell: pwsh
+        run: |
+          cargo clippy --manifest-path beakokit-html-sdk/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path aniliberty-wasm/Cargo.toml --target wasm32-wasip1 -- -D warnings
+          cargo clippy --manifest-path yummyanime-wasm/Cargo.toml --target wasm32-wasip1 -- -D warnings
+          cargo clippy --manifest-path animego-wasm/Cargo.toml --target wasm32-wasip1 -- -D warnings
+
       - name: Run package and interop smoke
         shell: pwsh
         run: .\package-smoke.ps1
