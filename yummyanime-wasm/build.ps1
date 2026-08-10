@@ -11,6 +11,11 @@ $stagingDirectory = Join-Path $projectRoot "..\.yummyanime-package-staging"
 $wasmPath = Join-Path $projectRoot "target\wasm32-wasip1\release\yummyanime_wasm.wasm"
 $archivePath = Join-Path $artifactDirectory $OutputName
 
+trap {
+    if ([System.IO.Directory]::Exists($stagingDirectory)) { [System.IO.Directory]::Delete($stagingDirectory, $true) }
+    throw
+}
+
 if ($PackageUrl) {
     $parsedUri = $null
     if (-not [Uri]::TryCreate($PackageUrl, [UriKind]::Absolute, [ref]$parsedUri) -or
