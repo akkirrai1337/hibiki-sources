@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path $PSScriptRoot).Path
 $artifactDirectory = Join-Path $projectRoot "..\artifacts"
-$stagingDirectory = Join-Path $projectRoot "..\.animego-package-staging"
+$stagingDirectory = Join-Path $projectRoot ("..\.animego-package-staging-" + [Guid]::NewGuid().ToString("N"))
 $wasmPath = Join-Path $projectRoot "target\wasm32-wasip1\release\animego_wasm.wasm"
 $archivePath = Join-Path $artifactDirectory $OutputName
 . (Join-Path $PSScriptRoot "..\scripts\validate-package-manifest.ps1")
