@@ -52,9 +52,18 @@ try {
         $destination = Join-Path $unpackRoot ([System.IO.Path]::GetFileNameWithoutExtension($name))
         Expand-Archive -LiteralPath (Join-Path $artifactDirectory $name) -DestinationPath $destination -Force
         $manifestPath = Join-Path $destination "manifest.json"
-        Assert-PackageManifest $manifestPath $expectedSourceIds[$index] $name | Out-Null
+        $manifest = Assert-PackageManifest $manifestPath $expectedSourceIds[$index] $name
         $wasm = Join-Path $destination "source.wasm"
         if (-not [System.IO.File]::Exists($wasm)) { throw "Package $name does not contain source.wasm" }
+        $entrypoint = Join-Path $destination ([string]$manifest.entrypoint)
+        if (-not [System.IO.File]::Exists($entrypoint)) { throw "Package $name entrypoint does not exist" }
+        $files = @(Get-ChildItem -LiteralPath $destination -File -Recurse | ForEach-Object {
+            $_.FullName.Substring($destination.Length + 1).Replace([System.IO.Path]::DirectorySeparatorChar, "/")
+        })
+        $unexpectedFiles = @($files | Where-Object { $_ -notin @("manifest.json", "source.wasm") })
+        if ($unexpectedFiles.Count -gt 0 -or $files.Count -ne 2) {
+            throw "Package $name contains unexpected files: $($files -join ', ')"
+        }
         $paths += $wasm
     }
 
