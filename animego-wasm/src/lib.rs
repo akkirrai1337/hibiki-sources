@@ -261,9 +261,13 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
 }
 
 fn json_ld_document(document: &HtmlDocument) -> Option<Value> {
-    document.json_ld_documents().ok()?.into_iter().find(|value| {
-        value.get("@type").is_some() || value.get("name").is_some() || value.get("alternateName").is_some()
-    })
+    let documents = document.json_ld_documents().ok()?;
+    documents.iter()
+        .find(|value| value.get("@type").and_then(first_non_empty_text).and_then(|value| known_type(&value)).is_some())
+        .cloned()
+        .or_else(|| documents.into_iter().find(|value| {
+            value.get("@type").is_some() || value.get("name").is_some() || value.get("alternateName").is_some()
+        }))
 }
 
 fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
@@ -716,6 +720,19 @@ mod tests {
         assert_eq!(title["availableEpisodeCount"], 43);
         assert_eq!(title["status"], "released");
         assert_eq!(title["genres"], json!(["Комедия", "Сёнен"]));
+    }
+
+    #[test]
+    fn prefers_anime_json_ld_over_breadcrumb_metadata() {
+        let html = r#"
+            <h1>Demo title</h1>
+            <script type="application/ld+json">{"@type":"BreadcrumbList","name":"Home"}</script>
+            <script type="application/ld+json">{"@type":"TVSeries","name":"Demo title","datePublished":"2024-01-01","numberOfEpisodes":12}</script>
+        "#;
+        let title = details("demo-123", html).expect("details");
+        assert_eq!(title["type"], "tv");
+        assert_eq!(title["year"], 2024);
+        assert_eq!(title["episodeCount"], 12);
     }
 
     #[test]
