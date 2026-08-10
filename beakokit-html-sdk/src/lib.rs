@@ -700,13 +700,18 @@ impl JsonDocument {
     }
 
     pub fn string_any(&self, paths: &[&str]) -> Result<String, JsonSdkError> {
+        let mut first_type_error = None;
         for path in paths {
             if let Some(value) = self.value(path) {
-                return value.as_str().map(str::to_owned)
-                    .ok_or_else(|| JsonSdkError::ExpectedString { path: (*path).to_owned() });
+                if let Some(value) = value.as_str() {
+                    return Ok(value.to_owned());
+                }
+                if first_type_error.is_none() {
+                    first_type_error = Some(JsonSdkError::ExpectedString { path: (*path).to_owned() });
+                }
             }
         }
-        Err(JsonSdkError::MissingValue { path: paths.join(" | ") })
+        Err(first_type_error.unwrap_or_else(|| JsonSdkError::MissingValue { path: paths.join(" | ") }))
     }
 
     pub fn int(&self, path: &str) -> Result<i64, JsonSdkError> {
@@ -939,6 +944,8 @@ mod tests {
         assert_eq!(document.string("/data/missing"), Err(JsonSdkError::MissingValue { path: "/data/missing".to_owned() }));
         assert_eq!(document.string_any(&["/data/missing", "/data/content"]).unwrap(), "<div class=\"result\">OK</div>");
         assert_eq!(document.html_any(&["/data/missing", "/data/content"], "https://example.org").unwrap().text(".result").unwrap(), ["OK"]);
+        let fallback = JsonDocument::parse(r#"{"data":{"content":42,"html":"<div class=\"result\">Fallback</div>"}}"#).unwrap();
+        assert_eq!(fallback.html_any(&["/data/content", "/data/html"], "https://example.org").unwrap().text(".result").unwrap(), ["Fallback"]);
         assert_eq!(document.int("/data/missing"), Err(JsonSdkError::MissingValue { path: "/data/missing".to_owned() }));
         assert!(matches!(JsonDocument::parse("  \n"), Err(JsonSdkError::EmptyDocument)));
     }
