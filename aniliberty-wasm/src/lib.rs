@@ -178,7 +178,7 @@ fn reference_options(request_id: &str, reference: &str) -> Result<Value, String>
     let body = host_http(request_id, api_url(&format!("anime/catalog/references/{reference}")))?;
     let value = json_body(&body, "reference options")?;
     let items = reference_items(&value)?;
-    Ok(Value::Array(reference_option_values(&items)))
+    Ok(Value::Array(reference_option_values(&items)?))
 }
 
 fn reference_items(value: &Value) -> Result<Vec<Value>, String> {
@@ -191,15 +191,19 @@ fn reference_items(value: &Value) -> Result<Vec<Value>, String> {
         .ok_or_else(|| "AniLiberty reference response expected an array".to_owned())
 }
 
-fn reference_option_values(items: &[Value]) -> Vec<Value> {
+fn reference_option_values(items: &[Value]) -> Result<Vec<Value>, String> {
     let mut seen_ids = Vec::new();
-    items.iter().filter_map(|item| {
-        let object = item.as_object()?;
+    let mut options = Vec::new();
+    for (index, item) in items.iter().enumerate() {
+        let object = item
+            .as_object()
+            .ok_or_else(|| format!("AniLiberty reference option {index} is not an object"))?;
         let id = object
             .get("id")
             .or_else(|| object.get("value"))
-            .and_then(ValueString::to_string_value)?;
-        if id.trim().is_empty() || seen_ids.iter().any(|seen| seen == &id) { return None; }
+            .and_then(ValueString::to_string_value)
+            .ok_or_else(|| format!("AniLiberty reference option {index} has no valid id"))?;
+        if seen_ids.iter().any(|seen| seen == &id) { continue; }
         let title = object
             .get("name")
             .or_else(|| object.get("description"))
@@ -208,8 +212,9 @@ fn reference_option_values(items: &[Value]) -> Vec<Value> {
             .filter(|value| !value.is_empty())
             .unwrap_or(&id);
         seen_ids.push(id.clone());
-        Some(json!({ "id": id, "title": title }))
-    }).collect()
+        options.push(json!({ "id": id, "title": title }));
+    }
+    Ok(options)
 }
 
 fn catalog_items(value: &Value) -> Result<Vec<Value>, String> {
@@ -550,13 +555,18 @@ mod tests {
         let items = vec![
             json!({"id":"tv", "name":"TV"}),
             json!({"value":"tv", "name":"Duplicate"}),
-            json!({"id":"", "name":"Blank"}),
             json!({"id":"movie", "description":" Movie "}),
         ];
-        assert_eq!(reference_option_values(&items), vec![
+        assert_eq!(reference_option_values(&items).unwrap(), vec![
             json!({"id":"tv", "title":"TV"}),
             json!({"id":"movie", "title":"Movie"})
         ]);
+    }
+
+    #[test]
+    fn rejects_invalid_reference_options_instead_of_hiding_them() {
+        assert!(reference_option_values(&[json!({"id":""})]).is_err());
+        assert!(reference_option_values(&[json!("invalid")]).is_err());
     }
 
     #[test]
