@@ -477,8 +477,12 @@ pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
     ((response_pointer as u64) << 32 | response.len() as u64) as i64
 }
 
+#[cfg(target_arch = "wasm32")]
 #[link(wasm_import_module = "host")]
 extern "C" {
     #[link_name = "call"]
     fn host_call(pointer: *const u8, length: i32) -> i64;
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+unsafe extern "C" fn host_call(_pointer: *const u8, _length: i32) -> i64 { -1 }
