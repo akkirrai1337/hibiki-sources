@@ -25,6 +25,13 @@ function Assert-ManifestMatchesRepositoryIndex($manifestPaths, $indexPath) {
         if ((ConvertTo-Json @($manifest.capabilities) -Compress) -ne (ConvertTo-Json @($entry.capabilities) -Compress)) {
             throw "Repository index $sourceId capabilities differ from local manifest"
         }
+        if ((ConvertTo-Json $manifest.sourceInfo -Depth 10 -Compress) -ne (ConvertTo-Json $entry.sourceInfo -Depth 10 -Compress)) {
+            throw "Repository index $sourceId sourceInfo differs from local manifest"
+        }
+        if ((ConvertTo-Json @($manifest.hostCapabilities) -Compress) -ne (ConvertTo-Json @($entry.hostCapabilities) -Compress) -or
+            (ConvertTo-Json $manifest.hostNetworkPolicy -Depth 10 -Compress) -ne (ConvertTo-Json $entry.hostNetworkPolicy -Depth 10 -Compress)) {
+            throw "Repository index $sourceId host policy differs from local manifest"
+        }
         if ([string]$manifest.runtime.id -ne [string]$entry.runtime.id -or
             [string]$manifest.runtime.abi -ne [string]$entry.runtime.abi) {
             throw "Repository index $sourceId runtime differs from local manifest"
