@@ -32,13 +32,14 @@ pub fn host_get_request(
 pub fn parse_year(value: &str) -> Option<i64> {
     let year_token = value
         .split(|character: char| !character.is_ascii_digit())
-        .find(|token| token.len() >= 4)?;
-    let year = year_token[..4].parse::<i64>().ok()?;
+        .find(|token| token.len() == 4)?;
+    let year = year_token.parse::<i64>().ok()?;
     (1900..=2100).contains(&year).then_some(year)
 }
 
 pub fn normalize_type(value: &str) -> Option<String> {
-    match value.trim().to_lowercase().as_str() {
+    let value = value.trim().to_lowercase().replace(['_', '-'], " ");
+    match value.as_str() {
         "tv" | "tvseries" | "tv series" | "serial" | "сериал" => Some("tv".to_owned()),
         "movie" | "film" | "фильм" => Some("movie".to_owned()),
         "ova" => Some("ova".to_owned()),
@@ -48,7 +49,8 @@ pub fn normalize_type(value: &str) -> Option<String> {
 }
 
 pub fn normalize_status(value: &str) -> Option<String> {
-    match value.trim().to_lowercase().as_str() {
+    let value = value.trim().to_lowercase().replace(['_', '-'], " ");
+    match value.as_str() {
         "released" | "completed" | "finished" | "вышел" => Some("released".to_owned()),
         "ongoing" | "airing" | "releasing" | "онгоинг" | "выходит" => Some("ongoing".to_owned()),
         "announcement" | "announced" | "анонс" => Some("announcement".to_owned()),
@@ -595,11 +597,15 @@ mod tests {
     fn normalizes_metadata_without_accepting_corrupt_years() {
         assert_eq!(parse_year("1999"), Some(1999));
         assert_eq!(parse_year("1999-06-30"), Some(1999));
+        assert_eq!(parse_year("release-20245"), None);
+        assert_eq!(parse_year("title-23659"), None);
         assert_eq!(parse_year("30 июня 1999"), Some(1999));
         assert_eq!(parse_year("2430"), None);
         assert_eq!(parse_year("unknown"), None);
         assert_eq!(normalize_type("TVSERIES"), Some("tv".to_owned()));
+        assert_eq!(normalize_type("TV-Series"), Some("tv".to_owned()));
         assert_eq!(normalize_status("вышел"), Some("released".to_owned()));
+        assert_eq!(normalize_status("finished-airing"), None);
         assert!(is_http_url("https://example.org/video"));
         assert!(!is_http_url("javascript:alert(1)"));
         assert!(!is_http_url("https://"));
