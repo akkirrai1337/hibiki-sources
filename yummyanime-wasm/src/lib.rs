@@ -82,7 +82,9 @@ fn title(value: &Value) -> Option<Value> {
     let id = safe_path_segment(&value.get("anime_id").and_then(scalar)?)?.to_owned();
     let russian = value.get("title").and_then(Value::as_str).filter(|v| !v.trim().is_empty());
     let english = value.get("title_en").or_else(|| value.get("title_english")).and_then(Value::as_str).filter(|v| !v.trim().is_empty());
-    let original = value.get("title_orig").or_else(|| value.get("title_original")).and_then(Value::as_str).or_else(|| english.or(russian));
+    let original_raw = value.get("title_orig").or_else(|| value.get("title_original")).and_then(Value::as_str);
+    let display_name = russian.or(english).or(original_raw)?;
+    let original = original_raw.or(english).or(Some(display_name));
     let poster = value.get("poster").or_else(|| value.get("image"));
     let poster_url = poster.and_then(|p| {
             p.as_str().map(normalized_url).filter(|url| is_http_url(url)).or_else(|| {
@@ -94,14 +96,14 @@ fn title(value: &Value) -> Option<Value> {
         })
     });
     let raw_type = value.get("type").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str);
-    let type_alias = raw_type.and_then(normalize_type).or_else(|| raw_type.map(str::to_owned));
+    let type_alias = raw_type.and_then(normalize_type);
     let raw_status = value.get("anime_status").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str).or_else(|| value.get("status").and_then(Value::as_str));
-    let status = raw_status.and_then(normalize_status).or_else(|| raw_status.map(str::to_owned));
+    let status = raw_status.and_then(normalize_status);
     let year = value.get("year").and_then(normalize_year);
     let age_rating = value.get("min_age").and_then(|v| v.get("title").or_else(|| v.get("title_long")).or(Some(v))).and_then(Value::as_str);
     let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("alias").or_else(|| v.get("name")).or_else(|| v.get("title")).and_then(Value::as_str).map(str::to_owned)).collect::<Vec<_>>()).unwrap_or_default();
     Some(json!({
-        "id": id, "russianName": russian, "englishName": english, "originalName": original,
+        "id": id, "russianName": russian.or(Some(display_name)), "englishName": english, "originalName": original,
         "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
         "synonyms": value.get("synonyms").or_else(|| value.get("aliases")).cloned().unwrap_or_else(|| json!([])),
         "year": year, "type": type_alias, "episodeCount": value.get("episodes_count").and_then(non_negative_i64),
@@ -272,5 +274,21 @@ mod tests {
     #[test]
     fn rejects_unsafe_anime_ids_before_host_call() {
         assert!(videos("test", "../admin").is_err());
+    }
+
+    #[test]
+    fn normalizes_missing_display_name_and_unknown_metadata() {
+        let fixture = json!({
+            "anime_id": "101",
+            "title_en": "English title",
+            "type": "SERVICE_INTERNAL",
+            "status": "INTERNAL_STATUS"
+        });
+        let parsed = title(&fixture).unwrap();
+
+        assert_eq!(parsed["russianName"], "English title");
+        assert_eq!(parsed["originalName"], "English title");
+        assert_eq!(parsed["type"], Value::Null);
+        assert_eq!(parsed["status"], Value::Null);
     }
 }

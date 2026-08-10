@@ -106,7 +106,7 @@ fn title(value: &Value) -> Option<Value> {
                 .and_then(Value::as_str)
         });
     let raw_type = value.get("type").and_then(|value| value.get("value")).and_then(Value::as_str);
-    let type_alias = raw_type.and_then(normalize_type).or_else(|| raw_type.map(str::to_owned));
+    let type_alias = raw_type.and_then(normalize_type);
     let year = value.get("year").and_then(normalize_year);
     let description = value.get("description").and_then(Value::as_str)
         .map(str::trim)
