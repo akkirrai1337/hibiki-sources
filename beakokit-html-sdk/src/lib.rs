@@ -347,7 +347,7 @@ impl HtmlDocument {
             let value = ["src", "data-src", "data-original"]
                 .into_iter().find_map(|attribute| element.value().attr(attribute).map(str::trim).filter(|value| !value.is_empty()))
                 .or_else(|| element.value().attr("srcset").and_then(srcset_first));
-            value.map(|value| self.absolute_url(value))
+            value.and_then(|value| self.absolute_http_url(value))
         }).collect())
     }
 
@@ -355,7 +355,7 @@ impl HtmlDocument {
         Ok(self.select(selector)?.into_iter().find_map(|element| {
             let value = first_attribute(element, &["src", "data-src", "data-original"])
                 .or_else(|| element.value().attr("srcset").and_then(srcset_first).map(str::to_owned))?;
-            Some(self.absolute_url(&value))
+            self.absolute_http_url(&value)
         }))
     }
 
@@ -436,6 +436,14 @@ impl HtmlDocument {
         let value = value.trim();
         if value.is_empty() || value.starts_with('#') || value.starts_with("data:") || value.starts_with("javascript:") {
             return value.to_owned();
+        }
+        if let Some((scheme, _)) = value.split_once(':') {
+            if !scheme.is_empty() && scheme.chars().enumerate().all(|(index, character)| {
+                if index == 0 { character.is_ascii_alphabetic() }
+                else { character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.') }
+            }) {
+                return value.to_owned();
+            }
         }
         if value.starts_with("http://") || value.starts_with("https://") { return value.to_owned(); }
         if value.starts_with("//") { return format!("https:{value}"); }
@@ -619,6 +627,15 @@ mod tests {
         let element = image.select_first("img").unwrap().unwrap();
         assert_eq!(first_attribute(element, &["missing", "data-src"]), Some("/poster.webp".to_owned()));
         assert_eq!(attribute(element, "data-src"), Some("/poster.webp".to_owned()));
+    }
+
+    #[test]
+    fn ignores_non_http_image_urls() {
+        let document = HtmlDocument::parse(
+            r#"<img src="javascript:alert(1)"><img src="file:///tmp/poster.jpg"><img src="/safe.jpg">"#,
+            "https://example.org/catalog",
+        );
+        assert_eq!(document.image_urls("img").unwrap(), ["https://example.org/safe.jpg"]);
     }
 
     #[test]
