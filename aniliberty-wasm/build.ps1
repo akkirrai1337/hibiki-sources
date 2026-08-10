@@ -11,6 +11,15 @@ $stagingDirectory = Join-Path $projectRoot "..\.package-staging"
 $wasmPath = Join-Path $projectRoot "target\wasm32-wasip1\release\aniliberty_wasm.wasm"
 $archivePath = Join-Path $artifactDirectory $OutputName
 
+if ($PackageUrl) {
+    $parsedUri = $null
+    if (-not [Uri]::TryCreate($PackageUrl, [UriKind]::Absolute, [ref]$parsedUri) -or
+        -not $PackageUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase) -or
+        [string]::IsNullOrWhiteSpace($parsedUri.Host)) {
+        throw "PackageUrl must be an absolute HTTPS URL"
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $artifactDirectory | Out-Null
 if ([System.IO.Directory]::Exists($stagingDirectory)) {
     [System.IO.Directory]::Delete($stagingDirectory, $true)
@@ -22,11 +31,6 @@ Copy-Item (Join-Path $projectRoot "package\manifest.json") (Join-Path $stagingDi
 Copy-Item $wasmPath (Join-Path $stagingDirectory "source.wasm")
 
 if ($PackageUrl) {
-    $parsedUri = $null
-    if (-not [Uri]::TryCreate($PackageUrl, [UriKind]::Absolute, [ref]$parsedUri) -or
-        -not $PackageUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "PackageUrl must be an absolute HTTPS URL"
-    }
     $packageManifestPath = Join-Path $stagingDirectory "manifest.json"
     $packageManifest = Get-Content -Raw -LiteralPath $packageManifestPath | ConvertFrom-Json
     $packageManifest.packageUrl = $PackageUrl
