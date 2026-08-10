@@ -133,15 +133,15 @@ async function loadModule(name, relativePath) {
   return { name, instance, memory };
 }
 
-function call(module, operation, payload) {
+function callEncoded(module, input) {
   const { instance, memory } = module;
   instance.exports.beakokit_reset();
-  const request = JSON.stringify({ requestId: `${module.name}-${operation}`, operation, payload, protocolVersion: 1 });
-  const input = new TextEncoder().encode(request);
   const pointer = instance.exports.beakokit_alloc(input.length);
-  if (pointer < 0 || pointer + input.length > memory.buffer.byteLength) {
+  if (pointer < 0) {
     throw new Error(`${module.name}: allocator returned ${pointer} for ${input.length} bytes with memory ${memory.buffer.byteLength}`);
   }
+  const requiredBytes = pointer + input.length - memory.buffer.byteLength;
+  if (requiredBytes > 0) memory.grow(Math.ceil(requiredBytes / 65536));
   new Uint8Array(memory.buffer, pointer, input.length).set(input);
   const packed = instance.exports.beakokit_call(pointer, input.length);
   const responsePointer = Number((packed >> 32n) & 0xffffffffn);
@@ -149,8 +149,30 @@ function call(module, operation, payload) {
   return JSON.parse(new TextDecoder().decode(new Uint8Array(memory.buffer, responsePointer, responseLength)));
 }
 
+function call(module, operation, payload) {
+  const request = JSON.stringify({ requestId: `${module.name}-${operation}`, operation, payload, protocolVersion: 1 });
+  return callEncoded(module, new TextEncoder().encode(request));
+}
+
+function assertRuntimeError(module, input, expectedMessage) {
+  const response = callEncoded(module, new TextEncoder().encode(input));
+  if (response.errorCode !== "SOURCE_FAILURE" || !response.errorMessage?.includes(expectedMessage)) {
+    throw new Error(`${module.name}: expected runtime error containing '${expectedMessage}'`);
+  }
+}
+
 for (const [name, path] of modules) {
   const module = await loadModule(name, path);
+  if (name !== "kotlin") {
+    assertRuntimeError(
+      module,
+      JSON.stringify({ requestId: `${name}-oversized`, operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) } }),
+      "runtime request exceeds size limit",
+    );
+  }
+  if (name !== "kotlin") {
+    assertRuntimeError(module, JSON.stringify({ operation: "SEARCH", payload: {} }), "requestId");
+  }
   const sourceId = name === "yummy" ? "100" : "413";
   const search = call(module, "SEARCH", { query: name === "yummy" ? "fixture" : "naruto", limit: 20, offset: 0 });
   const details = call(module, "DETAILS", { id: sourceId });
