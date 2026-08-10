@@ -158,9 +158,17 @@ fn dubbing(video: &Value) -> Option<String> {
     video.pointer("/data/dubbing").and_then(Value::as_str).map(|v| v.trim_start_matches("Озвучка ").trim().to_owned()).filter(|v| !v.is_empty())
 }
 
+fn validate_dubbing_groups(items: &[Value]) -> Result<(), String> {
+    if !items.is_empty() && !items.iter().any(|video| dubbing(video).is_some()) {
+        return Err("YummyAnime videos contain no valid dubbing groups".to_owned());
+    }
+    Ok(())
+}
+
 fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
     let mut groups = Vec::new();
     let items = videos(request_id, id)?;
+    validate_dubbing_groups(&items)?;
     let mut names: Vec<String> = items.iter().filter_map(dubbing).collect();
     names.sort(); names.dedup();
     for name in names {
@@ -356,5 +364,12 @@ mod tests {
     fn rejects_empty_yummyanime_player_results() {
         assert!(ensure_player_links(&[], "2").is_err());
         assert!(ensure_player_links(&[json!({"url":"https://example.org/player"})], "2").is_ok());
+    }
+
+    #[test]
+    fn diagnoses_videos_without_dubbing_groups() {
+        assert!(validate_dubbing_groups(&[json!({"number":"1"})]).is_err());
+        assert!(validate_dubbing_groups(&[json!({"data":{"dubbing":"Dub"}})]).is_ok());
+        assert!(validate_dubbing_groups(&[]).is_ok());
     }
 }
