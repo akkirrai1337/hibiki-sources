@@ -692,7 +692,7 @@ fn srcset_first(value: &str) -> Option<&str> {
 }
 
 fn image_attribute(element: ElementRef<'_>) -> Option<String> {
-    first_attribute(element, &[
+    [
         "src",
         "data-src",
         "data-original",
@@ -702,14 +702,26 @@ fn image_attribute(element: ElementRef<'_>) -> Option<String> {
         "data-poster",
         "data-lazy",
         "poster",
-    ]).or_else(|| {
+    ].into_iter().find_map(|attribute| {
+        element.value().attr(attribute)
+            .map(str::trim)
+            .filter(|value| is_image_candidate(value))
+            .map(str::to_owned)
+    }).or_else(|| {
         ["srcset", "data-srcset", "data-lazy-srcset"]
             .into_iter()
-            .find_map(|attribute| element.value().attr(attribute).and_then(srcset_first).map(str::to_owned))
+            .find_map(|attribute| element.value().attr(attribute).and_then(srcset_first)
+                .filter(|value| is_image_candidate(value))
+                .map(str::to_owned))
     }).or_else(|| {
-        first_attribute(element, &["data-background-image", "data-background", "data-bg"])
+        ["data-background-image", "data-background", "data-bg"]
+            .into_iter()
+            .find_map(|attribute| element.value().attr(attribute).map(str::trim)
+                .filter(|value| is_image_candidate(value))
+                .map(str::to_owned))
     }).or_else(|| {
         element.value().attr("style").and_then(style_url)
+            .filter(|value| is_image_candidate(value))
     })
 }
 
@@ -727,6 +739,17 @@ fn style_url(value: &str) -> Option<String> {
     let value = value.strip_prefix(['\'', '"']).unwrap_or(value);
     let value = value.strip_suffix(['\'', '"']).unwrap_or(value);
     (!value.trim().is_empty()).then_some(value.trim().to_owned())
+}
+
+fn is_image_candidate(value: &str) -> bool {
+    let value = value.trim();
+    if value.is_empty() || value.starts_with(['#', '?']) || value.starts_with("//") {
+        return !value.is_empty() && value.starts_with("//");
+    }
+    if is_http_url(value) {
+        return true;
+    }
+    !value.contains(':') && !value.starts_with("data")
 }
 
 fn normalize_path(value: &str) -> String {
@@ -953,6 +976,11 @@ mod tests {
         );
         assert_eq!(lazy.image_urls("img").unwrap(), ["https://example.org/lazy.jpg", "https://example.org/small.webp"]);
         assert_eq!(lazy.first_image_url("video").unwrap(), Some("https://example.org/poster.jpg".to_owned()));
+        let placeholders = HtmlDocument::parse(
+            r#"<img src="data:image/gif;base64,placeholder" data-src="/real.jpg"><img src="javascript:void(0)" data-lazy-src="/lazy.webp">"#,
+            "https://example.org",
+        );
+        assert_eq!(placeholders.image_urls("img").unwrap(), ["https://example.org/real.jpg", "https://example.org/lazy.webp"]);
         let backgrounds = HtmlDocument::parse(
             r#"<div data-background-image="/data.jpg"></div><div style="background-image: url('/style.webp')"></div><div style="background-image: url(javascript:alert(1))"></div>"#,
             "https://example.org",
