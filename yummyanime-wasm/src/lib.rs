@@ -79,7 +79,7 @@ fn json_body(body: &str, operation: &str) -> Result<Value, String> {
 }
 
 fn title(value: &Value) -> Option<Value> {
-    let id = value.get("anime_id").and_then(scalar)?;
+    let id = safe_path_segment(&value.get("anime_id").and_then(scalar)?)?.to_owned();
     let russian = value.get("title").and_then(Value::as_str).filter(|v| !v.trim().is_empty());
     let english = value.get("title_en").or_else(|| value.get("title_english")).and_then(Value::as_str).filter(|v| !v.trim().is_empty());
     let original = value.get("title_orig").or_else(|| value.get("title_original")).and_then(Value::as_str).or_else(|| english.or(russian));

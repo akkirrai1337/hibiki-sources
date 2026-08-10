@@ -81,7 +81,7 @@ fn encode_query(value: &str) -> String {
 }
 
 fn title(value: &Value) -> Option<Value> {
-    let id = value.get("id")?.to_string_value()?;
+    let id = safe_path_segment(&value.get("id")?.to_string_value()?)?.to_owned();
     let names = value.get("name").and_then(Value::as_object)?;
     let main_name = names
         .get("main")
@@ -122,7 +122,10 @@ fn title(value: &Value) -> Option<Value> {
         "year": year,
         "type": type_alias,
         "episodeCount": value.get("episodes_total").and_then(non_negative_i64),
-        "posterUrl": poster_path.map(|path| if path.starts_with("http") { path.to_owned() } else { format!("https://anilibria.top{path}") }),
+        "posterUrl": poster_path.and_then(|path| {
+            let url = if is_http_url(path) { path.to_owned() } else { format!("https://anilibria.top/{}", path.trim_start_matches('/')) };
+            is_http_url(&url).then_some(url)
+        }),
         "status": value.get("is_ongoing").and_then(Value::as_bool).map(|ongoing| if ongoing { "ongoing" } else { "released" }),
         "description": description,
         "nextEpisodeAt": null,
