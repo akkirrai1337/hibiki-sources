@@ -237,7 +237,10 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
     let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(first_non_empty_text)
         .and_then(|value| document.absolute_http_url(&value))
         .or_else(|| document.meta_content_any(&["og:image", "twitter:image"]).ok().flatten()
-            .and_then(|value| document.absolute_http_url(&value)));
+            .and_then(|value| document.absolute_http_url(&value)))
+        .or_else(|| document.first_image_url(
+            ".poster img, .entity-poster img, .ani-detail__poster img, img.poster, img[class*='poster'], [data-poster]",
+        ).ok().flatten());
     let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
         .unwrap_or((String::new(), None));
     let description = schema.as_ref().and_then(|v| v.get("description")).and_then(non_empty_text)
@@ -748,6 +751,13 @@ mod tests {
         assert_eq!(title["type"], "tv");
         assert_eq!(title["year"], 2024);
         assert_eq!(title["episodeCount"], 12);
+    }
+
+    #[test]
+    fn falls_back_to_detail_poster_markup() {
+        let html = r#"<h1>Markup poster</h1><div class="entity-poster"><img src="/poster.jpg"></div>"#;
+        let title = details("markup-poster-123", html).expect("details");
+        assert_eq!(title["posterUrl"], "https://animego.me/poster.jpg");
     }
 
     #[test]
