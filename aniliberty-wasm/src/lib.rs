@@ -365,7 +365,7 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
                 }
             }
             for (field, key) in [("yearFrom", "f[years][from_year]"), ("yearTo", "f[years][to_year]")] {
-                if let Some(value) = request.payload.get(field).and_then(Value::as_i64) {
+                if let Some(value) = request.payload.get(field).and_then(normalize_year) {
                     parameters.push_str(&format!("&{key}={value}"));
                 }
             }

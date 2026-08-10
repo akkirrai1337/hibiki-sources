@@ -196,7 +196,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
                 let sort = match sort { "TITLE" => "title", "YEAR" => "year", "VOTES" => "votes", "VIEWS" => "views", "COMMENTS" => "comments", _ => "top" };
                 q.push_str(&format!("&sort={sort}"));
             }
-            for (field, key) in [("yearFrom", "year_from"), ("yearTo", "year_to")] { if let Some(v) = p.get(field).and_then(|v| v.as_str().map(str::to_owned).or_else(|| v.as_i64().map(|n| n.to_string()))) { q.push_str(&format!("&{key}={}", enc(&v))); } }
+            for (field, key) in [("yearFrom", "year_from"), ("yearTo", "year_to")] { if let Some(v) = p.get(field).and_then(normalize_year).map(|value| value.to_string()) { q.push_str(&format!("&{key}={}", enc(&v))); } }
             for (field, key) in [("typeAliases", "types"), ("statusAliases", "statuses"), ("includedGenreAliases", "genres"), ("excludedGenreAliases", "genres_exclude")] { if let Some(values) = p.get(field).and_then(Value::as_array) { let joined = values.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(","); if !joined.is_empty() { q.push_str(&format!("&{key}={}", enc(&joined))); } } }
             let items = array(&http(&request.request_id, "/anime", &q)?)?;
             Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))

@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -92,10 +92,6 @@ fn enc(value: &str) -> String {
         b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => vec![b as char],
         b => format!("%{b:02X}").chars().collect(),
     }).collect()
-}
-
-fn scalar(value: &Value) -> Option<String> {
-    non_empty_scalar(value)
 }
 
 fn text(value: &str) -> String {
@@ -282,7 +278,7 @@ fn filters(html: &str) -> Result<Value, String> {
 
 fn filter_path(p: &Value) -> String {
     let mut parts = Vec::new();
-    let from = p.get("yearFrom").and_then(scalar); let to = p.get("yearTo").and_then(scalar);
+    let from = p.get("yearFrom").and_then(normalize_year).map(|value| value.to_string()); let to = p.get("yearTo").and_then(normalize_year).map(|value| value.to_string());
     if let Some(from) = from { parts.push(if let Some(to) = to { format!("year-from-{}-to-{}", enc(&from), enc(&to)) } else { format!("year-from-{}", enc(&from)) }); }
     else if let Some(to) = to { parts.push(format!("year-to-{}", enc(&to))); }
     let mut genres = Vec::new();
@@ -465,13 +461,14 @@ mod tests {
     #[test]
     fn encodes_filter_values_before_building_catalog_path() {
         let path = filter_path(&json!({
-            "yearFrom": "2020/../2024",
+            "yearFrom": "2020",
+            "yearTo": "2430",
             "includedGenreAliases": ["action/romance"],
             "excludedGenreAliases": ["?unsafe"],
             "typeAliases": ["tv series"]
         }));
 
-        assert_eq!(path, "/anime/filter/year-from-2020%2F..%2F2024/genres-is-action%2Fromance-or-!%3Funsafe/type-is-tv%20series/apply");
+        assert_eq!(path, "/anime/filter/year-from-2020/genres-is-action%2Fromance-or-!%3Funsafe/type-is-tv%20series/apply");
     }
 
     #[test]
