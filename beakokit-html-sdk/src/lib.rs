@@ -339,7 +339,7 @@ impl HtmlDocument {
 
     pub fn links(&self, selector: &str) -> Result<Vec<String>, HtmlSdkError> {
         self.attributes(selector, "href")
-            .map(|values| values.into_iter().map(|value| self.absolute_url(&value)).collect())
+            .map(|values| values.into_iter().filter_map(|value| self.absolute_http_url(&value)).collect())
     }
 
     pub fn image_urls(&self, selector: &str) -> Result<Vec<String>, HtmlSdkError> {
@@ -627,6 +627,15 @@ mod tests {
         let element = image.select_first("img").unwrap().unwrap();
         assert_eq!(first_attribute(element, &["missing", "data-src"]), Some("/poster.webp".to_owned()));
         assert_eq!(attribute(element, "data-src"), Some("/poster.webp".to_owned()));
+    }
+
+    #[test]
+    fn ignores_non_http_links() {
+        let document = HtmlDocument::parse(
+            r#"<a href="javascript:alert(1)">bad</a><a href="file:///tmp/file">bad</a><a href="/safe">safe</a>"#,
+            "https://example.org",
+        );
+        assert_eq!(document.links("a").unwrap(), ["https://example.org/safe"]);
     }
 
     #[test]
