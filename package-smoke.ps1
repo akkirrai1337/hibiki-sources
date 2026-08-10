@@ -51,6 +51,7 @@ try {
     & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0] -PackageUrl ("https://example.invalid/" + $names[0]) -RepositoryIndexPath $indexPath
     & (Join-Path $repositoryRoot "yummyanime-wasm\build.ps1") -OutputName $names[1] -PackageUrl ("https://example.invalid/" + $names[1]) -RepositoryIndexPath $indexPath
     & (Join-Path $repositoryRoot "animego-wasm\build.ps1") -OutputName $names[2] -PackageUrl ("https://example.invalid/" + $names[2]) -RepositoryIndexPath $indexPath
+    & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0] -PackageUrl ("https://example.invalid/" + $names[0]) -RepositoryIndexPath $indexPath
 
     $index = Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json
     $indexSourceIds = @($index.sources | ForEach-Object sourceId)
