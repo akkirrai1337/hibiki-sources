@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -229,8 +229,8 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
     let description = schema.as_ref().and_then(|v| v.get("description")).and_then(Value::as_str).map(str::to_owned);
     let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(parse_year);
     let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
-    let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(Value::as_i64)
-        .or_else(|| episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()));
+    let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(non_negative_i64)
+        .or_else(|| episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()).filter(|value| *value >= 0));
     let type_alias = schema.as_ref().and_then(|v| v.get("@type")).and_then(Value::as_str).and_then(known_type)
         .or_else(|| field_value(html, "\u{0422}\u{0438}\u{043f}").and_then(|value| known_type(&value)));
     let status = field_value(html, "\u{0421}\u{0442}\u{0430}\u{0442}\u{0443}\u{0441}").and_then(|value| status_alias(&value));
@@ -241,7 +241,7 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         "description": description.or(Some(name)), "nextEpisodeAt": null, "genres": schema.as_ref().and_then(|v| v.get("genre")).cloned().unwrap_or_else(|| json!([])), "ratings": [],
         "ageRating": schema.as_ref().and_then(|v| v.get("contentRating")), "viewCount": null, "screenshots": [], "trailer": null,
         "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
-        "season": null, "availableEpisodeCount": episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()), "posterFallbackUrl": poster_fallback
+        "season": null, "availableEpisodeCount": episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()).filter(|value| *value >= 0), "posterFallbackUrl": poster_fallback
     }))
 }
 
@@ -348,7 +348,7 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
                     let content = episode.text().collect::<String>();
                     text(&content).split_whitespace()
                         .find_map(|part| part.replace(',', ".").parse::<f64>().ok())
-                })?;
+                }).filter(|value| *value >= 0.0)?;
             Some(json!({
                 "id": id,
                 "number": number,
@@ -587,6 +587,7 @@ mod tests {
             <button data-episode="ep-2" data-episode-number="2">2</button>
             <button data-episode="ep-1" data-episode-number="1" data-episode-title="Pilot">1</button>
             <button data-episode="ep-1" data-episode-number="1">duplicate</button>
+            <button data-episode="ep-negative" data-episode-number="-1">invalid</button>
         "#;
         let episodes = episode_items(html).expect("episodes");
 
