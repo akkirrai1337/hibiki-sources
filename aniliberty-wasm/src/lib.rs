@@ -205,6 +205,16 @@ fn reference_option_values(items: &[Value]) -> Vec<Value> {
     }).collect()
 }
 
+fn catalog_items(value: &Value) -> Result<Vec<Value>, String> {
+    value
+        .get("data")
+        .or_else(|| value.get("items"))
+        .or(Some(value))
+        .and_then(Value::as_array)
+        .cloned()
+        .ok_or_else(|| "AniLiberty catalog response expected an array".to_owned())
+}
+
 fn filter_catalog(request_id: &str) -> Result<Value, String> {
     Ok(json!({
         "sortOptions": [
@@ -364,12 +374,7 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
             let url = format!("{}?{parameters}", api_url("anime/catalog/releases"));
             host_http(&request.request_id, url).and_then(|body| {
                 let value = json_body(&body, "search")?;
-                let items = value
-                    .get("data")
-                    .or_else(|| value.get("items"))
-                    .and_then(Value::as_array)
-                    .cloned()
-                    .unwrap_or_default();
+                let items = catalog_items(&value)?;
                 Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
             })
         }
@@ -529,5 +534,11 @@ mod tests {
             json!({"id":"tv", "title":"TV"}),
             json!({"id":"movie", "title":"Movie"})
         ]);
+    }
+
+    #[test]
+    fn rejects_malformed_catalog_collections() {
+        assert!(catalog_items(&json!({"data":{"unexpected":true}})).is_err());
+        assert_eq!(catalog_items(&json!({"data":[]})).unwrap(), Vec::<Value>::new());
     }
 }
