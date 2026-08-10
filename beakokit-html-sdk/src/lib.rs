@@ -35,11 +35,11 @@ pub fn host_get_request(
 }
 
 pub fn parse_year(value: &str) -> Option<i64> {
-    let year_token = value
+    value
         .split(|character: char| !character.is_ascii_digit())
-        .find(|token| token.len() == 4)?;
-    let year = year_token.parse::<i64>().ok()?;
-    (1900..=2100).contains(&year).then_some(year)
+        .filter(|token| token.len() == 4)
+        .filter_map(|token| token.parse::<i64>().ok())
+        .find(|year| (1900..=2100).contains(year))
 }
 
 pub fn normalize_type(value: &str) -> Option<String> {
@@ -799,6 +799,7 @@ mod tests {
         assert_eq!(parse_year("1999"), Some(1999));
         assert_eq!(parse_year("1999-06-30"), Some(1999));
         assert_eq!(parse_year("release-20245"), None);
+        assert_eq!(parse_year("catalog-1234-release-2024"), Some(2024));
         assert_eq!(parse_year("title-23659"), None);
         assert_eq!(parse_year("30 июня 1999"), Some(1999));
         assert_eq!(parse_year("2430"), None);
