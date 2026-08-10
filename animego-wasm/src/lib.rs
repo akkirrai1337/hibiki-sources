@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, first_non_empty_text, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -233,9 +233,9 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         .or_else(|| document.meta_content_any(&["og:title", "twitter:title"]).ok().flatten())
         .ok_or_else(|| format!("AnimeGo details title is missing for {id}"))?;
     let schema = json_ld_document(&document);
-    let original = schema.as_ref().and_then(|v| v.get("alternateName").or_else(|| v.get("name"))).and_then(non_empty_text).unwrap_or_else(|| name.clone());
-    let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(Value::as_str)
-        .and_then(|value| document.absolute_http_url(value))
+    let original = schema.as_ref().and_then(|v| v.get("alternateName").or_else(|| v.get("name"))).and_then(first_non_empty_text).unwrap_or_else(|| name.clone());
+    let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(first_non_empty_text)
+        .and_then(|value| document.absolute_http_url(&value))
         .or_else(|| document.meta_content_any(&["og:image", "twitter:image"]).ok().flatten()
             .and_then(|value| document.absolute_http_url(&value)));
     let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
@@ -246,7 +246,7 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
     let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
     let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(non_negative_i64)
         .or_else(|| episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()).filter(|value| *value >= 0));
-    let type_alias = schema.as_ref().and_then(|v| v.get("@type")).and_then(Value::as_str).and_then(known_type)
+    let type_alias = schema.as_ref().and_then(|v| v.get("@type")).and_then(first_non_empty_text).and_then(|value| known_type(&value))
         .or_else(|| field_value(html, "\u{0422}\u{0438}\u{043f}").and_then(|value| known_type(&value)));
     let status = field_value(html, "\u{0421}\u{0442}\u{0430}\u{0442}\u{0443}\u{0441}").and_then(|value| status_alias(&value));
     Ok(json!({
