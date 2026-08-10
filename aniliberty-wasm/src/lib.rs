@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -460,6 +460,11 @@ pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
             Err(error) => runtime_error("invalid-request".to_owned(), error),
         },
         Err(error) => runtime_error("invalid-request".to_owned(), error.to_string()),
+    };
+    let response = if response.len() > MAX_RUNTIME_RESPONSE_BYTES {
+        runtime_error("response-too-large".to_owned(), "runtime response exceeds size limit")
+    } else {
+        response
     };
     let response_pointer = beakokit_alloc(response.len() as i32) as usize;
     unsafe {
