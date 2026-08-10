@@ -253,15 +253,19 @@ fn json_ld_document(document: &HtmlDocument) -> Option<Value> {
 fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "filters")?;
     let selector = format!("input[name^='{prefix}']");
+    let mut seen_ids = Vec::new();
     Ok(document
         .select(&selector)
         .unwrap_or_default()
         .into_iter()
         .filter_map(|input| {
-            let id = element_attr(input, "value")?;
+            let id = element_attr(input, "value").filter(|value| !value.is_empty())?;
+            if seen_ids.iter().any(|seen| seen == &id) { return None; }
+            seen_ids.push(id.clone());
             let title = element_attr(input, "data-title")
                 .or_else(|| element_attr(input, "aria-label"))
                 .unwrap_or_else(|| id.clone());
+            if title.trim().is_empty() { return None; }
             Some(json!({ "id": id, "title": title }))
         })
         .collect())
@@ -462,6 +466,20 @@ mod tests {
 
         assert_eq!(filter_options(html, "type_").unwrap(), vec![json!({"id":"tv", "title":"TV"}), json!({"id":"movie", "title":"Movie"})]);
         assert_eq!(filter_options(html, "status_").unwrap(), vec![json!({"id":"released", "title":"released"})]);
+    }
+
+    #[test]
+    fn filters_duplicate_and_blank_options() {
+        let html = r#"
+            <input name="type_a" value="tv" data-title="TV">
+            <input name="type_b" value="tv" data-title="TV duplicate">
+            <input name="type_c" value="" data-title="Blank">
+            <input name="type_d" value="movie" data-title="Movie">
+        "#;
+        assert_eq!(filter_options(html, "type_").unwrap(), vec![
+            json!({"id":"tv", "title":"TV"}),
+            json!({"id":"movie", "title":"Movie"})
+        ]);
     }
 
     #[test]
