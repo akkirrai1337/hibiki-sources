@@ -7,6 +7,7 @@ pub const MAX_RUNTIME_OPERATION_BYTES: usize = 64;
 pub const MAX_RUNTIME_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_HOST_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_PACKED_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+pub const MAX_PAGINATION_OFFSET: i64 = 1_000_000;
 pub const MAX_PATH_SEGMENT_BYTES: usize = 256;
 pub const HOST_PROTOCOL_VERSION: u32 = 1;
 pub const DEFAULT_HTTP_TIMEOUT_MILLIS: u64 = 30_000;
@@ -160,7 +161,11 @@ pub fn non_negative_finite(value: f64) -> Option<f64> {
 }
 
 pub fn bounded_pagination(payload: &Value) -> (i64, i64) {
-    let offset = payload.get("offset").and_then(Value::as_i64).unwrap_or(0).max(0);
+    let offset = payload
+        .get("offset")
+        .and_then(Value::as_i64)
+        .unwrap_or(0)
+        .clamp(0, MAX_PAGINATION_OFFSET);
     let limit = payload.get("limit").and_then(Value::as_i64).unwrap_or(20).clamp(1, 50);
     (offset, limit)
 }
@@ -684,7 +689,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, bounded_pagination, first_attribute, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
+    use super::{attribute, bounded_pagination, first_attribute, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_PAGINATION_OFFSET, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_bounded_host_get_request() {
@@ -727,6 +732,7 @@ mod tests {
     fn bounds_pagination_values() {
         let payload = serde_json::json!({"offset": -4, "limit": 500});
         assert_eq!(bounded_pagination(&payload), (0, 50));
+        assert_eq!(bounded_pagination(&serde_json::json!({"offset": i64::MAX})), (MAX_PAGINATION_OFFSET, 20));
         assert_eq!(bounded_pagination(&serde_json::json!({})), (0, 20));
     }
 
