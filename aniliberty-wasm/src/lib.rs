@@ -244,6 +244,25 @@ fn require_filter_options(options: Value, label: &str) -> Result<Value, String> 
     Ok(options)
 }
 
+fn string_filter_values(payload: &Value, field: &str) -> Result<Option<Vec<String>>, String> {
+    let Some(value) = payload.get(field) else { return Ok(None); };
+    let values = value
+        .as_array()
+        .ok_or_else(|| format!("AniLiberty filter field {field} must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            value
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .ok_or_else(|| format!("AniLiberty filter field {field} item {index} must be a string"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Some(values))
+}
+
 fn filter_catalog(request_id: &str) -> Result<Value, String> {
     let type_options = require_filter_options(reference_options(request_id, "types")?, "type")?;
     let status_options = require_filter_options(reference_options(request_id, "publish-statuses")?, "status")?;
@@ -382,13 +401,12 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
                 ("statusAliases", "f[publish_statuses]"),
                 ("includedGenreAliases", "f[genres]"),
             ] {
-                if let Some(values) = request.payload.get(field).and_then(Value::as_array) {
-                    let value = values
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .filter(|value| !value.trim().is_empty())
-                        .collect::<Vec<_>>()
-                        .join(",");
+                let values = match string_filter_values(&request.payload, field) {
+                    Ok(values) => values,
+                    Err(error) => return runtime_error(request.request_id, error),
+                };
+                if let Some(values) = values {
+                    let value = values.join(",");
                     if !value.is_empty() {
                         parameters.push_str(&format!("&{key}={}", encode_query(&value)));
                     }
@@ -591,6 +609,13 @@ mod tests {
     fn reports_missing_required_filter_options() {
         assert!(require_filter_options(json!([]), "type").is_err());
         assert!(require_filter_options(json!([{"id":"tv"}]), "type").is_ok());
+    }
+
+    #[test]
+    fn validates_aniliberty_filter_arrays() {
+        assert_eq!(string_filter_values(&json!({"types":["tv", " movie "]}), "types").unwrap(), Some(vec!["tv".to_owned(), "movie".to_owned()]));
+        assert!(string_filter_values(&json!({"types":"tv"}), "types").is_err());
+        assert!(string_filter_values(&json!({"types":["tv", 1]}), "types").is_err());
     }
 
     #[test]
