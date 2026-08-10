@@ -105,6 +105,19 @@ pub fn validate_runtime_request(value: &Value) -> Result<String, String> {
     Ok(request_id.to_owned())
 }
 
+/// Keep runtime errors safe and compact for transport to the client UI/log.
+pub fn sanitize_runtime_error(value: &str) -> String {
+    value.chars()
+        .map(|character| if character.is_control() { ' ' } else { character })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(1024)
+        .collect()
+}
+
 /// Return the first non-empty attribute from a fallback list.
 pub fn first_attribute(element: ElementRef<'_>, attributes: &[&str]) -> Option<String> {
     attributes.iter().find_map(|attribute| {
@@ -558,7 +571,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
+    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_stable_host_get_request() {
@@ -732,5 +745,7 @@ mod tests {
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "  ", "operation": "SEARCH", "payload": {} })).is_err());
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": null })).is_err());
         assert_eq!(MAX_RUNTIME_REQUEST_BYTES, 256 * 1024);
+        assert_eq!(sanitize_runtime_error("bad\n  response\tvalue"), "bad response value");
+        assert_eq!(sanitize_runtime_error(&"x".repeat(2_000)).len(), 1_024);
     }
 }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -38,7 +38,7 @@ struct RuntimeResponse {
 }
 
 fn error(request_id: String, message: impl Into<String>) -> Vec<u8> {
-    let message = message.into().replace(['\r', '\n'], " ");
+    let message = sanitize_runtime_error(&message.into());
     serde_json::to_vec(&RuntimeResponse {
         request_id,
         payload: None,

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -30,7 +30,8 @@ struct RuntimeResponse {
 }
 
 fn error(request_id: String, message: impl Into<String>) -> Vec<u8> {
-    serde_json::to_vec(&RuntimeResponse { request_id, payload: None, error_code: Some("SOURCE_FAILURE"), error_message: Some(message.into()), protocol_version: RUNTIME_PROTOCOL_VERSION }).unwrap()
+    let message = sanitize_runtime_error(&message.into());
+    serde_json::to_vec(&RuntimeResponse { request_id, payload: None, error_code: Some("SOURCE_FAILURE"), error_message: Some(message), protocol_version: RUNTIME_PROTOCOL_VERSION }).unwrap()
 }
 
 fn http(request_id: &str, path: &str, query: &str) -> Result<String, String> {
