@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -58,6 +58,9 @@ fn http(request_id: &str, path: &str, headers: Value) -> Result<String, String> 
     let ptr = (packed as u64 >> 32) as usize;
     let len = (packed as u64 & u32::MAX as u64) as usize;
     let raw = unsafe { core::slice::from_raw_parts(ptr as *const u8, len) };
+    if raw.len() > MAX_HOST_RESPONSE_BYTES {
+        return Err("AnimeGo host response exceeds size limit".to_owned());
+    }
     let response: Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
     HostResponse::from_value_limited(&response, "AnimeGo", MAX_RESPONSE_BYTES as usize)
         .map(|response| response.body().to_owned())

@@ -4,6 +4,7 @@ use serde_json::Value;
 pub const DEFAULT_MAX_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_RUNTIME_REQUEST_BYTES: usize = 256 * 1024;
 pub const MAX_RUNTIME_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
+pub const MAX_HOST_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 pub const HOST_PROTOCOL_VERSION: u32 = 1;
 pub const DEFAULT_HTTP_TIMEOUT_MILLIS: u64 = 30_000;
 

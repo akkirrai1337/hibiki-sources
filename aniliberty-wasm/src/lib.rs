@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -63,6 +63,9 @@ fn host_http(request_id: &str, url: String) -> Result<String, String> {
     let response_ptr = (packed as u64 >> 32) as usize;
     let response_len = (packed as u64 & u32::MAX as u64) as usize;
     let response = unsafe { core::slice::from_raw_parts(response_ptr as *const u8, response_len) };
+    if response.len() > MAX_HOST_RESPONSE_BYTES {
+        return Err("AniLiberty host response exceeds size limit".to_owned());
+    }
     let response: Value = serde_json::from_slice(response).map_err(|error| error.to_string())?;
     HostResponse::from_value_limited(&response, "AniLiberty", MAX_RESPONSE_BYTES as usize)
         .map(|response| response.body().to_owned())
