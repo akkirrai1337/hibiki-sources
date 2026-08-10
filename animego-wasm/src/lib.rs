@@ -287,6 +287,12 @@ fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
             seen_ids.push(id.clone());
             let title = element_attr(input, "data-title")
                 .or_else(|| element_attr(input, "aria-label"))
+                .or_else(|| {
+                    let input_id = element_attr(input, "id")?;
+                    document.select("label").ok()?.into_iter()
+                        .find(|label| element_attr(*label, "for").as_deref() == Some(input_id.as_str()))
+                        .and_then(clean_element_text)
+                })
                 .unwrap_or_else(|| id.clone());
             if title.trim().is_empty() { return None; }
             Some(json!({ "id": id, "title": title }))
@@ -561,6 +567,12 @@ mod tests {
             json!({"id":"tv", "title":"TV"}),
             json!({"id":"movie", "title":"Movie"})
         ]);
+    }
+
+    #[test]
+    fn reads_filter_title_from_matching_label() {
+        let html = r#"<input id="type_tv" name="type_tv" value="tv"><label for="type_tv">TV Series</label>"#;
+        assert_eq!(filter_options(html, "type_").unwrap(), vec![json!({"id":"tv", "title":"TV Series"})]);
     }
 
     #[test]
