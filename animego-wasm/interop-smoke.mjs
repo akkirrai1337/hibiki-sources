@@ -5,6 +5,10 @@ const wasmPath = process.env.ANIMEGO_WASM_PATH
   ? pathToFileURL(process.env.ANIMEGO_WASM_PATH)
   : new URL("./target/wasm32-wasip1/release/animego_wasm.wasm", import.meta.url);
 const catalogFixture = fs.readFileSync(new URL("./tests/fixtures/catalog-card.html", import.meta.url), "utf8");
+const catalogRatingFixture = catalogFixture.replace(
+  "<div class=\"ani-list__item-body\">",
+  "<div class=\"ani-list__item-body\"><div class=\"rating-badge\">8,7</div>",
+);
 const interopDetailsFixture = `
   <h1>Complete interop title</h1>
   <script type="application/ld+json">
@@ -32,7 +36,7 @@ function responseFor(url) {
   requestedUrls.push(url);
   let body;
   if (url.includes("/search/all") || url.includes("/anime/filter") || /^https:\/\/animego\.me\/anime(?:\/\d+)?$/.test(url)) {
-    body = JSON.stringify({ status: "success", data: { content: catalogFixture + interopFilterFixture } });
+    body = JSON.stringify({ status: "success", data: { content: catalogRatingFixture + interopFilterFixture } });
   } else if (url.includes("/anime/krutoy-uchitel-onidzuka-556")) {
     body = interopDetailsFixture;
   } else if (url.includes("/player/videos/episode-1")) {
@@ -120,7 +124,7 @@ function call(instance, operation, payload) {
 
 const instance = await loadModule();
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
-if (search.errorCode || search.payload?.items?.[0]?.id !== "krutoy-uchitel-onidzuka-556") {
+if (search.errorCode || search.payload?.items?.[0]?.id !== "krutoy-uchitel-onidzuka-556" || search.payload?.items?.[0]?.ratings?.[0]?.value !== 8.7) {
   throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 }
 const searchPageTwo = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 20 });
