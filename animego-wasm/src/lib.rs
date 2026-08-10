@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, is_http_url, non_negative_finite, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, host_get_request, is_http_url, non_negative_finite, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -396,9 +396,9 @@ fn player_items(html: &str) -> Result<Vec<Value>, String> {
 fn execute(request: RuntimeRequest) -> Result<Value, String> {
     match request.operation {
         RuntimeOperation::FilterCatalog => filters(&page(&request.request_id, "/anime")?),
-        RuntimeOperation::Latest => Ok(json!({ "items": card_titles_with_diagnostics(&page(&request.request_id, "/anime")?, "LATEST")?.into_iter().take(request.payload.get("limit").and_then(Value::as_i64).unwrap_or(20).max(1) as usize).collect::<Vec<_>>() })),
+        RuntimeOperation::Latest => { let (_, limit) = bounded_pagination(&request.payload); Ok(json!({ "items": card_titles_with_diagnostics(&page(&request.request_id, "/anime")?, "LATEST")?.into_iter().take(limit as usize).collect::<Vec<_>>() })) },
         RuntimeOperation::Search => {
-            let p = &request.payload; let limit = p.get("limit").and_then(Value::as_i64).unwrap_or(20).clamp(1, 50); let offset = p.get("offset").and_then(Value::as_i64).unwrap_or(0).max(0);
+            let p = &request.payload; let (offset, limit) = bounded_pagination(p);
             let query = p.get("query").and_then(Value::as_str).unwrap_or("").trim();
             let path = if !query.is_empty() {
                 format!("/search/all?q={}&page={}", enc(query), offset / 20 + 1)

@@ -159,6 +159,12 @@ pub fn non_negative_finite(value: f64) -> Option<f64> {
     value.is_finite().then_some(value).filter(|value| *value >= 0.0)
 }
 
+pub fn bounded_pagination(payload: &Value) -> (i64, i64) {
+    let offset = payload.get("offset").and_then(Value::as_i64).unwrap_or(0).max(0);
+    let limit = payload.get("limit").and_then(Value::as_i64).unwrap_or(20).clamp(1, 50);
+    (offset, limit)
+}
+
 /// Accept only a single conservative URL path segment from source data.
 pub fn safe_path_segment(value: &str) -> Option<&str> {
     let value = value.trim();
@@ -678,7 +684,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
+    use super::{attribute, bounded_pagination, first_attribute, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_bounded_host_get_request() {
@@ -715,6 +721,13 @@ mod tests {
         assert_eq!(non_negative_finite(f64::NAN), None);
         assert_eq!(non_negative_finite(f64::INFINITY), None);
         assert_eq!(non_negative_finite(2.5), Some(2.5));
+    }
+
+    #[test]
+    fn bounds_pagination_values() {
+        let payload = serde_json::json!({"offset": -4, "limit": 500});
+        assert_eq!(bounded_pagination(&payload), (0, 50));
+        assert_eq!(bounded_pagination(&serde_json::json!({})), (0, 20));
     }
 
     #[test]

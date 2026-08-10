@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_finite, non_negative_i64, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, non_negative_i64, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -322,13 +322,8 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
                 .get("query")
                 .and_then(Value::as_str)
                 .unwrap_or("");
-            let page = request
-                .payload
-                .get("offset")
-                .and_then(Value::as_i64)
-                .unwrap_or(0)
-                / 20
-                + 1;
+            let (offset, _) = bounded_pagination(&request.payload);
+            let page = offset / 20 + 1;
             let sorting = match request
                 .payload
                 .get("sort")

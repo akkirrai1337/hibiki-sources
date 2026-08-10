@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_finite, non_negative_i64, normalize_status, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, non_negative_i64, normalize_status, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -192,7 +192,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
             Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
         }
         RuntimeOperation::Search => {
-            let p = &request.payload; let offset = p.get("offset").and_then(Value::as_i64).unwrap_or(0); let limit = p.get("limit").and_then(Value::as_i64).unwrap_or(20);
+            let p = &request.payload; let (offset, limit) = bounded_pagination(p);
             let mut q = format!("limit={limit}&offset={offset}");
             if let Some(value) = p.get("query").and_then(Value::as_str).filter(|v| !v.trim().is_empty()) { q.push_str(&format!("&q={}", enc(value))); }
             if let Some(sort) = p.get("sort").and_then(Value::as_str) {
