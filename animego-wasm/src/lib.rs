@@ -293,6 +293,10 @@ fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
                         .find(|label| element_attr(*label, "for").as_deref() == Some(input_id.as_str()))
                         .and_then(clean_element_text)
                 })
+                .or_else(|| {
+                    let parent = input.parent().and_then(ElementRef::wrap)?;
+                    (parent.value().name() == "label").then(|| clean_element_text(parent)).flatten()
+                })
                 .unwrap_or_else(|| id.clone());
             if title.trim().is_empty() { return None; }
             Some(json!({ "id": id, "title": title }))
@@ -573,6 +577,12 @@ mod tests {
     fn reads_filter_title_from_matching_label() {
         let html = r#"<input id="type_tv" name="type_tv" value="tv"><label for="type_tv">TV Series</label>"#;
         assert_eq!(filter_options(html, "type_").unwrap(), vec![json!({"id":"tv", "title":"TV Series"})]);
+    }
+
+    #[test]
+    fn reads_filter_title_from_wrapping_label() {
+        let html = r#"<label>Movie<input name="type_movie" value="movie"></label>"#;
+        assert_eq!(filter_options(html, "type_").unwrap(), vec![json!({"id":"movie", "title":"Movie"})]);
     }
 
     #[test]
