@@ -619,8 +619,14 @@ impl HtmlDocument {
             let cells = row.select(&Selector::parse(":scope > *").expect("valid scope selector"))
                 .collect::<Vec<_>>();
             for (index, cell) in cells.iter().enumerate() {
-                if clean_element_text(*cell).as_deref().map(normalized_label).as_deref() == Some(label.as_str()) {
+                let Some(cell_text) = clean_element_text(*cell) else { continue; };
+                if normalized_label(&cell_text) == label {
                     return Ok(cells.get(index + 1).and_then(|value| clean_element_text(*value)));
+                }
+                if let Some((cell_label, cell_value)) = cell_text.split_once(':') {
+                    if normalized_label(cell_label) == label {
+                        return Ok(clean_text(cell_value));
+                    }
                 }
             }
         }
@@ -1121,6 +1127,15 @@ mod tests {
     fn matches_labeled_fields_with_trailing_colons() {
         let document = HtmlDocument::parse(
             r#"<div class="row"><span>Type:</span><span>TV</span></div>"#,
+            "https://example.org",
+        );
+        assert_eq!(document.labeled_text(".row", "type").unwrap(), Some("TV".to_owned()));
+    }
+
+    #[test]
+    fn matches_inline_labeled_fields() {
+        let document = HtmlDocument::parse(
+            r#"<div class="row"><span>Type: <strong>TV</strong></span></div>"#,
             "https://example.org",
         );
         assert_eq!(document.labeled_text(".row", "type").unwrap(), Some("TV".to_owned()));
