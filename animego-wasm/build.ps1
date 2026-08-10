@@ -17,6 +17,12 @@ trap {
     throw $errorRecord.Exception
 }
 
+if ([System.IO.Path]::IsPathRooted($OutputName) -or
+    [System.IO.Path]::GetFileName($OutputName) -ne $OutputName -or
+    [System.IO.Path]::GetExtension($OutputName) -ne ".zip") {
+    throw "OutputName must be a filename with a .zip extension"
+}
+
 if ($PackageUrl) {
     $parsedUri = $null
     if (-not [Uri]::TryCreate($PackageUrl, [UriKind]::Absolute, [ref]$parsedUri) -or
