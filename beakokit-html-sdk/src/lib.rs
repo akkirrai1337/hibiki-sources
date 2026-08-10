@@ -254,7 +254,11 @@ impl HtmlDocument {
     ) -> Result<Vec<String>, HtmlSdkError> {
         let selector_value = selector.to_owned();
         self.select(selector)?.into_iter().map(|element| {
-            element.value().attr(attribute).map(str::to_owned).ok_or_else(|| {
+            element.value().attr(attribute)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .ok_or_else(|| {
                 HtmlSdkError::MissingAttribute {
                     selector: selector_value.clone(),
                     attribute: attribute.to_owned(),
@@ -596,6 +600,10 @@ mod tests {
         let document = HtmlDocument::parse(r#"<article class="card"></article>"#, "https://example.org");
         assert_eq!(document.text(".card[").unwrap_err(), HtmlSdkError::InvalidSelector(".card[".to_owned()));
         assert_eq!(document.required_attribute(".card", "data-id").unwrap_err(), HtmlSdkError::MissingAttribute {
+            selector: ".card".to_owned(), attribute: "data-id".to_owned()
+        });
+        let blank_attribute = HtmlDocument::parse(r#"<article class="card" data-id="  "></article>"#, "https://example.org");
+        assert_eq!(blank_attribute.required_attribute(".card", "data-id").unwrap_err(), HtmlSdkError::MissingAttribute {
             selector: ".card".to_owned(), attribute: "data-id".to_owned()
         });
         assert_eq!(document.required_text(".card .title").unwrap_err(), HtmlSdkError::MissingText {
