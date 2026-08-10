@@ -155,6 +155,8 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
             let source_poster = card.image_url;
             let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
                 .unwrap_or((String::new(), None));
+            let rating = first_class_text(card_element, "rating-badge")
+                .and_then(|value| rating_value(&value));
             let metadata = card_element
                 .select(&metadata_selector)
                 .filter_map(clean_element_text)
@@ -200,7 +202,9 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                 "synonyms": [], "year": year, "type": type_alias,
                 "episodeCount": null, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
                 "description": description.or_else(|| Some(name.clone())), "nextEpisodeAt": null,
-                "genres": genres, "ratings": [], "ageRating": null, "viewCount": null,
+                "genres": genres,
+                "ratings": rating.map(|value| vec![json!({ "source": "AnimeGo", "value": value, "votes": null })]).unwrap_or_default(),
+                "ageRating": null, "viewCount": null,
                 "screenshots": [], "trailer": null, "sourceMaterial": null, "studios": [],
                 "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
                 "season": null, "availableEpisodeCount": null, "posterFallbackUrl": poster_fallback
@@ -252,6 +256,15 @@ fn status_alias(value: &str) -> Option<String> {
     normalize_status(value)
 }
 
+fn rating_value(value: &str) -> Option<f64> {
+    value
+        .trim()
+        .replace(',', ".")
+        .parse::<f64>()
+        .ok()
+        .and_then(positive_finite)
+}
+
 fn details(id: &str, html: &str) -> Result<Value, String> {
     let document = parse_html(html, "details")?;
     let field_value = |labels: &[&str]| {
@@ -289,11 +302,26 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
             .find_map(|key| value.get(key).and_then(first_non_empty_text)))
         .and_then(|value| status_alias(&value))
         .or_else(|| field_value(&["Статус", "Status", "State"]).and_then(|value| status_alias(&value)));
+    let ratings = schema
+        .as_ref()
+        .and_then(|value| value.get("aggregateRating"))
+        .and_then(Value::as_object)
+        .and_then(|value| value.get("ratingValue").and_then(first_non_empty_text))
+        .and_then(|value| rating_value(&value))
+        .map(|value| {
+            let votes = schema
+                .as_ref()
+                .and_then(|value| value.get("aggregateRating"))
+                .and_then(Value::as_object)
+                .and_then(|value| value.get("ratingCount").and_then(non_negative_i64));
+            vec![json!({ "source": "AnimeGo", "value": value, "votes": votes })]
+        })
+        .unwrap_or_default();
     Ok(json!({
         "id": id, "russianName": name, "englishName": if original != name { Some(original.clone()) } else { None::<String> },
         "originalName": original, "japaneseName": null, "synonyms": [], "year": year, "type": type_alias,
         "episodeCount": episode_count, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
-        "description": description.or(Some(name)), "nextEpisodeAt": null, "genres": genre_values(schema.as_ref().and_then(|v| v.get("genre"))), "ratings": [],
+        "description": description.or(Some(name)), "nextEpisodeAt": null, "genres": genre_values(schema.as_ref().and_then(|v| v.get("genre"))), "ratings": ratings,
         "ageRating": schema.as_ref().and_then(|v| v.get("contentRating")), "viewCount": null, "screenshots": [], "trailer": null,
         "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
         "season": null, "availableEpisodeCount": episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()).filter(|value| *value >= 0), "posterFallbackUrl": poster_fallback
@@ -816,6 +844,19 @@ mod tests {
     }
 
     #[test]
+    fn reads_catalog_rating_badges() {
+        let html = r#"
+            <article>
+                <a href="/anime/rated-card-123"><img alt="Rated card" src="poster.webp"></a>
+                <span class="rating-badge">8,7</span>
+            </article>
+        "#;
+        let items = card_titles_with_diagnostics(html, "SEARCH").expect("catalog cards");
+        assert_eq!(items[0]["ratings"][0]["source"], "AnimeGo");
+        assert_eq!(items[0]["ratings"][0]["value"], 8.7);
+    }
+
+    #[test]
     fn skips_cards_without_a_display_title() {
         let html = "<a href='/anime/example-title-123'><img src='poster.webp'></a>";
         assert!(card_titles_with_diagnostics(html, "SEARCH").is_err());
@@ -923,6 +964,18 @@ mod tests {
         assert_eq!(title["year"], 2020);
         assert_eq!(title["episodeCount"], 12);
         assert_eq!(title["status"], "released");
+    }
+
+    #[test]
+    fn reads_detail_schema_rating_and_votes() {
+        let html = r#"
+            <h1>Rated title</h1>
+            <script type="application/ld+json">{"@type":"TVSeries","aggregateRating":{"ratingValue":"9.1","ratingCount":42}}</script>
+        "#;
+        let title = details("rated-title-123", html).expect("details");
+        assert_eq!(title["ratings"][0]["source"], "AnimeGo");
+        assert_eq!(title["ratings"][0]["value"], 9.1);
+        assert_eq!(title["ratings"][0]["votes"], 42);
     }
 
     #[test]
