@@ -12,8 +12,9 @@ $wasmPath = Join-Path $projectRoot "target\wasm32-wasip1\release\animego_wasm.wa
 $archivePath = Join-Path $artifactDirectory $OutputName
 
 trap {
+    $errorRecord = $_
     if ([System.IO.Directory]::Exists($stagingDirectory)) { [System.IO.Directory]::Delete($stagingDirectory, $true) }
-    throw
+    throw $errorRecord.Exception
 }
 
 if ($PackageUrl) {
