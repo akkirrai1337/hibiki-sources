@@ -5,6 +5,7 @@ pub const DEFAULT_MAX_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_RUNTIME_REQUEST_BYTES: usize = 256 * 1024;
 pub const MAX_RUNTIME_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_HOST_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+pub const MAX_PATH_SEGMENT_BYTES: usize = 256;
 pub const HOST_PROTOCOL_VERSION: u32 = 1;
 pub const DEFAULT_HTTP_TIMEOUT_MILLIS: u64 = 30_000;
 
@@ -26,7 +27,7 @@ pub fn host_get_request(
             "headers": headers,
             "body": null,
             "timeoutMillis": DEFAULT_HTTP_TIMEOUT_MILLIS,
-            "maxResponseBytes": max_response_bytes
+            "maxResponseBytes": max_response_bytes.min(MAX_HOST_RESPONSE_BYTES as u64)
         },
         "protocolVersion": HOST_PROTOCOL_VERSION
     })
@@ -96,6 +97,9 @@ pub fn non_empty_scalar(value: &Value) -> Option<String> {
 pub fn safe_path_segment(value: &str) -> Option<&str> {
     let value = value.trim();
     (!value.is_empty()
+        && value.len() <= MAX_PATH_SEGMENT_BYTES
+        && value != "."
+        && value != ".."
         && value.bytes().all(|byte| {
             byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~')
         }))
@@ -595,13 +599,15 @@ mod tests {
     use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
-    fn builds_a_stable_host_get_request() {
+    fn builds_a_bounded_host_get_request() {
         let request = host_get_request("search-1", "https://example.org", serde_json::json!({ "Accept": "application/json" }), 4096);
         assert_eq!(request["requestId"], "search-1-http");
         assert_eq!(request["operation"], "HTTP_REQUEST");
         assert_eq!(request["protocolVersion"], HOST_PROTOCOL_VERSION);
         assert_eq!(request["payload"]["timeoutMillis"], DEFAULT_HTTP_TIMEOUT_MILLIS);
         assert_eq!(request["payload"]["maxResponseBytes"], 4096);
+        let bounded = host_get_request("search-2", "https://example.org", serde_json::json!({}), u64::MAX);
+        assert_eq!(bounded["payload"]["maxResponseBytes"], super::MAX_HOST_RESPONSE_BYTES);
     }
 
     #[test]
@@ -758,6 +764,9 @@ mod tests {
     fn accepts_only_safe_path_segments() {
         assert_eq!(safe_path_segment(" anime-123 "), Some("anime-123"));
         assert!(safe_path_segment("../admin").is_none());
+        assert!(safe_path_segment(".").is_none());
+        assert!(safe_path_segment("..").is_none());
+        assert!(safe_path_segment(&"a".repeat(super::MAX_PATH_SEGMENT_BYTES + 1)).is_none());
         assert!(safe_path_segment("episode?id=1").is_none());
         assert!(safe_path_segment(" ").is_none());
     }
