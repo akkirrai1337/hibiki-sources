@@ -222,6 +222,16 @@ fn catalog_items(value: &Value) -> Result<Vec<Value>, String> {
         .ok_or_else(|| "AniLiberty catalog response expected an array".to_owned())
 }
 
+fn catalog_titles(items: &[Value]) -> Result<Vec<Value>, String> {
+    items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            title(item).ok_or_else(|| format!("AniLiberty catalog item {index} is invalid"))
+        })
+        .collect()
+}
+
 fn filter_catalog(request_id: &str) -> Result<Value, String> {
     Ok(json!({
         "sortOptions": [
@@ -379,7 +389,7 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
             host_http(&request.request_id, url).and_then(|body| {
                 let value = json_body(&body, "search")?;
                 let items = catalog_items(&value)?;
-                Ok(json!({ "items": items.iter().filter_map(title).collect::<Vec<_>>() }))
+                Ok(json!({ "items": catalog_titles(&items)? }))
             })
         }
         RuntimeOperation::FilterCatalog => filter_catalog(&request.request_id),
@@ -544,6 +554,12 @@ mod tests {
     fn rejects_malformed_catalog_collections() {
         assert!(catalog_items(&json!({"data":{"unexpected":true}})).is_err());
         assert_eq!(catalog_items(&json!({"data":[]})).unwrap(), Vec::<Value>::new());
+    }
+
+    #[test]
+    fn rejects_invalid_catalog_items_instead_of_hiding_them() {
+        let items = vec![json!({"id":"42", "name":{"main":"Valid"}}), json!({"id":"43"})];
+        assert!(catalog_titles(&items).is_err());
     }
 
     #[test]
