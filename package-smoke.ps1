@@ -61,6 +61,16 @@ try {
         @($expectedIndexIds | Where-Object { $_ -notin $indexSourceIds }).Count -gt 0) {
         throw "Repository index merge validation failed: $($indexSourceIds -join ', ')"
     }
+    for ($packageIndex = 0; $packageIndex -lt $names.Count; $packageIndex++) {
+        $artifactPath = Join-Path $artifactDirectory $names[$packageIndex]
+        $artifact = Get-Item -LiteralPath $artifactPath
+        $artifactHash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $manifest = @($index.sources | Where-Object { $_.sourceId -eq $expectedSourceIds[$packageIndex] })[0]
+        if ($manifest.artifactSizeBytes -ne $artifact.Length -or
+            ([string]$manifest.sha256).ToLowerInvariant() -ne $artifactHash) {
+            throw "Repository index artifact metadata mismatch for $($names[$packageIndex])"
+        }
+    }
 
     $paths = @()
     for ($index = 0; $index -lt $names.Count; $index++) {
