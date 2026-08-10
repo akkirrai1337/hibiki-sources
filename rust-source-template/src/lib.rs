@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-pub use beakokit_html_sdk::{host_get_request, normalize_status, normalize_type, parse_year, sanitize_runtime_error, unpack_host_response, validate_runtime_request, HostResponse, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, HttpSdkError, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+pub use beakokit_html_sdk::{host_get_request, normalize_status, normalize_type, parse_year, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, HttpSdkError, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
 #[derive(Deserialize)]
@@ -98,8 +98,8 @@ pub extern "C" fn beakokit_alloc(length: i32) -> i32 {
 
 #[no_mangle]
 pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
-    if pointer < 0 || length < 0 || length as usize > MAX_RUNTIME_REQUEST_BYTES {
-        return write_response(error_response("invalid-request".to_owned(), "runtime request pointer or size is invalid"));
+    if let Err(message) = validate_runtime_input(pointer, length) {
+        return write_response(error_response("invalid-request".to_owned(), message));
     }
     let request = if length == 0 { &[] } else { unsafe { core::slice::from_raw_parts(pointer as *const u8, length as usize) } };
     let response = match serde_json::from_slice::<Value>(request)

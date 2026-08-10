@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -214,8 +214,7 @@ static mut HEAP: usize = 4096;
     }
 }
 #[no_mangle] pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
-    if pointer < 0 || length < 0 || length as usize > MAX_RUNTIME_REQUEST_BYTES {
-        let message = if pointer < 0 { "runtime request pointer is invalid" } else { "runtime request exceeds size limit" };
+    if let Err(message) = validate_runtime_input(pointer, length) {
         let response = error("invalid-request".to_owned(), message);
         let ptr = beakokit_alloc(response.len() as i32) as usize;
         unsafe { core::ptr::copy_nonoverlapping(response.as_ptr(), ptr as *mut u8, response.len()); }

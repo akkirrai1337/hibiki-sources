@@ -61,6 +61,26 @@ pub unsafe fn unpack_host_response(packed: i64, source: &str) -> Result<&'static
     Ok(if length == 0 { &[] } else { core::slice::from_raw_parts(pointer as *const u8, length) })
 }
 
+/// Validate a runtime request pointer and length before a source reads WASM memory.
+pub fn validate_runtime_input(pointer: i32, length: i32) -> Result<(), String> {
+    if pointer < 0 {
+        return Err("runtime request pointer is invalid".to_owned());
+    }
+    if length < 0 || length as usize > MAX_RUNTIME_REQUEST_BYTES {
+        return Err("runtime request exceeds size limit".to_owned());
+    }
+    if pointer == 0 && length > 0 {
+        return Err("runtime request pointer is null".to_owned());
+    }
+    let Some(end) = (pointer as usize).checked_add(length as usize) else {
+        return Err("runtime request pointer or size is invalid".to_owned());
+    };
+    if end > i32::MAX as usize {
+        return Err("runtime request pointer or size is invalid".to_owned());
+    }
+    Ok(())
+}
+
 pub fn parse_year(value: &str) -> Option<i64> {
     value
         .split(|character: char| !character.is_ascii_digit())
@@ -651,7 +671,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
+    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_bounded_host_get_request() {
@@ -671,6 +691,15 @@ mod tests {
         assert!(unsafe { unpack_host_response(1, "fixture") }.is_err());
         assert!(unsafe { unpack_host_response((u64::from(u32::MAX) << 32) as i64, "fixture") }.is_err());
         assert!(unsafe { unpack_host_response(0, "fixture") }.unwrap().is_empty());
+    }
+
+    #[test]
+    fn rejects_invalid_runtime_inputs() {
+        assert!(validate_runtime_input(-1, 0).is_err());
+        assert!(validate_runtime_input(0, 1).is_err());
+        assert!(validate_runtime_input(1, -1).is_err());
+        assert!(validate_runtime_input(1, (MAX_RUNTIME_REQUEST_BYTES + 1) as i32).is_err());
+        assert!(validate_runtime_input(1, 64).is_ok());
     }
 
     #[test]
