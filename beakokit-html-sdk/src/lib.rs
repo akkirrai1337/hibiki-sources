@@ -137,7 +137,27 @@ pub fn is_http_url(value: &str) -> bool {
         (authority, None)
     };
     let _ = port;
-    !host.is_empty() && !host.contains(':')
+    is_valid_http_host(host)
+}
+
+fn is_valid_http_host(host: &str) -> bool {
+    if host == "localhost" {
+        return true;
+    }
+    if host.len() > 253 || host.contains(':') || host.ends_with('.') {
+        return false;
+    }
+    let labels = host.split('.').collect::<Vec<_>>();
+    if labels.len() == 4 && labels.iter().all(|label| label.bytes().all(|byte| byte.is_ascii_digit())) {
+        return labels.iter().all(|label| label.parse::<u8>().is_ok());
+    }
+    labels.len() >= 2 && labels.into_iter().all(|label| {
+        !label.is_empty()
+            && label.len() <= 63
+            && label.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+            && label.as_bytes().first().is_some_and(|byte| byte.is_ascii_alphanumeric())
+            && label.as_bytes().last().is_some_and(|byte| byte.is_ascii_alphanumeric())
+    })
 }
 
 /// Convert a JSON scalar into a trimmed, non-empty string for protocol IDs.
@@ -798,6 +818,18 @@ mod tests {
             "https://example.org/catalog",
         );
         assert_eq!(document.image_urls("img").unwrap(), ["https://example.org/safe.jpg"]);
+    }
+
+    #[test]
+    fn accepts_only_well_formed_http_hosts() {
+        assert!(is_http_url("https://example.org/path"));
+        assert!(is_http_url("https://127.0.0.1:8443/path"));
+        assert!(is_http_url("https://localhost/path"));
+        assert!(!is_http_url("https://-example.org/path"));
+        assert!(!is_http_url("https://example..org/path"));
+        assert!(!is_http_url("https://example_.org/path"));
+        assert!(!is_http_url("https://example.org./path"));
+        assert!(!is_http_url("https://999.1.1.1/path"));
     }
 
     #[test]
