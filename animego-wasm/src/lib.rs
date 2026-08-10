@@ -389,12 +389,14 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "episodes")?;
     let mut seen_ids = Vec::new();
     let mut parsed = document
-        .select("[data-episode]")
+        .select("[data-episode], [data-episode-id]")
         .unwrap_or_default()
         .into_iter()
         .filter_map(|episode| {
-            let id = element_attr(episode, "data-episode")?;
+            let id = element_attr(episode, "data-episode")
+                .or_else(|| element_attr(episode, "data-episode-id"))?;
             let number = element_attr(episode, "data-episode-number")
+                .or_else(|| element_attr(episode, "data-number"))
                 .and_then(|value| value.trim().replace(',', ".").parse::<f64>().ok())
                 .or_else(|| {
                     let content = episode.text().collect::<String>();
@@ -408,6 +410,7 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
                 "id": id,
                 "number": number,
                 "title": element_attr(episode, "data-episode-title")
+                    .or_else(|| element_attr(episode, "data-title"))
             }))
         })
         .collect::<Vec<_>>();
@@ -421,7 +424,7 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
 
 fn episode_items_with_diagnostics(html: &str) -> Result<Vec<Value>, String> {
     let items = episode_items(html)?;
-    if items.is_empty() && html.contains("data-episode") {
+    if items.is_empty() && (html.contains("data-episode") || html.contains("data-episode-id")) {
         return Err("AnimeGo episode markup contained no valid numeric episodes".to_owned());
     }
     Ok(items)
@@ -784,6 +787,15 @@ mod tests {
         let html = r#"<button data-episode="ep-2" data-episode-number=" 2,5 ">2,5</button>"#;
         let episodes = episode_items(html).expect("episodes");
         assert_eq!(episodes[0]["number"], 2.5);
+    }
+
+    #[test]
+    fn parses_alternate_episode_data_attributes() {
+        let html = r#"<button data-episode-id="episode-3" data-number="3" data-title="Finale"></button>"#;
+        let episodes = episode_items(html).expect("episodes");
+        assert_eq!(episodes[0]["id"], "episode-3");
+        assert_eq!(episodes[0]["number"], 3.0);
+        assert_eq!(episodes[0]["title"], "Finale");
     }
 
     #[test]
