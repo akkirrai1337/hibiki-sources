@@ -431,11 +431,12 @@ fn player_items(html: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "players")?;
     let mut seen_urls = Vec::new();
     Ok(document
-        .select("[data-player]")
+        .select("[data-player], [data-video]")
         .unwrap_or_default()
         .into_iter()
         .filter_map(|player| {
-            let raw_url = element_attr(player, "data-player")?;
+            let raw_url = element_attr(player, "data-player")
+                .or_else(|| element_attr(player, "data-video"))?;
             let url = document.absolute_http_url(&raw_url)?;
             if seen_urls.iter().any(|seen| seen == &url) { return None; }
             seen_urls.push(url.clone());
@@ -444,8 +445,10 @@ fn player_items(html: &str) -> Result<Vec<Value>, String> {
                 "type": "EMBED",
                 "quality": null,
                 "headers": { "Referer": format!("{BASE_URL}/") },
-                "playerName": element_attr(player, "data-provider-title"),
-                "translation": element_attr(player, "data-translation-title"),
+                "playerName": element_attr(player, "data-provider-title")
+                    .or_else(|| element_attr(player, "data-provider")),
+                "translation": element_attr(player, "data-translation-title")
+                    .or_else(|| element_attr(player, "data-translation")),
                 "segments": [],
                 "videoId": null
             }))
@@ -455,7 +458,7 @@ fn player_items(html: &str) -> Result<Vec<Value>, String> {
 
 fn player_items_with_diagnostics(html: &str) -> Result<Vec<Value>, String> {
     let items = player_items(html)?;
-    if items.is_empty() && html.contains("data-player") {
+    if items.is_empty() && (html.contains("data-player") || html.contains("data-video")) {
         return Err("AnimeGo player response contained no valid HTTP player URLs".to_owned());
     }
     Ok(items)
@@ -805,6 +808,15 @@ mod tests {
         assert_eq!(players.len(), 1);
         assert_eq!(players[0]["url"], "https://animego.me/embed/one");
         assert_eq!(players[0]["playerName"], "Aksor");
+    }
+
+    #[test]
+    fn parses_alternate_player_data_attributes() {
+        let html = r#"<button data-video="/embed/video" data-provider="Aksor" data-translation="Dub"></button>"#;
+        let players = player_items(html).expect("players");
+        assert_eq!(players[0]["url"], "https://animego.me/embed/video");
+        assert_eq!(players[0]["playerName"], "Aksor");
+        assert_eq!(players[0]["translation"], "Dub");
     }
 
     #[test]
