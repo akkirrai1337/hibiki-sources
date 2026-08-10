@@ -174,6 +174,10 @@ function assertRuntimeError(module, input, expectedMessage) {
 for (const [name, path] of modules) {
   const module = await loadModule(name, path);
   if (name !== "kotlin") {
+    module.instance.exports.beakokit_reset();
+    if (module.instance.exports.beakokit_alloc(-1) >= 0 || module.instance.exports.beakokit_alloc(0x7fffffff) >= 0) {
+      throw new Error(`${name}: allocator accepted an invalid length`);
+    }
     const invalidPointer = callInvalidPointer(module);
     if (invalidPointer.errorMessage !== "runtime request pointer is invalid") {
       throw new Error(`${name}: invalid pointer was not rejected precisely`);

@@ -439,9 +439,14 @@ pub extern "C" fn beakokit_reset() {
 
 #[no_mangle]
 pub extern "C" fn beakokit_alloc(length: i32) -> i32 {
+    if length < 0 {
+        return -1;
+    }
     unsafe {
         let pointer = HEAP;
-        HEAP += length.max(0) as usize;
+        let Some(next) = HEAP.checked_add(length as usize) else { return -1; };
+        if next > i32::MAX as usize || pointer > i32::MAX as usize { return -1; }
+        HEAP = next;
         pointer as i32
     }
 }

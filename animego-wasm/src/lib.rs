@@ -601,7 +601,16 @@ mod tests {
 
 static mut HEAP: usize = 4096;
 #[no_mangle] pub extern "C" fn beakokit_reset() { unsafe { HEAP = 4096; } }
-#[no_mangle] pub extern "C" fn beakokit_alloc(length: i32) -> i32 { unsafe { let ptr = HEAP; HEAP += length.max(0) as usize; ptr as i32 } }
+#[no_mangle] pub extern "C" fn beakokit_alloc(length: i32) -> i32 {
+    if length < 0 { return -1; }
+    unsafe {
+        let ptr = HEAP;
+        let Some(next) = HEAP.checked_add(length as usize) else { return -1; };
+        if next > i32::MAX as usize || ptr > i32::MAX as usize { return -1; }
+        HEAP = next;
+        ptr as i32
+    }
+}
 #[no_mangle] pub extern "C" fn beakokit_call(pointer: i32, length: i32) -> i64 {
     if pointer < 0 || length < 0 || length as usize > MAX_RUNTIME_REQUEST_BYTES {
         let message = if pointer < 0 { "runtime request pointer is invalid" } else { "runtime request exceeds size limit" };
