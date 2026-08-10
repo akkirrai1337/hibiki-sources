@@ -525,8 +525,9 @@ impl HtmlDocument {
     }
 
     pub fn links(&self, selector: &str) -> Result<Vec<String>, HtmlSdkError> {
-        self.attributes(selector, "href")
-            .map(|values| values.into_iter().filter_map(|value| self.absolute_http_url(&value)).collect())
+        Ok(self.select(selector)?.into_iter()
+            .filter_map(|element| link_attribute(element).and_then(|value| self.absolute_http_url(&value)))
+            .collect())
     }
 
     pub fn image_urls(&self, selector: &str) -> Result<Vec<String>, HtmlSdkError> {
@@ -561,7 +562,7 @@ impl HtmlDocument {
 
         Ok(self.document.select(&link_selector).map(|link| {
             let card = link.parent().and_then(ElementRef::wrap).unwrap_or(link);
-            let url = first_attribute(link, &["href"])
+            let url = link_attribute(link)
                 .and_then(|value| self.absolute_http_url(&value));
             let title = first_attribute(link, &["title", "data-title", "data-name", "data-original-title", "data-label", "aria-label"])
                 .and_then(|value| clean_text(&value))
@@ -701,6 +702,10 @@ fn image_attribute(element: ElementRef<'_>) -> Option<String> {
     }).or_else(|| {
         element.value().attr("style").and_then(style_url)
     })
+}
+
+fn link_attribute(element: ElementRef<'_>) -> Option<String> {
+    first_attribute(element, &["href", "data-href", "data-url", "data-link"])
 }
 
 fn json_ld_object(value: Value) -> Option<Value> {
@@ -923,6 +928,8 @@ mod tests {
         assert_eq!(document.text(".card a").unwrap(), ["Test show"]);
         assert_eq!(document.select_any(&[".missing", ".card a"]).unwrap().len(), 1);
         assert_eq!(document.links(".card a").unwrap(), ["https://example.org/anime/test"]);
+        let ajax_link = HtmlDocument::parse(r#"<a data-url="/anime/ajax">AJAX title</a>"#, "https://example.org");
+        assert_eq!(ajax_link.links("a").unwrap(), ["https://example.org/anime/ajax"]);
         assert_eq!(document.absolute_url("../poster.webp"), "https://example.org/poster.webp");
         assert_eq!(document.absolute_url("?page=2"), "https://example.org/catalog?page=2");
         assert_eq!(document.absolute_url("#results"), "#results");
@@ -1014,6 +1021,13 @@ mod tests {
         );
         let attribute_cards = attribute_title.linked_cards("a[href*='/anime/']", &[], "img").unwrap();
         assert_eq!(attribute_cards[0].title.as_deref(), Some("Attribute title"));
+
+        let ajax_card = HtmlDocument::parse(
+            r#"<article><a data-href="/anime/ajax-card"><span>AJAX card</span></a></article>"#,
+            "https://example.org",
+        );
+        let ajax_cards = ajax_card.linked_cards("a", &[], "img").unwrap();
+        assert_eq!(ajax_cards[0].url.as_deref(), Some("https://example.org/anime/ajax-card"));
 
         let unsafe_document = HtmlDocument::parse(
             r#"<article><a href="/anime/unsafe"><img src="javascript:alert(1)"></a></article>"#,
