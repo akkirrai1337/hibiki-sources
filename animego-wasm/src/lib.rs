@@ -134,7 +134,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
         .linked_cards_unique(
             "a[href*='/anime/'], a[data-href*='/anime/'], a[data-url*='/anime/'], a[data-link*='/anime/']",
             &[".ani-list__item-title", ".ani-grid__item-title", ".title", "h2", "h3"],
-            "img",
+            "img, picture source, [data-background-image], [data-background], [data-bg]",
         )
         .map_err(|error| format!("AnimeGo catalog card extraction failed: {error:?}"))?
         .into_iter()
@@ -660,6 +660,13 @@ mod tests {
         let items = card_titles_with_diagnostics(html, "SEARCH").expect("catalog cards");
         assert_eq!(items[0]["id"], "ajax-title-123");
         assert_eq!(items[0]["russianName"], "AJAX title");
+    }
+
+    #[test]
+    fn parses_background_card_posters() {
+        let html = r#"<article><a href='/anime/background-title-123'><div data-background-image='/poster.webp'>Background title</div></a></article>"#;
+        let items = card_titles_with_diagnostics(html, "SEARCH").expect("catalog cards");
+        assert_eq!(items[0]["posterUrl"], "https://animego.me/poster.webp");
     }
 
     #[test]
