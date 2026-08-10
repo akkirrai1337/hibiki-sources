@@ -418,6 +418,28 @@ impl HtmlDocument {
         Ok(None)
     }
 
+    /// Read valid JSON-LD objects from the page, including objects nested in
+    /// a JSON-LD array or an `@graph` container. Invalid optional scripts are
+    /// ignored so one unrelated analytics block cannot hide valid metadata.
+    pub fn json_ld_documents(&self) -> Result<Vec<Value>, HtmlSdkError> {
+        let mut documents = Vec::new();
+        for script in self.select("script[type='application/ld+json']")? {
+            let body = script.text().collect::<String>();
+            let Ok(value) = serde_json::from_str::<Value>(body.trim()) else { continue; };
+            match value {
+                Value::Array(values) => documents.extend(values.into_iter().filter_map(json_ld_object)),
+                value => {
+                    if let Some(graph) = value.get("@graph").and_then(Value::as_array) {
+                        documents.extend(graph.iter().filter_map(|value| json_ld_object(value.clone())));
+                    } else if let Some(value) = json_ld_object(value) {
+                        documents.push(value);
+                    }
+                }
+            }
+        }
+        Ok(documents)
+    }
+
     pub fn required_text_any(&self, selectors: &[&str]) -> Result<String, HtmlSdkError> {
         self.text_any(selectors)?.ok_or_else(|| HtmlSdkError::MissingText {
             selector: selectors.join(" | "),
@@ -660,6 +682,10 @@ fn image_attribute(element: ElementRef<'_>) -> Option<String> {
     })
 }
 
+fn json_ld_object(value: Value) -> Option<Value> {
+    value.is_object().then_some(value)
+}
+
 fn normalize_path(value: &str) -> String {
     let leading_slash = value.starts_with('/');
     let trailing_slash = value.ends_with('/');
@@ -849,6 +875,14 @@ mod tests {
         );
         assert_eq!(lazy.image_urls("img").unwrap(), ["https://example.org/lazy.jpg", "https://example.org/small.webp"]);
         assert_eq!(lazy.first_image_url("video").unwrap(), Some("https://example.org/poster.jpg".to_owned()));
+        let json_ld = HtmlDocument::parse(
+            r#"<script type="application/ld+json">not json</script><script type="application/ld+json">[{"@type":"TVSeries","name":"Demo"}]</script><script type="application/ld+json">{"@graph":[{"@type":"Movie","name":"Film"}]}</script>"#,
+            "https://example.org",
+        );
+        let json_ld = json_ld.json_ld_documents().unwrap();
+        assert_eq!(json_ld.len(), 2);
+        assert_eq!(json_ld[0]["name"], "Demo");
+        assert_eq!(json_ld[1]["name"], "Film");
         assert_eq!(srcset.absolute_http_url("javascript:alert(1)"), None);
         let image = HtmlDocument::parse(r#"<img data-src="/poster.webp">"#, "https://example.org");
         assert_eq!(image.first_attribute_any("img", &["src", "data-src"]).unwrap(), Some("/poster.webp".to_owned()));

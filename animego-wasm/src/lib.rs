@@ -269,9 +269,8 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
 }
 
 fn json_ld_document(document: &HtmlDocument) -> Option<Value> {
-    document.select("script[type='application/ld+json']").ok()?.into_iter().find_map(|script| {
-        let body = script.text().collect::<String>();
-        serde_json::from_str::<Value>(body.trim()).ok()
+    document.json_ld_documents().ok()?.into_iter().find(|value| {
+        value.get("@type").is_some() || value.get("name").is_some() || value.get("alternateName").is_some()
     })
 }
 
