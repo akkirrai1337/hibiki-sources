@@ -144,9 +144,19 @@ function callEncoded(module, input) {
   if (requiredBytes > 0) memory.grow(Math.ceil(requiredBytes / 65536));
   new Uint8Array(memory.buffer, pointer, input.length).set(input);
   const packed = instance.exports.beakokit_call(pointer, input.length);
+  return decodePacked(module, packed);
+}
+
+function decodePacked(module, packed) {
+  const { instance, memory } = module;
   const responsePointer = Number((packed >> 32n) & 0xffffffffn);
   const responseLength = Number(packed & 0xffffffffn);
   return JSON.parse(new TextDecoder().decode(new Uint8Array(memory.buffer, responsePointer, responseLength)));
+}
+
+function callInvalidPointer(module) {
+  module.instance.exports.beakokit_reset();
+  return decodePacked(module, module.instance.exports.beakokit_call(-1, 1));
 }
 
 function call(module, operation, payload) {
@@ -164,6 +174,10 @@ function assertRuntimeError(module, input, expectedMessage) {
 for (const [name, path] of modules) {
   const module = await loadModule(name, path);
   if (name !== "kotlin") {
+    const invalidPointer = callInvalidPointer(module);
+    if (invalidPointer.errorMessage !== "runtime request pointer is invalid") {
+      throw new Error(`${name}: invalid pointer was not rejected precisely`);
+    }
     assertRuntimeError(
       module,
       JSON.stringify({ requestId: `${name}-oversized`, operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) } }),
