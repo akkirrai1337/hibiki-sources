@@ -193,7 +193,15 @@ fn player_links(request_id: &str, id: &str, episode_id: &str) -> Result<Value, S
         }
         Some(json!({ "url": url, "type": "EMBED", "quality": null, "headers": { "Referer": "https://ru.yummyani.me/" }, "playerName": player, "translation": translation, "segments": segments, "videoId": v.get("video_id") }))
     }).collect::<Vec<_>>();
+    ensure_player_links(&links, episode_id)?;
     Ok(json!({ "links": links }))
+}
+
+fn ensure_player_links(links: &[Value], episode_id: &str) -> Result<(), String> {
+    if links.is_empty() {
+        return Err(format!("YummyAnime episode has no valid HTTP player links: {episode_id}"));
+    }
+    Ok(())
 }
 
 fn filters() -> Value {
@@ -342,5 +350,11 @@ mod tests {
         assert_eq!(video_episode(&json!({"number":"2"})).unwrap(), Some(("2".to_owned(), 2.0)));
         assert!(video_episode(&json!({"number":"broken"})).is_err());
         assert_eq!(video_episode(&json!({"title":"service video"})).unwrap(), None);
+    }
+
+    #[test]
+    fn rejects_empty_yummyanime_player_results() {
+        assert!(ensure_player_links(&[], "2").is_err());
+        assert!(ensure_player_links(&[json!({"url":"https://example.org/player"})], "2").is_ok());
     }
 }
