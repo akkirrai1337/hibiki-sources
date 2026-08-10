@@ -3,6 +3,7 @@ use serde_json::Value;
 
 pub const DEFAULT_MAX_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_RUNTIME_REQUEST_BYTES: usize = 256 * 1024;
+pub const MAX_RUNTIME_OPERATION_BYTES: usize = 64;
 pub const MAX_RUNTIME_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_HOST_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_PATH_SEGMENT_BYTES: usize = 256;
@@ -118,9 +119,11 @@ pub fn validate_runtime_request(value: &Value) -> Result<String, String> {
     let request_id = object.get("requestId").and_then(Value::as_str).map(str::trim)
         .filter(|value| !value.is_empty()).ok_or("runtime requestId is missing or blank")?;
     if request_id.len() > 128 { return Err("runtime requestId is too long".to_owned()); }
-    if object.get("operation").and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()).is_none() {
-        return Err("runtime operation is missing or blank".to_owned());
-    }
+    if request_id.chars().any(char::is_control) { return Err("runtime requestId contains control characters".to_owned()); }
+    let operation = object.get("operation").and_then(Value::as_str).map(str::trim)
+        .filter(|value| !value.is_empty()).ok_or("runtime operation is missing or blank")?;
+    if operation.len() > MAX_RUNTIME_OPERATION_BYTES { return Err("runtime operation is too long".to_owned()); }
+    if operation.chars().any(char::is_control) { return Err("runtime operation contains control characters".to_owned()); }
     if !object.get("payload").is_some_and(Value::is_object) {
         return Err("runtime payload must be an object".to_owned());
     }
@@ -808,6 +811,9 @@ mod tests {
         assert_eq!(non_empty_scalar(&serde_json::json!(42)), Some("42".to_owned()));
         assert_eq!(validate_runtime_request(&serde_json::json!({ "requestId": " search-1 ", "operation": "SEARCH", "payload": {} })).unwrap(), "search-1");
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "  ", "operation": "SEARCH", "payload": {} })).is_err());
+        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search\n1", "operation": "SEARCH", "payload": {} })).is_err());
+        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEA\nRCH", "payload": {} })).is_err());
+        assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "x".repeat(super::MAX_RUNTIME_OPERATION_BYTES + 1), "payload": {} })).is_err());
         assert!(validate_runtime_request(&serde_json::json!({ "requestId": "search-1", "operation": "SEARCH", "payload": null })).is_err());
         assert_eq!(MAX_RUNTIME_REQUEST_BYTES, 256 * 1024);
         assert_eq!(sanitize_runtime_error("bad\n  response\tvalue"), "bad response value");
