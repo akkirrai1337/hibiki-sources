@@ -65,7 +65,7 @@ fn page(request_id: &str, path: &str) -> Result<String, String> {
     let body = http(request_id, path, json!({ "Accept": "text/html,application/json" }))?;
     // AnimeGo returns AJAX catalog/search responses as JSON with the rendered
     // HTML in `data.content`, while ordinary pages remain plain HTML.
-    Ok(response_content(&body))
+    response_content(&body)
 }
 
 fn parse_html(html: &str, operation: &str) -> Result<HtmlDocument, String> {
@@ -318,11 +318,17 @@ fn catalog_sort(p: &Value) -> (&'static str, &'static str) {
     }
 }
 
-fn response_content(body: &str) -> String {
-    let Ok(document) = JsonDocument::parse_limited(body, DEFAULT_MAX_DOCUMENT_BYTES) else { return body.to_owned(); };
-    document
-        .string_any(&["/data/content", "/content", "/data/html", "/html"])
-        .unwrap_or_else(|_| body.to_owned())
+fn response_content(body: &str) -> Result<String, String> {
+    let Ok(document) = JsonDocument::parse_limited(body, DEFAULT_MAX_DOCUMENT_BYTES) else {
+        return Ok(body.to_owned());
+    };
+    match document.string_any(&["/data/content", "/content", "/data/html", "/html"]) {
+        Ok(content) => Ok(content),
+        Err(_) if !matches!(body.trim_start().chars().next(), Some('{') | Some('[')) => {
+            Ok(body.to_owned())
+        }
+        Err(_) => Err("AnimeGo AJAX JSON response has no HTML content field".to_owned()),
+    }
 }
 
 fn card_titles_with_diagnostics(html: &str, operation: &str) -> Result<Vec<Value>, String> {
@@ -421,14 +427,14 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
             let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("playback titleId is missing")?;
             let numeric = id.rsplit('-').next().ok_or("AnimeGo title id has no numeric suffix")?;
             let numeric = safe_numeric_segment(numeric).ok_or("AnimeGo numeric id is invalid")?;
-            let episodes = episode_items(&response_content(&ajax(&request.request_id, &format!("/player/{numeric}"))?))?;
+            let episodes = episode_items(&response_content(&ajax(&request.request_id, &format!("/player/{numeric}"))?)?)?;
             Ok(json!({ "groups": if episodes.is_empty() { Vec::<Value>::new() } else { vec![json!({ "id": id, "title": "AnimeGo", "qualityLabel": null, "episodes": episodes })] } }))
         }
         RuntimeOperation::PlayerLinks => {
             let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("player links titleId is missing")?;
             let episode = request.payload.get("episodeId").and_then(Value::as_str).ok_or("player links episodeId is missing")?;
             let episode = safe_path_segment(episode).ok_or("AnimeGo episode id is invalid")?;
-            let html = response_content(&ajax(&request.request_id, &format!("/player/videos/{episode}"))?);
+            let html = response_content(&ajax(&request.request_id, &format!("/player/videos/{episode}"))?)?;
             let links = player_items(&html)?.into_iter().filter(|v| v.get("url").and_then(Value::as_str).is_some()).collect::<Vec<_>>();
             if id.is_empty() { return Err("AnimeGo title id is blank".to_owned()); }
             Ok(json!({ "links": links }))
@@ -453,13 +459,20 @@ mod tests {
     #[test]
     fn parses_ajax_catalog_envelope_like_client_response() {
         let body = json!({ "status": "success", "data": { "content": CARD_HTML } }).to_string();
-        let html = response_content(&body);
+        let html = response_content(&body).expect("HTML content");
         let items = card_titles_with_diagnostics(&html, "SEARCH").expect("catalog cards");
 
         assert_eq!(items.len(), 1);
         assert_eq!(items[0]["id"], "krutoy-uchitel-onidzuka-556");
         assert_eq!(items[0]["russianName"], "Крутой учитель Онидзука");
         assert_eq!(items[0]["originalName"], "GTO");
+    }
+
+    #[test]
+    fn reports_ajax_json_without_html_content() {
+        let error = response_content(r#"{"status":"success","data":{"unexpected":true}}"#)
+            .expect_err("malformed AJAX JSON was accepted");
+        assert!(error.contains("no HTML content field"));
     }
 
     #[test]
