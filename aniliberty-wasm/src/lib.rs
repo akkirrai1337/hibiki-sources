@@ -222,16 +222,14 @@ fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
         .into_iter()
         .filter_map(|episode| {
             let id = episode.get("id")?.to_string_value()?;
-            if seen_ids.iter().any(|seen| seen == &id) { return None; }
-            seen_ids.push(id.clone());
             let number = episode_number(&episode)?;
-            (number > 0.0).then(|| {
-                json!({
-                    "id": id,
-                    "number": number,
-                    "title": episode.get("name").and_then(Value::as_str)
-                })
-            })
+            if number <= 0.0 || seen_ids.iter().any(|seen| seen == &id) { return None; }
+            seen_ids.push(id.clone());
+            Some(json!({
+                "id": id,
+                "number": number,
+                "title": episode.get("name").and_then(Value::as_str)
+            }))
         })
         .collect::<Vec<_>>();
     if episodes.is_empty() {

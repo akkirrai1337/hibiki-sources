@@ -138,8 +138,8 @@ fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
         let mut seen = Vec::new();
         let episodes = items.iter().filter(|v| dubbing(v).as_deref() == Some(&name)).filter_map(|v| {
             let episode_id = scalar(v.get("number")?)?;
-            if seen.iter().any(|id: &String| id == &episode_id) { return None; }
             let episode_number = number(&episode_id)?;
+            if episode_number < 0.0 || seen.iter().any(|id: &String| id == &episode_id) { return None; }
             seen.push(episode_id.clone());
             Some(json!({ "id": episode_id, "number": episode_number, "title": v.get("title") }))
         }).collect::<Vec<_>>();
