@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, first_non_empty_text, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, first_non_empty_text, first_non_empty_url, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -234,7 +234,7 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         .ok_or_else(|| format!("AnimeGo details title is missing for {id}"))?;
     let schema = json_ld_document(&document);
     let original = schema.as_ref().and_then(|v| v.get("alternateName").or_else(|| v.get("name"))).and_then(first_non_empty_text).unwrap_or_else(|| name.clone());
-    let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(first_non_empty_text)
+    let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(first_non_empty_url)
         .and_then(|value| document.absolute_http_url(&value))
         .or_else(|| document.meta_content_any(&["og:image", "twitter:image"]).ok().flatten()
             .and_then(|value| document.absolute_http_url(&value)))

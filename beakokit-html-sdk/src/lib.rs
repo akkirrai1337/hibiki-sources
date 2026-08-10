@@ -187,6 +187,15 @@ pub fn first_non_empty_text(value: &Value) -> Option<String> {
     non_empty_text(value).or_else(|| value.as_array()?.iter().find_map(first_non_empty_text))
 }
 
+/// Extract the first URL-like text from a scalar, array, or JSON-LD image
+/// object. The object keys follow the common Schema.org representations.
+pub fn first_non_empty_url(value: &Value) -> Option<String> {
+    first_non_empty_text(value).or_else(|| {
+        ["url", "contentUrl", "@id"].into_iter()
+            .find_map(|key| value.get(key).and_then(first_non_empty_url))
+    })
+}
+
 /// Normalize API counters that may be encoded as either JSON numbers or strings.
 pub fn non_negative_i64(value: &Value) -> Option<i64> {
     value.as_i64()
@@ -859,7 +868,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, bounded_pagination, first_attribute, first_non_empty_text, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_finite, normalize_status, normalize_type, parse_year, positive_finite, positive_finite_value, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_PAGINATION_OFFSET, MAX_RUNTIME_REQUEST_BYTES};
+    use super::{attribute, bounded_pagination, first_attribute, first_non_empty_text, first_non_empty_url, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_finite, normalize_status, normalize_type, parse_year, positive_finite, positive_finite_value, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_PAGINATION_OFFSET, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_bounded_host_get_request() {
@@ -909,6 +918,7 @@ mod tests {
         assert_eq!(non_empty_text(&serde_json::json!(42)), None);
         assert_eq!(first_non_empty_text(&serde_json::json!(["  ", "Title", "Other"])), Some("Title".to_owned()));
         assert_eq!(first_non_empty_text(&serde_json::json!([null, ["Nested"]])), Some("Nested".to_owned()));
+        assert_eq!(first_non_empty_url(&serde_json::json!({"@type":"ImageObject","contentUrl":"/poster.jpg"})), Some("/poster.jpg".to_owned()));
     }
 
     #[test]
