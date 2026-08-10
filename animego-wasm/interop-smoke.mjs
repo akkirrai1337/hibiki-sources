@@ -17,16 +17,27 @@ const episodesFixture = `
 `;
 const playersFixture = `<a data-player="https://player.example/embed/episode-1" data-provider-title="Aksor" data-translation-title="Артист">player</a>`;
 
+const interopFilterFixture = `
+  <input id="type_tv" name="type_tv" value="tv"><label for="type_tv">TV Series</label>
+  <input id="status_released" name="status_released" value="released"><label for="status_released">Released</label>
+  <input id="genres_action" name="genres_action" value="action"><label for="genres_action">Action</label>
+`;
+const interopEpisodesFixture = `
+  <button data-episode-id="episode-2" data-number="2" data-title="Episode 2"></button>
+  <button data-episode-id="episode-1" data-number="1" data-title="Episode 1"></button>
+`;
+const interopPlayersFixture = `<a data-video="https://player.example/embed/episode-1" data-provider="Aksor" data-translation="Dub">player</a>`;
+
 function responseFor(url) {
   let body;
   if (url.includes("/search/all") || url.includes("/anime/filter") || url === "https://animego.me/anime") {
-    body = JSON.stringify({ status: "success", data: { content: catalogFixture + filterFixture } });
+    body = JSON.stringify({ status: "success", data: { content: catalogFixture + interopFilterFixture } });
   } else if (url.includes("/anime/krutoy-uchitel-onidzuka-556")) {
     body = detailsFixture;
   } else if (url.includes("/player/videos/episode-1")) {
-    body = playersFixture;
+    body = interopPlayersFixture;
   } else if (url.includes("/player/556")) {
-    body = episodesFixture;
+    body = interopEpisodesFixture;
   } else {
     throw new Error(`Unexpected AnimeGo host URL: ${url}`);
   }
