@@ -100,6 +100,8 @@ pub fn normalize_year(value: &Value) -> Option<i64> {
 pub fn normalize_type(value: &str) -> Option<String> {
     let value = value.trim().to_lowercase().replace(['_', '-'], " ");
     let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if matches!(value.as_str(), "\u{0441}\u{0435}\u{0440}\u{0438}\u{0430}\u{043b}") { return Some("tv".to_owned()); }
+    if matches!(value.as_str(), "\u{0444}\u{0438}\u{043b}\u{044c}\u{043c}") { return Some("movie".to_owned()); }
     match value.as_str() {
         "tv" | "tvseries" | "tv series" | "serial" | "сериал" => Some("tv".to_owned()),
         "movie" | "film" | "фильм" => Some("movie".to_owned()),
@@ -112,6 +114,9 @@ pub fn normalize_type(value: &str) -> Option<String> {
 pub fn normalize_status(value: &str) -> Option<String> {
     let value = value.trim().to_lowercase().replace(['_', '-'], " ");
     let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if matches!(value.as_str(), "\u{0432}\u{044b}\u{0448}\u{0435}\u{043b}" | "\u{0437}\u{0430}\u{0432}\u{0435}\u{0440}\u{0448}\u{0435}\u{043d}" | "\u{0437}\u{0430}\u{0432}\u{0435}\u{0440}\u{0448}\u{0451}\u{043d}") { return Some("released".to_owned()); }
+    if matches!(value.as_str(), "\u{043e}\u{043d}\u{0433}\u{043e}\u{0438}\u{043d}\u{0433}" | "\u{0432}\u{044b}\u{0445}\u{043e}\u{0434}\u{0438}\u{0442}") { return Some("ongoing".to_owned()); }
+    if matches!(value.as_str(), "\u{0430}\u{043d}\u{043e}\u{043d}\u{0441}") { return Some("announcement".to_owned()); }
     match value.as_str() {
         "released" | "completed" | "finished" | "finished airing" | "вышел" => Some("released".to_owned()),
         "ongoing" | "airing" | "currently airing" | "releasing" | "онгоинг" | "выходит" => Some("ongoing".to_owned()),
@@ -968,9 +973,14 @@ mod tests {
         assert_eq!(normalize_type("TVSERIES"), Some("tv".to_owned()));
         assert_eq!(normalize_type("TV-Series"), Some("tv".to_owned()));
         assert_eq!(normalize_type("TV   Series"), Some("tv".to_owned()));
+        assert_eq!(normalize_type("\u{0441}\u{0435}\u{0440}\u{0438}\u{0430}\u{043b}"), Some("tv".to_owned()));
+        assert_eq!(normalize_type("\u{0444}\u{0438}\u{043b}\u{044c}\u{043c}"), Some("movie".to_owned()));
         assert_eq!(normalize_status("вышел"), Some("released".to_owned()));
         assert_eq!(normalize_status("finished-airing"), Some("released".to_owned()));
         assert_eq!(normalize_status("currently airing"), Some("ongoing".to_owned()));
+        assert_eq!(normalize_status("\u{0432}\u{044b}\u{0448}\u{0435}\u{043b}"), Some("released".to_owned()));
+        assert_eq!(normalize_status("\u{043e}\u{043d}\u{0433}\u{043e}\u{0438}\u{043d}\u{0433}"), Some("ongoing".to_owned()));
+        assert_eq!(normalize_status("\u{0430}\u{043d}\u{043e}\u{043d}\u{0441}"), Some("announcement".to_owned()));
         assert!(is_http_url("https://example.org/video"));
         assert!(!is_http_url("javascript:alert(1)"));
         assert!(!is_http_url("https://"));
