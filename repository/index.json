@@ -61,9 +61,7 @@
                         "minClientVersion":  0,
                         "capabilities":  [
                                              "LATEST_RELEASES",
-                                             "PLAYBACK",
-                                             "RELATED_TITLES",
-                                             "SIMILAR_TITLES"
+                                             "PLAYBACK"
                                          ],
                         "hostCapabilities":  [
                                                  "NETWORK"

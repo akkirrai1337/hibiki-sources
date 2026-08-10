@@ -16,7 +16,7 @@
   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "artifactSizeBytes": 1,
   "minClientVersion": 0,
-  "capabilities": ["LATEST_RELEASES", "PLAYBACK", "RELATED_TITLES", "SIMILAR_TITLES"],
+  "capabilities": ["LATEST_RELEASES", "PLAYBACK"],
   "hostCapabilities": ["NETWORK"],
   "hostNetworkPolicy": { "allowedHosts": ["api.yani.tv", "yummyani.me", "ru.yummyani.me"] }
 }
