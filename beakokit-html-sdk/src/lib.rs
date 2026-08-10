@@ -170,7 +170,7 @@ impl HostResponse {
         }
         let body = value.pointer("/payload/body")
             .and_then(Value::as_str)
-            .ok_or_else(|| HttpSdkError::MissingBody { source })?;
+            .ok_or(HttpSdkError::MissingBody { source })?;
         Ok(Self { status_code, body: body.to_owned() })
     }
 
@@ -364,7 +364,7 @@ impl HtmlDocument {
                 .map_err(|_| HtmlSdkError::InvalidSelector((*selector).to_owned()))
         }).collect::<Result<Vec<_>, _>>()?;
 
-        Ok(self.document.select(&link_selector).filter_map(|link| {
+        Ok(self.document.select(&link_selector).map(|link| {
             let card = link.parent().and_then(ElementRef::wrap).unwrap_or(link);
             let url = first_attribute(link, &["href"])
                 .and_then(|value| self.absolute_http_url(&value));
@@ -379,7 +379,7 @@ impl HtmlDocument {
                     .or_else(|| image.value().attr("srcset").and_then(srcset_first).map(str::to_owned))?;
                 self.absolute_http_url(&value)
             });
-            Some(HtmlCard { element: card, url, title, image_url })
+            HtmlCard { element: card, url, title, image_url }
         }).collect())
     }
 

@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_test_module)]
+
 use serde::{Deserialize, Serialize};
 use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_empty_scalar, normalize_status, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES};
 use serde_json::{json, Value};
@@ -159,8 +161,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                 .unwrap_or((String::new(), None));
             let metadata = card_element
                 .select(&metadata_selector)
-                .map(|element| clean_element_text(element))
-                .flatten()
+                .filter_map(clean_element_text)
                 .filter(|value| !value.is_empty())
                 .collect::<Vec<_>>();
             let year = metadata.iter().find_map(|value| release_year(value));
@@ -234,7 +235,7 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         "id": id, "russianName": name, "englishName": if original != name { Some(original.clone()) } else { None::<String> },
         "originalName": original, "japaneseName": null, "synonyms": [], "year": year, "type": type_alias,
         "episodeCount": episode_count, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
-        "description": description.or_else(|| Some(name)), "nextEpisodeAt": null, "genres": schema.as_ref().and_then(|v| v.get("genre")).cloned().unwrap_or_else(|| json!([])), "ratings": [],
+        "description": description.or(Some(name)), "nextEpisodeAt": null, "genres": schema.as_ref().and_then(|v| v.get("genre")).cloned().unwrap_or_else(|| json!([])), "ratings": [],
         "ageRating": schema.as_ref().and_then(|v| v.get("contentRating")), "viewCount": null, "screenshots": [], "trailer": null,
         "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [],
         "season": null, "availableEpisodeCount": episode_text.as_deref().and_then(|v| v.split('/').next()).and_then(|v| v.trim().parse::<i64>().ok()), "posterFallbackUrl": poster_fallback
@@ -507,14 +508,14 @@ mod tests {
 
     #[test]
     fn normalizes_details_metadata_for_client() {
-        let html = format!(
-            r#"<h1>Крутой учитель Онидзука</h1>
+        let html = r#"
+            <script type="application/ld+json">{"@type":"TVSeries","name":"GTO","datePublished":"1999-06-30","numberOfEpisodes":43}</script>
+            <h1>Крутой учитель Онидзука</h1>
             <script type="application/ld+json">{{"@type":"TVSeries","name":"Крутой учитель Онидзука","alternateName":"Great Teacher Onizuka","datePublished":"1999-06-30","numberOfEpisodes":43,"genre":["Комедия"]}}</script>
             <div>Тип</div><div>Сериал</div>
             <div>Эпизоды</div><div>43</div>
-            <div>Статус</div><div>Вышел</div>"#
-        );
-        let title = details("krutoy-uchitel-onidzuka-556", &html).expect("details");
+            <div>Статус</div><div>Вышел</div>"#;
+        let title = details("krutoy-uchitel-onidzuka-556", html).expect("details");
 
         assert_eq!(title["type"], "tv");
         assert_eq!(title["year"], 1999);
