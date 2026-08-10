@@ -116,6 +116,10 @@ fn title(value: &Value) -> Option<Value> {
     let raw_type = value.get("type").and_then(|value| value.get("value")).and_then(Value::as_str);
     let type_alias = raw_type.and_then(normalize_type).or_else(|| raw_type.map(str::to_owned));
     let year = value.get("year").and_then(|year| year.as_i64().or_else(|| year.as_str().and_then(parse_year)));
+    let description = value.get("description").and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|description| !description.is_empty())
+        .unwrap_or(main_name);
     Some(json!({
         "id": id,
         "russianName": main_name,
@@ -128,7 +132,7 @@ fn title(value: &Value) -> Option<Value> {
         "episodeCount": value.get("episodes_total").and_then(non_negative_i64),
         "posterUrl": poster_path.map(|path| if path.starts_with("http") { path.to_owned() } else { format!("https://anilibria.top{path}") }),
         "status": value.get("is_ongoing").and_then(Value::as_bool).map(|ongoing| if ongoing { "ongoing" } else { "released" }),
-        "description": value.get("description").and_then(Value::as_str),
+        "description": description,
         "nextEpisodeAt": null,
         "genres": value.get("genres").and_then(Value::as_array).map(|genres| genres.iter().filter_map(|genre| genre.get("name").or_else(|| genre.get("description"))).filter_map(Value::as_str).collect::<Vec<_>>()).unwrap_or_default(),
         "ratings": [], "ageRating": null, "viewCount": null, "screenshots": [], "trailer": null,
@@ -502,6 +506,7 @@ mod tests {
         assert_eq!(parsed["year"], 2024);
         assert_eq!(parsed["episodeCount"], 12);
         assert_eq!(parsed["status"], "ongoing");
+        assert_eq!(parsed["description"], "Test title");
         assert_eq!(parsed["synonyms"], json!(["One", "Two"]));
     }
 

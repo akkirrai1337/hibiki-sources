@@ -6,6 +6,6 @@
   "episodes_total": "12",
   "poster": { "src": "/poster.jpg" },
   "is_ongoing": true,
-  "description": "Description",
+  "description": "",
   "genres": [{ "name": "Action" }]
 }
