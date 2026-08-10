@@ -129,7 +129,11 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
     let metadata_selector = Selector::parse(
         ".ani-list__item-genres__link, .ani-grid__item-genres__link, .genres a, .meta a",
     )
-    .expect("valid metadata selector");
+        .expect("valid metadata selector");
+    let metadata_attribute_selector = Selector::parse(
+        "[data-year], [data-release-year], [data-type], [data-kind], [data-status]",
+    )
+    .expect("valid metadata attribute selector");
 
     let parsed = document
         .linked_cards_unique(
@@ -166,6 +170,17 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
                     .into_iter()
                     .filter_map(|attribute| element_attr(card_element, attribute)),
                 )
+                .chain(card_element.select(&metadata_attribute_selector).flat_map(|element| {
+                    [
+                        "data-year",
+                        "data-release-year",
+                        "data-type",
+                        "data-kind",
+                        "data-status",
+                    ]
+                    .into_iter()
+                    .filter_map(move |attribute| element_attr(element, attribute))
+                }))
                 .collect::<Vec<_>>();
             let year = metadata.iter().find_map(|value| release_year(value));
             let type_alias = metadata.iter().find_map(|value| known_type(value));
@@ -789,8 +804,9 @@ mod tests {
     #[test]
     fn reads_card_metadata_from_data_attributes() {
         let html = r#"
-            <article data-year="2022" data-type="TV Series" data-status="Ongoing">
+            <article>
                 <a href="/anime/data-card-123"><img alt="Data card" src="poster.webp"></a>
+                <span data-year="2022" data-type="TV Series" data-status="Ongoing"></span>
             </article>
         "#;
         let items = card_titles_with_diagnostics(html, "SEARCH").expect("catalog cards");
