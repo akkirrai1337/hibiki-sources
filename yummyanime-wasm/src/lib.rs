@@ -85,11 +85,12 @@ fn title(value: &Value) -> Option<Value> {
     let original = value.get("title_orig").or_else(|| value.get("title_original")).and_then(Value::as_str).or_else(|| english.or(russian));
     let poster = value.get("poster").or_else(|| value.get("image"));
     let poster_url = poster.and_then(|p| {
-        p.as_str().map(normalized_url).or_else(|| {
+            p.as_str().map(normalized_url).filter(|url| is_http_url(url)).or_else(|| {
             ["fullsize", "mega", "huge", "big", "medium", "small", "original", "preview", "thumbnail", "url"]
                 .iter()
                 .find_map(|key| p.get(*key).and_then(Value::as_str).filter(|v| !v.trim().is_empty()))
                 .map(normalized_url)
+                .filter(|url| is_http_url(url))
         })
     });
     let raw_type = value.get("type").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str);

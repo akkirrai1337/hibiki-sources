@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, non_negative_finite, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, clean_element_text, host_get_request, is_http_url, non_negative_finite, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -107,6 +107,13 @@ fn text(value: &str) -> String {
 }
 
 fn absolute_url(value: &str) -> String {
+    let value = value.trim();
+    if let Some((scheme, _)) = value.split_once(':') {
+        if !scheme.is_empty() && scheme.chars().enumerate().all(|(index, character)| {
+            if index == 0 { character.is_ascii_alphabetic() }
+            else { character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.') }
+        }) { return value.to_owned(); }
+    }
     if value.starts_with("http://") || value.starts_with("https://") { value.to_owned() }
     else if value.starts_with("//") { format!("https:{value}") }
     else { format!("{BASE_URL}{}", if value.starts_with('/') { value.to_owned() } else { format!("/{value}") }) }
@@ -114,6 +121,7 @@ fn absolute_url(value: &str) -> String {
 
 fn poster_url(value: &str) -> (String, Option<String>) {
     let source = absolute_url(value);
+    if !is_http_url(&source) { return (String::new(), None); }
     if source.starts_with("https://img.cdngos.com/") {
         let encoded = enc(&source);
         (format!("https://images.weserv.nl/?url={encoded}&w=500&h=700&fit=cover&output=webp"), Some(source))
@@ -655,6 +663,11 @@ mod tests {
         let players = player_items(html).expect("players");
 
         assert_eq!(players.len(), 2);
+    }
+
+    #[test]
+    fn rejects_unsafe_poster_urls() {
+        assert_eq!(poster_url("javascript:alert(1)"), (String::new(), None));
     }
 }
 
