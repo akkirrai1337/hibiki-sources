@@ -492,17 +492,13 @@ impl HtmlDocument {
 
     pub fn image_urls(&self, selector: &str) -> Result<Vec<String>, HtmlSdkError> {
         Ok(self.select(selector)?.into_iter().filter_map(|element| {
-            let value = ["src", "data-src", "data-original"]
-                .into_iter().find_map(|attribute| element.value().attr(attribute).map(str::trim).filter(|value| !value.is_empty()))
-                .or_else(|| element.value().attr("srcset").and_then(srcset_first));
-            value.and_then(|value| self.absolute_http_url(value))
+            image_attribute(element).and_then(|value| self.absolute_http_url(&value))
         }).collect())
     }
 
     pub fn first_image_url(&self, selector: &str) -> Result<Option<String>, HtmlSdkError> {
         Ok(self.select(selector)?.into_iter().find_map(|element| {
-            let value = first_attribute(element, &["src", "data-src", "data-original"])
-                .or_else(|| element.value().attr("srcset").and_then(srcset_first).map(str::to_owned))?;
+            let value = image_attribute(element)?;
             self.absolute_http_url(&value)
         }))
     }
@@ -538,8 +534,7 @@ impl HtmlDocument {
                 }))
                 .or_else(|| clean_element_text(link));
             let image_url = card.select(&image_selector).find_map(|image| {
-                let value = first_attribute(image, &["src", "data-src", "data-original"])
-                    .or_else(|| image.value().attr("srcset").and_then(srcset_first).map(str::to_owned))?;
+                let value = image_attribute(image)?;
                 self.absolute_http_url(&value)
             });
             HtmlCard { element: card, url, title, image_url }
@@ -645,6 +640,24 @@ fn normalized_label(value: &str) -> String {
 
 fn srcset_first(value: &str) -> Option<&str> {
     value.split(',').next()?.split_whitespace().next().filter(|value| !value.is_empty())
+}
+
+fn image_attribute(element: ElementRef<'_>) -> Option<String> {
+    first_attribute(element, &[
+        "src",
+        "data-src",
+        "data-original",
+        "data-lazy-src",
+        "data-original-src",
+        "data-image",
+        "data-poster",
+        "data-lazy",
+        "poster",
+    ]).or_else(|| {
+        ["srcset", "data-srcset", "data-lazy-srcset"]
+            .into_iter()
+            .find_map(|attribute| element.value().attr(attribute).and_then(srcset_first).map(str::to_owned))
+    })
 }
 
 fn normalize_path(value: &str) -> String {
@@ -830,6 +843,12 @@ mod tests {
         assert_eq!(document.attributes_any(".card img", &["data-missing", "data-src"]).unwrap(), ["//cdn.example/test.jpg"]);
         let srcset = HtmlDocument::parse(r#"<img srcset="/small.jpg 480w, /large.jpg 960w">"#, "https://example.org");
         assert_eq!(srcset.image_urls("img").unwrap(), ["https://example.org/small.jpg"]);
+        let lazy = HtmlDocument::parse(
+            r#"<img data-lazy-src="/lazy.jpg"><img data-srcset="/small.webp 480w, /large.webp 960w"><video poster="/poster.jpg"></video>"#,
+            "https://example.org",
+        );
+        assert_eq!(lazy.image_urls("img").unwrap(), ["https://example.org/lazy.jpg", "https://example.org/small.webp"]);
+        assert_eq!(lazy.first_image_url("video").unwrap(), Some("https://example.org/poster.jpg".to_owned()));
         assert_eq!(srcset.absolute_http_url("javascript:alert(1)"), None);
         let image = HtmlDocument::parse(r#"<img data-src="/poster.webp">"#, "https://example.org");
         assert_eq!(image.first_attribute_any("img", &["src", "data-src"]).unwrap(), Some("/poster.webp".to_owned()));
