@@ -243,13 +243,16 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
     let name = document
         .text_first("h1")
         .map_err(|error| format!("AnimeGo details title selector failed for {id}: {error:?}"))?
+        .or_else(|| document.meta_content_any(&["og:title", "twitter:title"]).ok().flatten())
         .ok_or_else(|| format!("AnimeGo details title is missing for {id}"))?;
     let schema = json_ld_document(&document);
     let original = schema.as_ref().and_then(|v| v.get("alternateName").or_else(|| v.get("name"))).and_then(non_empty_text).unwrap_or_else(|| name.clone());
-    let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(Value::as_str).map(absolute_url);
+    let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(Value::as_str).map(absolute_url)
+        .or_else(|| document.meta_content_any(&["og:image", "twitter:image"]).ok().flatten().map(|value| absolute_url(&value)));
     let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
         .unwrap_or((String::new(), None));
-    let description = schema.as_ref().and_then(|v| v.get("description")).and_then(non_empty_text);
+    let description = schema.as_ref().and_then(|v| v.get("description")).and_then(non_empty_text)
+        .or_else(|| document.meta_content_any(&["og:description", "twitter:description"]).ok().flatten());
     let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(parse_year);
     let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
     let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(non_negative_i64)

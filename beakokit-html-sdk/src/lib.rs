@@ -418,6 +418,18 @@ impl HtmlDocument {
         Ok(None)
     }
 
+    /// Read the first non-empty content from Open Graph, Twitter, or other
+    /// named meta tags. Matching is case-insensitive for HTML compatibility.
+    pub fn meta_content_any(&self, names: &[&str]) -> Result<Option<String>, HtmlSdkError> {
+        Ok(self.select("meta")?.into_iter().find_map(|meta| {
+            let name = first_attribute(meta, &["property", "name", "itemprop"])?;
+            if !names.iter().any(|candidate| name.eq_ignore_ascii_case(candidate)) {
+                return None;
+            }
+            meta.value().attr("content").and_then(clean_text)
+        }))
+    }
+
     /// Read valid JSON-LD objects from the page, including objects nested in
     /// a JSON-LD array or an `@graph` container. Invalid optional scripts are
     /// ignored so one unrelated analytics block cannot hide valid metadata.
@@ -892,6 +904,12 @@ mod tests {
             "https://example.org",
         );
         assert_eq!(backgrounds.image_urls("div").unwrap(), ["https://example.org/data.jpg", "https://example.org/style.webp"]);
+        let metadata = HtmlDocument::parse(
+            r#"<meta property="OG:TITLE" content=" Demo title "><meta name="twitter:image" content="/meta.webp"><meta name="description" content="Ignored">"#,
+            "https://example.org",
+        );
+        assert_eq!(metadata.meta_content_any(&["og:title"]).unwrap(), Some("Demo title".to_owned()));
+        assert_eq!(metadata.meta_content_any(&["twitter:image"]).unwrap(), Some("/meta.webp".to_owned()));
         let json_ld = HtmlDocument::parse(
             r#"<script type="application/ld+json">not json</script><script type="application/ld+json">[{"@type":"TVSeries","name":"Demo"}]</script><script type="application/ld+json">{"@graph":[{"@type":"Movie","name":"Film"}]}</script>"#,
             "https://example.org",
