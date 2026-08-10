@@ -34,6 +34,19 @@ if ($PackageUrl) {
     }
 }
 
+if ($RepositoryIndexPath) {
+    if (-not $PackageUrl) { throw "PackageUrl is required when RepositoryIndexPath is specified" }
+    $preflightIndexPath = if ([System.IO.Path]::IsPathRooted($RepositoryIndexPath)) {
+        [System.IO.Path]::GetFullPath($RepositoryIndexPath)
+    } else {
+        [System.IO.Path]::GetFullPath((Join-Path $projectRoot $RepositoryIndexPath))
+    }
+    if ([System.IO.File]::Exists($preflightIndexPath)) {
+        $preflightIndex = Get-Content -Raw -LiteralPath $preflightIndexPath | ConvertFrom-Json
+        Assert-RepositoryIndex $preflightIndex
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $artifactDirectory | Out-Null
 if ([System.IO.Directory]::Exists($stagingDirectory)) { [System.IO.Directory]::Delete($stagingDirectory, $true) }
 New-Item -ItemType Directory -Force -Path $stagingDirectory | Out-Null
