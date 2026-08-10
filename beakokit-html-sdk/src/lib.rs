@@ -524,7 +524,7 @@ impl HtmlDocument {
             let card = link.parent().and_then(ElementRef::wrap).unwrap_or(link);
             let url = first_attribute(link, &["href"])
                 .and_then(|value| self.absolute_http_url(&value));
-            let title = first_attribute(link, &["title", "data-title"])
+            let title = first_attribute(link, &["title", "data-title", "data-name", "data-original-title", "data-label", "aria-label"])
                 .and_then(|value| clean_text(&value))
                 .or_else(|| title_selectors.iter().find_map(|selector| {
                     card.select(selector).find_map(clean_element_text)
@@ -901,6 +901,13 @@ mod tests {
         assert_eq!(cards[0].image_url.as_deref(), Some("https://example.org/poster.jpg"));
         let genre_selector = Selector::parse(".genre").unwrap();
         assert_eq!(cards[0].element.select(&genre_selector).count(), 1);
+
+        let attribute_title = HtmlDocument::parse(
+            r#"<article><a href="/anime/attribute-title" data-name="Attribute title"><img data-src="/poster.jpg"></a></article>"#,
+            "https://example.org",
+        );
+        let attribute_cards = attribute_title.linked_cards("a[href*='/anime/']", &[], "img").unwrap();
+        assert_eq!(attribute_cards[0].title.as_deref(), Some("Attribute title"));
 
         let unsafe_document = HtmlDocument::parse(
             r#"<article><a href="/anime/unsafe"><img src="javascript:alert(1)"></a></article>"#,
