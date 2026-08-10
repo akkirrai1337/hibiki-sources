@@ -397,7 +397,7 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
         .filter_map(|episode| {
             let id = element_attr(episode, "data-episode")?;
             let number = element_attr(episode, "data-episode-number")
-                .and_then(|value| value.replace(',', ".").parse::<f64>().ok())
+                .and_then(|value| value.trim().replace(',', ".").parse::<f64>().ok())
                 .or_else(|| {
                     let content = episode.text().collect::<String>();
                     text(&content).split_whitespace()
@@ -741,6 +741,13 @@ mod tests {
         assert_eq!(episodes[0]["id"], "ep-1");
         assert_eq!(episodes[0]["title"], "Pilot");
         assert_eq!(episodes[1]["id"], "ep-2");
+    }
+
+    #[test]
+    fn parses_episode_numbers_with_spaces_and_decimal_commas() {
+        let html = r#"<button data-episode="ep-2" data-episode-number=" 2,5 ">2,5</button>"#;
+        let episodes = episode_items(html).expect("episodes");
+        assert_eq!(episodes[0]["number"], 2.5);
     }
 
     #[test]
