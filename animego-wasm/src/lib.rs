@@ -351,7 +351,11 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
 fn json_ld_document(document: &HtmlDocument) -> Option<Value> {
     let documents = document.json_ld_documents().ok()?;
     documents.iter()
-        .find(|value| value.get("@type").and_then(first_non_empty_text).and_then(|value| known_type(&value)).is_some())
+        .filter(|value| value.get("@type").and_then(first_non_empty_text).and_then(|value| known_type(&value)).is_some())
+        .max_by_key(|value| [
+            "name", "alternateName", "image", "description", "datePublished",
+            "numberOfEpisodes", "genre", "aggregateRating", "productionCompany",
+        ].into_iter().filter(|key| value.get(key).is_some()).count())
         .cloned()
         .or_else(|| documents.into_iter().find(|value| {
             value.get("@type").is_some() || value.get("name").is_some() || value.get("alternateName").is_some()
@@ -955,6 +959,20 @@ mod tests {
         assert_eq!(title["type"], "tv");
         assert_eq!(title["year"], 2024);
         assert_eq!(title["episodeCount"], 12);
+    }
+
+    #[test]
+    fn prefers_the_most_complete_anime_json_ld_block() {
+        let html = r#"
+            <h1>Complete title</h1>
+            <script type="application/ld+json">{"@type":"TVSeries","name":"Minimal"}</script>
+            <script type="application/ld+json">{"@type":"TVSeries","name":"Complete title","image":"/poster.jpg","description":"Description","genre":["Action"],"datePublished":"2022-01-01","numberOfEpisodes":24}</script>
+        "#;
+        let title = details("complete-json-123", html).expect("details");
+        assert_eq!(title["originalName"], "Complete title");
+        assert_eq!(title["posterUrl"], "https://animego.me/poster.jpg");
+        assert_eq!(title["genres"], json!(["Action"]));
+        assert_eq!(title["episodeCount"], 24);
     }
 
     #[test]
