@@ -6,6 +6,7 @@ pub const MAX_RUNTIME_REQUEST_BYTES: usize = 256 * 1024;
 pub const MAX_RUNTIME_OPERATION_BYTES: usize = 64;
 pub const MAX_RUNTIME_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_HOST_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+pub const MAX_PACKED_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_PATH_SEGMENT_BYTES: usize = 256;
 pub const HOST_PROTOCOL_VERSION: u32 = 1;
 pub const DEFAULT_HTTP_TIMEOUT_MILLIS: u64 = 30_000;
@@ -32,6 +33,32 @@ pub fn host_get_request(
         },
         "protocolVersion": HOST_PROTOCOL_VERSION
     })
+}
+
+/// Decode the packed pointer/length returned by the host ABI before reading it.
+///
+/// # Safety
+/// The caller must invoke this only while the host-owned WASM memory remains
+/// valid. The returned pointer and length are checked for null, overflow, and
+/// the shared response limit, but only the host can guarantee that the pointer
+/// refers to readable memory.
+pub unsafe fn unpack_host_response(packed: i64, source: &str) -> Result<&'static [u8], String> {
+    if packed < 0 {
+        return Err(format!("{source} host HTTP request failed"));
+    }
+    let packed = packed as u64;
+    let pointer = (packed >> 32) as usize;
+    let length = (packed & u32::MAX as u64) as usize;
+    if length > MAX_PACKED_RESPONSE_BYTES || (pointer == 0 && length > 0) {
+        return Err(format!("{source} host response pointer or size is invalid"));
+    }
+    let Some(end) = pointer.checked_add(length) else {
+        return Err(format!("{source} host response pointer or size is invalid"));
+    };
+    if end > u32::MAX as usize {
+        return Err(format!("{source} host response pointer or size is invalid"));
+    }
+    Ok(if length == 0 { &[] } else { core::slice::from_raw_parts(pointer as *const u8, length) })
 }
 
 pub fn parse_year(value: &str) -> Option<i64> {
@@ -624,7 +651,7 @@ impl JsonDocument {
 
 #[cfg(test)]
 mod tests {
-    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
+    use super::{attribute, first_attribute, host_get_request, is_http_url, non_empty_scalar, normalize_status, normalize_type, parse_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_request, HostResponse, HttpSdkError, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, Selector, DEFAULT_HTTP_TIMEOUT_MILLIS, DEFAULT_MAX_DOCUMENT_BYTES, HOST_PROTOCOL_VERSION, MAX_RUNTIME_REQUEST_BYTES};
 
     #[test]
     fn builds_a_bounded_host_get_request() {
@@ -636,6 +663,14 @@ mod tests {
         assert_eq!(request["payload"]["maxResponseBytes"], 4096);
         let bounded = host_get_request("search-2", "https://example.org", serde_json::json!({}), u64::MAX);
         assert_eq!(bounded["payload"]["maxResponseBytes"], super::MAX_HOST_RESPONSE_BYTES);
+    }
+
+    #[test]
+    fn rejects_invalid_packed_host_responses() {
+        assert!(unsafe { unpack_host_response(-1, "fixture") }.is_err());
+        assert!(unsafe { unpack_host_response(1, "fixture") }.is_err());
+        assert!(unsafe { unpack_host_response((u64::from(u32::MAX) << 32) as i64, "fixture") }.is_err());
+        assert!(unsafe { unpack_host_response(0, "fixture") }.unwrap().is_empty());
     }
 
     #[test]

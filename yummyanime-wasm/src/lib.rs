@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, normalize_year, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -41,13 +41,7 @@ fn http(request_id: &str, path: &str, query: &str) -> Result<String, String> {
     }), MAX_RESPONSE_BYTES);
     let bytes = serde_json::to_vec(&request).map_err(|e| e.to_string())?;
     let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
-    if packed < 0 { return Err("YummyAnime host HTTP request failed".to_owned()); }
-    let ptr = (packed as u64 >> 32) as usize;
-    let len = (packed as u64 & u32::MAX as u64) as usize;
-    let raw = unsafe { core::slice::from_raw_parts(ptr as *const u8, len) };
-    if raw.len() > MAX_HOST_RESPONSE_BYTES {
-        return Err("YummyAnime host response exceeds size limit".to_owned());
-    }
+    let raw = unsafe { unpack_host_response(packed, "YummyAnime")? };
     let response: Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
     HostResponse::from_value_limited(&response, "YummyAnime", MAX_RESPONSE_BYTES as usize)
         .map(|response| response.body().to_owned())

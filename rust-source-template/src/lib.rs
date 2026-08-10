@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-pub use beakokit_html_sdk::{host_get_request, normalize_status, normalize_type, parse_year, sanitize_runtime_error, validate_runtime_request, HostResponse, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, HttpSdkError, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+pub use beakokit_html_sdk::{host_get_request, normalize_status, normalize_type, parse_year, sanitize_runtime_error, unpack_host_response, validate_runtime_request, HostResponse, HtmlDocument, HtmlSdkError, JsonDocument, JsonSdkError, HttpSdkError, MAX_HOST_RESPONSE_BYTES, MAX_RUNTIME_REQUEST_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
 #[derive(Deserialize)]
@@ -43,13 +43,7 @@ fn host_http(request_id: &str, url: &str) -> Result<String, String> {
     let request = host_get_request(request_id, url, json!({ "Accept": "application/json" }), 8 * 1024 * 1024);
     let bytes = serde_json::to_vec(&request).map_err(|error| error.to_string())?;
     let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
-    if packed < 0 {
-        return Err("host request failed".to_owned());
-    }
-    let pointer = (packed as u64 >> 32) as usize;
-    let length = (packed as u64 & u32::MAX as u64) as usize;
-    if (pointer == 0 && length > 0) || length > MAX_HOST_RESPONSE_BYTES { return Err("host response pointer or size is invalid".to_owned()); }
-    let response = if length == 0 { &[] } else { unsafe { core::slice::from_raw_parts(pointer as *const u8, length) } };
+    let response = unsafe { unpack_host_response(packed, "template source")? };
     let response: Value = serde_json::from_slice(response).map_err(|error| error.to_string())?;
     HostResponse::from_value_limited(&response, "template source", 8 * 1024 * 1024)
         .map(|response| response.body().to_owned())
