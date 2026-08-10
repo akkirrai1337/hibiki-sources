@@ -446,7 +446,14 @@ impl HtmlDocument {
         attribute: &str,
     ) -> Result<Vec<String>, HtmlSdkError> {
         let selector_value = selector.to_owned();
-        self.select(selector)?.into_iter().map(|element| {
+        let elements = self.select(selector)?;
+        if elements.is_empty() {
+            return Err(HtmlSdkError::MissingAttribute {
+                selector: selector_value,
+                attribute: attribute.to_owned(),
+            });
+        }
+        elements.into_iter().map(|element| {
             element.value().attr(attribute)
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
@@ -889,6 +896,9 @@ mod tests {
         });
         assert_eq!(document.required_text_any(&[".missing", ".title"]).unwrap_err(), HtmlSdkError::MissingText {
             selector: ".missing | .title".to_owned()
+        });
+        assert_eq!(document.required_attribute(".missing", "href").unwrap_err(), HtmlSdkError::MissingAttribute {
+            selector: ".missing".to_owned(), attribute: "href".to_owned()
         });
         assert_eq!(document.required_attribute_any(&[".missing", ".card"], &["href", "data-id"]).unwrap_err(), HtmlSdkError::MissingAttribute {
             selector: ".missing | .card".to_owned(),
