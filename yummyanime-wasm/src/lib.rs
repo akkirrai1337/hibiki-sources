@@ -144,6 +144,16 @@ fn videos(request_id: &str, id: &str) -> Result<Vec<Value>, String> {
 
 fn number(value: &str) -> Option<f64> { value.replace(',', ".").parse::<f64>().ok() }
 
+fn video_episode(video: &Value) -> Result<Option<(String, f64)>, String> {
+    let Some(raw_number) = video.get("number") else { return Ok(None); };
+    let episode_id = scalar(raw_number)
+        .ok_or_else(|| "YummyAnime video number is not a valid scalar".to_owned())?;
+    let episode_number = number(&episode_id)
+        .and_then(non_negative_finite)
+        .ok_or_else(|| format!("YummyAnime video episode number is invalid: {episode_id}"))?;
+    Ok(Some((episode_id, episode_number)))
+}
+
 fn dubbing(video: &Value) -> Option<String> {
     video.pointer("/data/dubbing").and_then(Value::as_str).map(|v| v.trim_start_matches("Озвучка ").trim().to_owned()).filter(|v| !v.is_empty())
 }
@@ -155,13 +165,13 @@ fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
     names.sort(); names.dedup();
     for name in names {
         let mut seen = Vec::new();
-        let episodes = items.iter().filter(|v| dubbing(v).as_deref() == Some(&name)).filter_map(|v| {
-            let episode_id = scalar(v.get("number")?)?;
-            let episode_number = non_negative_finite(number(&episode_id)?)?;
-            if seen.iter().any(|id: &String| id == &episode_id) { return None; }
+        let mut episodes = Vec::new();
+        for video in items.iter().filter(|v| dubbing(v).as_deref() == Some(&name)) {
+            let Some((episode_id, episode_number)) = video_episode(video)? else { continue; };
+            if seen.iter().any(|id: &String| id == &episode_id) { continue; }
             seen.push(episode_id.clone());
-            Some(json!({ "id": episode_id, "number": episode_number, "title": v.get("title") }))
-        }).collect::<Vec<_>>();
+            episodes.push(json!({ "id": episode_id, "number": episode_number, "title": video.get("title") }));
+        }
         if !episodes.is_empty() { groups.push(json!({ "id": name, "title": name, "qualityLabel": null, "episodes": episodes })); }
     }
     Ok(json!({ "groups": groups }))
@@ -325,5 +335,12 @@ mod tests {
             json!({"title":"Missing id"}),
         ];
         assert!(catalog_titles(&items).is_err());
+    }
+
+    #[test]
+    fn validates_yummyanime_video_episode_numbers() {
+        assert_eq!(video_episode(&json!({"number":"2"})).unwrap(), Some(("2".to_owned(), 2.0)));
+        assert!(video_episode(&json!({"number":"broken"})).is_err());
+        assert_eq!(video_episode(&json!({"title":"service video"})).unwrap(), None);
     }
 }
