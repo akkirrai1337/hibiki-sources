@@ -329,6 +329,24 @@ impl HtmlDocument {
         }).collect())
     }
 
+    pub fn linked_cards_unique<'document>(
+        &'document self,
+        link_selector: &str,
+        title_selectors: &[&str],
+        image_selector: &str,
+    ) -> Result<Vec<HtmlCard<'document>>, HtmlSdkError> {
+        let mut seen_urls = Vec::new();
+        Ok(self.linked_cards(link_selector, title_selectors, image_selector)?
+            .into_iter()
+            .filter(|card| {
+                let Some(url) = card.url.as_deref() else { return false; };
+                if seen_urls.iter().any(|seen| seen == url) { return false; }
+                seen_urls.push(url.to_owned());
+                true
+            })
+            .collect())
+    }
+
     /// Read the value from a two-column row such as `<div><label>Type</label>
     /// <span>TV</span></div>`. Matching is based on normalized label text,
     /// not on the exact HTML formatting.
@@ -527,6 +545,13 @@ mod tests {
         );
         let unsafe_cards = unsafe_document.linked_cards("a[href*='/anime/']", &[], "img").unwrap();
         assert_eq!(unsafe_cards[0].image_url, None);
+
+        let duplicate_document = HtmlDocument::parse(
+            r#"<a href="/anime/one">One</a><a href="/anime/one">One again</a><a href="/anime/two">Two</a>"#,
+            "https://example.org",
+        );
+        let unique = duplicate_document.linked_cards_unique("a[href*='/anime/']", &[], "img").unwrap();
+        assert_eq!(unique.len(), 2);
     }
 
     #[test]

@@ -141,8 +141,8 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
     )
     .expect("valid metadata selector");
 
-    let mut parsed = document
-        .linked_cards(
+    let parsed = document
+        .linked_cards_unique(
             "a[href*='/anime/']",
             &[".ani-list__item-title", ".ani-grid__item-title", ".title", "h2", "h3"],
             "img",
@@ -184,13 +184,7 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
             }))
         })
         .collect::<Vec<_>>();
-    let mut unique = Vec::new();
-    for item in parsed.drain(..) {
-        if !unique.iter().any(|value: &Value| value.get("id") == item.get("id")) {
-            unique.push(item);
-        }
-    }
-    Ok(unique)
+    Ok(parsed)
 }
 
 fn first_text(element: ElementRef<'_>, selector: &Selector) -> Option<String> {
