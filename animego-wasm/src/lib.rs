@@ -106,21 +106,8 @@ fn text(value: &str) -> String {
         .collect::<Vec<_>>().join(" ")
 }
 
-fn absolute_url(value: &str) -> String {
-    let value = value.trim();
-    if let Some((scheme, _)) = value.split_once(':') {
-        if !scheme.is_empty() && scheme.chars().enumerate().all(|(index, character)| {
-            if index == 0 { character.is_ascii_alphabetic() }
-            else { character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.') }
-        }) { return value.to_owned(); }
-    }
-    if value.starts_with("http://") || value.starts_with("https://") { value.to_owned() }
-    else if value.starts_with("//") { format!("https:{value}") }
-    else { format!("{BASE_URL}{}", if value.starts_with('/') { value.to_owned() } else { format!("/{value}") }) }
-}
-
 fn poster_url(value: &str) -> (String, Option<String>) {
-    let source = absolute_url(value);
+    let source = value.trim().to_owned();
     if !is_http_url(&source) { return (String::new(), None); }
     if source.starts_with("https://img.cdngos.com/") {
         let encoded = enc(&source);
@@ -247,8 +234,10 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         .ok_or_else(|| format!("AnimeGo details title is missing for {id}"))?;
     let schema = json_ld_document(&document);
     let original = schema.as_ref().and_then(|v| v.get("alternateName").or_else(|| v.get("name"))).and_then(non_empty_text).unwrap_or_else(|| name.clone());
-    let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(Value::as_str).map(absolute_url)
-        .or_else(|| document.meta_content_any(&["og:image", "twitter:image"]).ok().flatten().map(|value| absolute_url(&value)));
+    let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(Value::as_str)
+        .and_then(|value| document.absolute_http_url(value))
+        .or_else(|| document.meta_content_any(&["og:image", "twitter:image"]).ok().flatten()
+            .and_then(|value| document.absolute_http_url(&value)));
     let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
         .unwrap_or((String::new(), None));
     let description = schema.as_ref().and_then(|v| v.get("description")).and_then(non_empty_text)
