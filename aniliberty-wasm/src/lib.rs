@@ -155,15 +155,18 @@ fn release(request_id: &str, id: &str) -> Result<Value, String> {
 }
 
 fn episode_value<'a>(release: &'a Value, episode_id: &str) -> Result<&'a Value, String> {
-    release
-        .get("episodes")
-        .and_then(Value::as_array)
-        .and_then(|episodes| {
-            episodes
-                .iter()
-                .find(|episode| episode.get("id").and_then(Value::as_str) == Some(episode_id))
-        })
+    release_episodes(release)?
+        .iter()
+        .find(|episode| episode.get("id").and_then(Value::as_str) == Some(episode_id))
         .ok_or_else(|| format!("AniLiberty episode was not found: {episode_id}"))
+}
+
+fn release_episodes(release: &Value) -> Result<&[Value], String> {
+    match release.get("episodes") {
+        None => Ok(&[]),
+        Some(Value::Array(episodes)) => Ok(episodes),
+        Some(_) => Err("AniLiberty release episodes expected an array".to_owned()),
+    }
 }
 
 fn episode_number(value: &Value) -> Option<f64> {
@@ -235,12 +238,9 @@ fn filter_catalog(request_id: &str) -> Result<Value, String> {
 fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
     let release = release(request_id, title_id)?;
     let mut seen_ids = Vec::new();
-    let episodes = release
-        .get("episodes")
-        .and_then(Value::as_array)
+    let episodes = release_episodes(&release)?
+        .iter()
         .cloned()
-        .unwrap_or_default()
-        .into_iter()
         .filter_map(|episode| {
             let id = episode.get("id")?.to_string_value()?;
             let number = episode_number(&episode)?;
@@ -550,5 +550,12 @@ mod tests {
     fn rejects_malformed_reference_collections() {
         assert!(reference_items(&json!({"data":{"unexpected":true}})).is_err());
         assert_eq!(reference_items(&json!({"items":[]})).unwrap(), Vec::<Value>::new());
+    }
+
+    #[test]
+    fn rejects_malformed_release_episodes() {
+        assert!(release_episodes(&json!({"episodes":{"unexpected":true}})).is_err());
+        assert!(release_episodes(&json!({"id":"without-episodes"})).unwrap().is_empty());
+        assert!(release_episodes(&json!({"episodes":[]})).unwrap().is_empty());
     }
 }
