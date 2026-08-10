@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -81,11 +81,11 @@ fn json_body(body: &str, operation: &str) -> Result<Value, String> {
 
 fn title(value: &Value) -> Option<Value> {
     let id = safe_path_segment(&value.get("anime_id").and_then(scalar)?)?.to_owned();
-    let russian = value.get("title").and_then(Value::as_str).filter(|v| !v.trim().is_empty());
-    let english = value.get("title_en").or_else(|| value.get("title_english")).and_then(Value::as_str).filter(|v| !v.trim().is_empty());
-    let original_raw = value.get("title_orig").or_else(|| value.get("title_original")).and_then(Value::as_str);
-    let display_name = russian.or(english).or(original_raw)?;
-    let original = original_raw.or(english).or(Some(display_name));
+    let russian = value.get("title").and_then(non_empty_text);
+    let english = value.get("title_en").or_else(|| value.get("title_english")).and_then(non_empty_text);
+    let original_raw = value.get("title_orig").or_else(|| value.get("title_original")).and_then(non_empty_text);
+    let display_name = russian.as_ref().or(english.as_ref()).or(original_raw.as_ref())?.clone();
+    let original = original_raw.clone().or(english.clone()).or_else(|| Some(display_name.clone()));
     let poster = value.get("poster").or_else(|| value.get("image"));
     let poster_url = poster.and_then(|p| {
             p.as_str().map(normalized_url).filter(|url| is_http_url(url)).or_else(|| {
@@ -101,18 +101,17 @@ fn title(value: &Value) -> Option<Value> {
     let raw_status = value.get("anime_status").and_then(|v| v.get("alias").or(Some(v))).and_then(Value::as_str).or_else(|| value.get("status").and_then(Value::as_str));
     let status = raw_status.and_then(normalize_status);
     let year = value.get("year").and_then(normalize_year);
-    let age_rating = value.get("min_age").and_then(|v| v.get("title").or_else(|| v.get("title_long")).or(Some(v))).and_then(Value::as_str);
+    let age_rating = value.get("min_age").and_then(|v| v.get("title").or_else(|| v.get("title_long")).or(Some(v))).and_then(non_empty_text);
     let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("alias").or_else(|| v.get("name")).or_else(|| v.get("title")).and_then(Value::as_str).map(str::to_owned)).collect::<Vec<_>>()).unwrap_or_default();
     Some(json!({
-        "id": id, "russianName": russian.or(Some(display_name)), "englishName": english, "originalName": original,
+        "id": id, "russianName": russian.clone().or_else(|| Some(display_name.clone())), "englishName": english, "originalName": original,
         "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
         "synonyms": value.get("synonyms").or_else(|| value.get("aliases")).cloned().unwrap_or_else(|| json!([])),
         "year": year, "type": type_alias, "episodeCount": value.get("episodes_count").and_then(non_negative_i64),
         "posterUrl": poster_url, "status": status,
-        "description": value.get("description").and_then(Value::as_str)
-            .filter(|v| !v.trim().is_empty())
-            .or_else(|| russian.or(english).or(original))
-            .unwrap_or("Описание отсутствует"),
+        "description": value.get("description").and_then(non_empty_text)
+            .or_else(|| russian.clone().or(english.clone()).or(original.clone()))
+            .unwrap_or_else(|| "Описание отсутствует".to_owned()),
         "nextEpisodeAt": null, "genres": genres, "ratings": [], "ageRating": age_rating,
         "viewCount": value.get("views"), "screenshots": [], "trailer": null, "sourceMaterial": null,
         "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [],

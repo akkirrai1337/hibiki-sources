@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_negative_finite, non_negative_i64, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_finite, non_negative_i64, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -108,10 +108,8 @@ fn title(value: &Value) -> Option<Value> {
     let raw_type = value.get("type").and_then(|value| value.get("value")).and_then(Value::as_str);
     let type_alias = raw_type.and_then(normalize_type);
     let year = value.get("year").and_then(normalize_year);
-    let description = value.get("description").and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|description| !description.is_empty())
-        .unwrap_or(main_name);
+    let description = value.get("description").and_then(non_empty_text)
+        .unwrap_or_else(|| main_name.to_owned());
     Some(json!({
         "id": id,
         "russianName": main_name,

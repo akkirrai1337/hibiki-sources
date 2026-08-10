@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, host_get_request, is_http_url, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -226,11 +226,11 @@ fn details(id: &str, html: &str) -> Result<Value, String> {
         .map_err(|error| format!("AnimeGo details title selector failed for {id}: {error:?}"))?
         .ok_or_else(|| format!("AnimeGo details title is missing for {id}"))?;
     let schema = json_ld_document(&document);
-    let original = schema.as_ref().and_then(|v| v.get("alternateName").or_else(|| v.get("name"))).and_then(Value::as_str).unwrap_or(&name).to_owned();
+    let original = schema.as_ref().and_then(|v| v.get("alternateName").or_else(|| v.get("name"))).and_then(non_empty_text).unwrap_or_else(|| name.clone());
     let source_poster = schema.as_ref().and_then(|v| v.get("image")).and_then(Value::as_str).map(absolute_url);
     let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
         .unwrap_or((String::new(), None));
-    let description = schema.as_ref().and_then(|v| v.get("description")).and_then(Value::as_str).map(str::to_owned);
+    let description = schema.as_ref().and_then(|v| v.get("description")).and_then(non_empty_text);
     let year = schema.as_ref().and_then(|v| v.get("datePublished")).and_then(Value::as_str).and_then(parse_year);
     let episode_text = field_value(html, "\u{042d}\u{043f}\u{0438}\u{0437}\u{043e}\u{0434}\u{044b}");
     let episode_count = schema.as_ref().and_then(|v| v.get("numberOfEpisodes")).and_then(non_negative_i64)
