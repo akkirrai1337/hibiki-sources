@@ -391,7 +391,26 @@ fn strip_markup(value: &str) -> String {
             _ => {}
         }
     }
-    text(&plain)
+    plain = plain
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"");
+    let mut normalized = String::with_capacity(plain.len());
+    let mut pending_space = false;
+    for character in plain.chars() {
+        if character.is_whitespace() {
+            if !normalized.is_empty() {
+                pending_space = true;
+            }
+            continue;
+        }
+        if pending_space {
+            normalized.push(' ');
+            pending_space = false;
+        }
+        normalized.push(character);
+    }
+    normalized
 }
 
 fn first_text(element: ElementRef<'_>, selector: &Selector) -> Option<String> {
