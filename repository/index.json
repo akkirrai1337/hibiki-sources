@@ -111,6 +111,46 @@
                                                                        "images.weserv.nl"
                                                                    ]
                                               }
+                    },
+                    {
+                        "manifestFormatVersion":  1,
+                        "sourceId":  "animepahe",
+                        "packageVersion":  "0.1.0",
+                        "sourceInfo":  {
+                                           "displayName":  "AnimePahe",
+                                           "languages":  [
+                                                             "en"
+                                                         ],
+                                           "primaryLanguage":  "en",
+                                           "website":  "https://animepahetv.to",
+                                           "iconUrl":  "https://animepahetv.to/favicon.ico"
+                                       },
+                        "apiVersion":  1,
+                        "hostApiVersion":  1,
+                        "runtime":  {
+                                        "id":  "wasm",
+                                        "abi":  "wasm32-wasi-preview1"
+                                    },
+                        "entrypoint":  "source.wasm",
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-0.1.0.zip",
+                        "sha256":  "93e4e6c6ca8b2b45e211ebeec44c3319c78a5030f8efcd9df68207191c7e49b1",
+                        "artifactSizeBytes":  374431,
+                        "minClientVersion":  0,
+                        "capabilities":  [
+                                             "LATEST_RELEASES",
+                                             "PLAYBACK"
+                                         ],
+                        "hostCapabilities":  [
+                                                 "NETWORK"
+                                             ],
+                        "hostNetworkPolicy":  {
+                                                  "allowedHosts":  [
+                                                                       "animepahetv.to",
+                                                                       "kwik.cx",
+                                                                       "megaplay.buzz",
+                                                                       "vidwish.live"
+                                                                   ]
+                                              }
                     }
                 ]
 }
