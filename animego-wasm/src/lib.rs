@@ -449,10 +449,63 @@ fn rating_value(value: &str) -> Option<f64> {
         .and_then(positive_finite)
 }
 
+fn raw_detail_field(html: &str, labels: &[&str]) -> Option<String> {
+    let labels = labels.iter().map(|label| raw_detail_label(label)).collect::<Vec<_>>();
+    let mut cursor = 0;
+    while let Some(relative) = html[cursor..].find("<div") {
+        let start = cursor + relative;
+        let Some(open_end) = html[start..].find('>').map(|offset| start + offset) else { break; };
+        let open = &html[start..=open_end];
+        let is_entity_row = raw_attribute(open, &["class"])
+            .is_some_and(|class| class.split_whitespace().any(|item| item == "entity-row"));
+        if is_entity_row {
+            let Some(block) = balanced_div(html, start) else { break; };
+            let body = &html[open_end + 1..block.text.len() + start - 6];
+            let Some(first_relative) = body.find("<div") else { cursor = block.end; continue; };
+            let first_start = first_relative;
+            let Some(first) = raw_tag_at(body, first_start, "div") else { cursor = block.end; continue; };
+            let first_end = first_start + first.open.len() + first.body.len() + 6;
+            let Some(second_relative) = body[first_end..].find("<div") else { cursor = block.end; continue; };
+            let second_start = first_end + second_relative;
+            let Some(second) = raw_tag_at(body, second_start, "div") else { cursor = block.end; continue; };
+            let label = raw_detail_label(&strip_markup(first.body));
+            if labels.iter().any(|candidate| candidate == &label) {
+                let value = strip_markup(second.body);
+                if !value.trim().is_empty() {
+                    return Some(value);
+                }
+            }
+            cursor = block.end;
+        } else {
+            if let Some(first) = raw_tag_at(html, start, "div") {
+                let first_end = start + first.open.len() + first.body.len() + 6;
+                if let Some(relative) = html[first_end..].find("<div") {
+                    let second_start = first_end + relative;
+                    if let Some(second) = raw_tag_at(html, second_start, "div") {
+                        let label = raw_detail_label(&strip_markup(first.body));
+                        if labels.iter().any(|candidate| candidate == &label) {
+                            let value = strip_markup(second.body);
+                            if !value.trim().is_empty() {
+                                return Some(value);
+                            }
+                        }
+                    }
+                }
+            }
+            cursor = open_end + 1;
+        }
+    }
+    None
+}
+
+fn raw_detail_label(value: &str) -> String {
+    value.trim().trim_end_matches(':').trim().to_ascii_lowercase()
+}
+
 fn details(id: &str, html: &str) -> Result<Value, String> {
     let document = parse_html(html, "details")?;
     let field_value = |labels: &[&str]| {
-        labels.iter().find_map(|label| document.labeled_text(".entity-row, body", label).ok().flatten())
+        raw_detail_field(html, labels)
     };
     let name = document
         .text_first("h1")
