@@ -115,7 +115,7 @@
                     {
                         "manifestFormatVersion":  1,
                         "sourceId":  "animepahe",
-                        "packageVersion":  "0.1.0",
+                        "packageVersion":  "0.1.2",
                         "sourceInfo":  {
                                            "displayName":  "AnimePahe",
                                            "languages":  [
@@ -132,9 +132,9 @@
                                         "abi":  "wasm32-wasi-preview1"
                                     },
                         "entrypoint":  "source.wasm",
-                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-0.1.1.zip",
-                        "sha256":  "aeb526b06b8b9ac6c807b327b210dceb0de027acd474d66acc8e324a7def5f99",
-                        "artifactSizeBytes":  380063,
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-0.1.2.zip",
+                        "sha256":  "9730cde5990eaa06b9e99e77290d2a9a99989e30979e1d0f9553c2036e67c1ae",
+                        "artifactSizeBytes":  384298,
                         "minClientVersion":  0,
                         "capabilities":  [
                                              "LATEST_RELEASES",

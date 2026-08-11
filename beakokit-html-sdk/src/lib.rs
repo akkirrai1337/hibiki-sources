@@ -623,11 +623,19 @@ impl HtmlDocument {
                     first_attribute(*cell, &["data-label", "aria-label"])
                 }) else { continue; };
                 if normalized_label(&cell_text) == label {
-                    return Ok(cells.get(index + 1).and_then(|value| clean_element_text(*value)));
+                    if let Some(value) = cells.get(index + 1).and_then(|value| clean_element_text(*value)) {
+                        return Ok(Some(value));
+                    }
+                    return Ok(clean_element_text(row)
+                        .and_then(|text| text.split_once(':').and_then(|(_, value)| clean_text(value))));
                 }
                 if let Some((cell_label, cell_value)) = cell_text.split_once(':') {
                     if normalized_label(cell_label) == label {
-                        return Ok(clean_text(cell_value));
+                        if let Some(value) = clean_text(cell_value) {
+                            return Ok(Some(value));
+                        }
+                        return Ok(clean_element_text(row)
+                            .and_then(|text| text.split_once(':').and_then(|(_, value)| clean_text(value))));
                     }
                 }
             }
@@ -1197,6 +1205,15 @@ mod tests {
             "https://example.org",
         );
         assert_eq!(document.labeled_text(".row", "status").unwrap(), Some("Ongoing".to_owned()));
+    }
+
+    #[test]
+    fn matches_nested_value_after_inline_label() {
+        let document = HtmlDocument::parse(
+            r#"<div class="anime-info"><p><strong>Studio:</strong><a href="/studio/demo"><span itemprop="name">Diomedea</span></a></p></div>"#,
+            "https://example.org",
+        );
+        assert_eq!(document.labeled_text(".anime-info p", "studio").unwrap(), Some("Diomedea".to_owned()));
     }
 
     #[test]
