@@ -125,6 +125,14 @@ fn anime_slug(value: &str) -> Option<String> {
 }
 
 fn card_titles(html: &str) -> Result<Vec<Value>, String> {
+    let raw_cards = raw_card_titles(html);
+    if !raw_cards.is_empty() {
+        return Ok(raw_cards);
+    }
+    card_titles_dom(html)
+}
+
+fn card_titles_dom(html: &str) -> Result<Vec<Value>, String> {
     let document = parse_html(html, "catalog")?;
     let metadata_selector = Selector::parse(
         ".ani-list__item-genres__link, .ani-grid__item-genres__link, .genres a, .meta a",
@@ -215,6 +223,175 @@ fn card_titles(html: &str) -> Result<Vec<Value>, String> {
         .flatten()
         .collect::<Vec<_>>();
     Ok(parsed)
+}
+
+fn raw_card_titles(html: &str) -> Vec<Value> {
+    let mut cards = Vec::new();
+    let mut cursor = 0;
+    while let Some(relative) = html[cursor..].find("<div class=\"ani-") {
+        let start = cursor + relative;
+        let Some(block) = balanced_div(html, start) else { break; };
+        cursor = block.end;
+        let Some(link) = raw_tag_with_class(block.text, "a", "anime")
+            .or_else(|| raw_tag_with_class(block.text, "a", "ani-list__item-picture")) else { continue; };
+        let Some(href) = raw_attribute(link.open, &["href", "data-href", "data-url", "data-link"]) else { continue; };
+        let href = if href.starts_with("http") { href } else { format!("{BASE_URL}{}", if href.starts_with('/') { href.clone() } else { format!("/{href}") }) };
+        let Some(id) = anime_slug(&href) else { continue; };
+        let title_container = raw_tag_with_class(block.text, "div", "ani-list__item-title")
+            .or_else(|| raw_tag_with_class(block.text, "div", "ani-grid__item-title"));
+        let title_tag = title_container
+            .as_ref()
+            .and_then(|tag| raw_tag(tag.body, "a"))
+            .or_else(|| title_container.as_ref().and_then(|tag| raw_tag_with_class(tag.body, "a", "text-line-clamp")))
+            .or_else(|| raw_tag_with_class(block.text, "a", "text-line-clamp"));
+        let name = title_tag
+            .and_then(|tag| raw_attribute(tag.open, &["title", "data-title", "data-name"])
+                .or_else(|| Some(strip_markup(tag.body))))
+            .or_else(|| title_container.map(|tag| strip_markup(tag.body)))
+            .filter(|value| !value.trim().is_empty());
+        let Some(name) = name else { continue; };
+        let original = raw_tag_with_class(block.text, "div", "fw-lighter")
+            .map(|tag| strip_markup(tag.body))
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| name.clone());
+        let source_poster = raw_tag(block.text, "img")
+            .and_then(|tag| raw_attribute(tag.open, &["src", "data-src", "data-lazy-src", "data-background-image"]));
+        let (poster, poster_fallback) = source_poster.as_deref().map(poster_url)
+            .unwrap_or((String::new(), None));
+        let metadata = raw_tag_links(block.text).into_iter().filter_map(|tag| {
+            let href = raw_attribute(tag.open, &["href", "data-href"])?;
+            let value = strip_markup(tag.body);
+            if href.contains("/type/") || href.contains("/season/") || href.contains("/genre/")
+                || href.contains("type=") || href.contains("year=") || href.contains("genre=") {
+                (!value.is_empty()).then_some(value)
+            } else { None }
+        }).collect::<Vec<_>>();
+        let year = metadata.iter().find_map(|value| release_year(value));
+        let type_alias = metadata.iter().find_map(|value| known_type(value));
+        let status = metadata.iter().find_map(|value| status_alias(value));
+        let genres = metadata.iter()
+            .filter(|value| release_year(value).is_none() && known_type(value).is_none() && status_alias(value).is_none())
+            .cloned().collect::<Vec<_>>();
+        let description = raw_tag_with_class(block.text, "div", "ani-list__item-description")
+            .or_else(|| raw_tag_with_class(block.text, "div", "ani-grid__item-description"))
+            .map(|tag| strip_markup(tag.body)).filter(|value| !value.is_empty());
+        let rating = raw_tag_with_class(block.text, "div", "rating-badge")
+            .or_else(|| raw_tag_with_class(block.text, "span", "rating-badge"))
+            .and_then(|tag| rating_value(&strip_markup(tag.body)));
+        cards.push(json!({
+            "id": id, "russianName": name,
+            "englishName": if original != name { Some(original.clone()) } else { None::<String> },
+            "originalName": original, "japaneseName": null, "synonyms": [], "year": year,
+            "type": type_alias, "episodeCount": null,
+            "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) },
+            "status": status, "description": description.or_else(|| Some(name.clone())),
+            "nextEpisodeAt": null, "genres": genres,
+            "ratings": rating.map(|value| vec![json!({ "source": "AnimeGo", "value": value, "votes": null })]).unwrap_or_default(),
+            "ageRating": null,
+            "viewCount": null, "screenshots": [], "trailer": null, "sourceMaterial": null,
+            "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [],
+            "relatedAnime": [], "season": null, "availableEpisodeCount": null,
+            "posterFallbackUrl": poster_fallback
+        }));
+    }
+    cards
+}
+
+struct RawTag<'a> { open: &'a str, body: &'a str }
+struct RawBlock<'a> { text: &'a str, end: usize }
+
+fn balanced_div(html: &str, start: usize) -> Option<RawBlock<'_>> {
+    let mut cursor = start;
+    let mut depth = 0i32;
+    while cursor < html.len() {
+        let next_open = html[cursor..].find("<div") .map(|offset| cursor + offset);
+        let next_close = html[cursor..].find("</div>").map(|offset| cursor + offset);
+        match (next_open, next_close) {
+            (Some(open), Some(close)) if open < close => {
+                depth += 1;
+                cursor = open + 4;
+            }
+            (_, Some(close)) => {
+                depth -= 1;
+                let end = close + 6;
+                cursor = end;
+                if depth == 0 { return Some(RawBlock { text: &html[start..end], end }); }
+            }
+            _ => return None,
+        }
+    }
+    None
+}
+
+fn raw_tag<'a>(html: &'a str, tag: &str) -> Option<RawTag<'a>> {
+    let marker = format!("<{tag}");
+    let start = html.find(&marker)?;
+    raw_tag_at(html, start, tag)
+}
+
+fn raw_tag_with_class<'a>(html: &'a str, tag: &str, class: &str) -> Option<RawTag<'a>> {
+    let marker = format!("<{tag}");
+    let mut cursor = 0;
+    while let Some(relative) = html[cursor..].find(&marker) {
+        let start = cursor + relative;
+        let candidate = raw_tag_at(html, start, tag)?;
+        if raw_attribute(candidate.open, &["class"]).is_some_and(|value| value.split_whitespace().any(|item| item == class || item.contains(class))) {
+            return Some(candidate);
+        }
+        cursor = start + marker.len();
+    }
+    None
+}
+
+fn raw_tag_at<'a>(html: &'a str, start: usize, tag: &str) -> Option<RawTag<'a>> {
+    let open_end = html[start..].find('>')? + start;
+    let open = &html[start..=open_end];
+    if open.ends_with("/>") || matches!(tag, "img" | "input" | "source" | "br" | "hr" | "meta" | "link") {
+        return Some(RawTag { open, body: "" });
+    }
+    let close_marker = format!("</{tag}>");
+    let body_start = open_end + 1;
+    let close = html[body_start..].find(&close_marker).map(|offset| body_start + offset)?;
+    Some(RawTag { open, body: &html[body_start..close] })
+}
+
+fn raw_tag_links<'a>(html: &'a str) -> Vec<RawTag<'a>> {
+    let mut result = Vec::new();
+    let mut cursor = 0;
+    while let Some(relative) = html[cursor..].find("<a") {
+        let start = cursor + relative;
+        let Some(tag) = raw_tag_at(html, start, "a") else { break; };
+        result.push(tag);
+        cursor = start + 2;
+    }
+    result
+}
+
+fn raw_attribute(open: &str, names: &[&str]) -> Option<String> {
+    names.iter().find_map(|name| {
+        let marker = format!("{name}=");
+        let start = open.find(&marker)? + marker.len();
+        let quote = open.as_bytes().get(start).copied()? as char;
+        if quote != '\"' && quote != '\'' { return None; }
+        let value_start = start + 1;
+        let end = open[value_start..].find(quote).map(|offset| value_start + offset)?;
+        let value = open[value_start..end].trim();
+        (!value.is_empty()).then_some(value.to_owned())
+    })
+}
+
+fn strip_markup(value: &str) -> String {
+    let mut plain = String::with_capacity(value.len());
+    let mut inside = false;
+    for character in value.chars() {
+        match character {
+            '<' => inside = true,
+            '>' => inside = false,
+            _ if !inside => plain.push(character),
+            _ => {}
+        }
+    }
+    text(&plain)
 }
 
 fn first_text(element: ElementRef<'_>, selector: &Selector) -> Option<String> {
@@ -363,6 +540,10 @@ fn json_ld_document(document: &HtmlDocument) -> Option<Value> {
 }
 
 fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
+    let raw = raw_filter_options(html, prefix);
+    if !raw.is_empty() {
+        return Ok(raw);
+    }
     let document = parse_html(html, "filters")?;
     let group = prefix.trim_end_matches('_');
     let selector = format!(
@@ -395,6 +576,81 @@ fn filter_options(html: &str, prefix: &str) -> Result<Vec<Value>, String> {
             Some(json!({ "id": id, "title": title }))
         })
         .collect())
+}
+
+fn raw_filter_options(html: &str, prefix: &str) -> Vec<Value> {
+    let group = prefix.trim_end_matches('_');
+    let mut values = Vec::new();
+    let mut seen = Vec::new();
+
+    let mut cursor = 0;
+    while let Some(relative) = html[cursor..].find("<input") {
+        let start = cursor + relative;
+        let Some(open_end) = html[start..].find('>').map(|offset| start + offset) else { break; };
+        let open = &html[start..=open_end];
+        if raw_attribute(open, &["name"]).is_some_and(|name| name.starts_with(prefix)) {
+            if let Some(id) = raw_attribute(open, &["value"]).filter(|value| !value.is_empty()) {
+                if !seen.iter().any(|value| value == &id) {
+                    let title = raw_attribute(open, &["data-title", "aria-label"])
+                        .or_else(|| raw_label_title(html, open, &id));
+                    let Some(title) = title else {
+                        cursor = open_end + 1;
+                        continue;
+                    };
+                    if !title.trim().is_empty() {
+                        seen.push(id.clone());
+                        values.push(json!({ "id": id, "title": title }));
+                    }
+                }
+            }
+        }
+        cursor = open_end + 1;
+    }
+
+    let mut cursor = 0;
+    while let Some(relative) = html[cursor..].find("<select") {
+        let start = cursor + relative;
+        let Some(select) = raw_tag_at(html, start, "select") else { break; };
+        let matches_group = raw_attribute(select.open, &["name"])
+            .is_some_and(|name| name.starts_with(group))
+            || raw_attribute(select.open, &["data-filter"])
+                .is_some_and(|name| name == group);
+        if matches_group {
+            let mut option_cursor = 0;
+            while let Some(relative) = select.body[option_cursor..].find("<option") {
+                let option_start = option_cursor + relative;
+                let Some(option) = raw_tag_at(select.body, option_start, "option") else { break; };
+                if let Some(id) = raw_attribute(option.open, &["value"]).filter(|value| !value.is_empty()) {
+                    if !seen.iter().any(|value| value == &id) {
+                        let title = strip_markup(option.body);
+                        if !title.trim().is_empty() {
+                            seen.push(id.clone());
+                            values.push(json!({ "id": id, "title": title }));
+                        }
+                    }
+                }
+                option_cursor = option_start + option.open.len() + option.body.len();
+            }
+        }
+        cursor = start + select.open.len() + select.body.len();
+    }
+    values
+}
+
+fn raw_label_title(html: &str, input_open: &str, id: &str) -> Option<String> {
+    let mut cursor = 0;
+    while let Some(relative) = html[cursor..].find("<label") {
+        let start = cursor + relative;
+        let label = raw_tag_at(html, start, "label")?;
+        if raw_attribute(label.open, &["for"]).as_deref() == Some(id) {
+            return Some(strip_markup(label.body));
+        }
+        if label.body.contains(input_open) {
+            return Some(strip_markup(label.body.replace(input_open, "").as_str()));
+        }
+        cursor = start + label.open.len() + label.body.len();
+    }
+    None
 }
 
 fn filters(html: &str) -> Result<Value, String> {
