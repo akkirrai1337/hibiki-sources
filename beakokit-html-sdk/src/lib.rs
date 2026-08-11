@@ -678,13 +678,34 @@ impl HtmlDocument {
 
 pub fn clean_element_text(element: ElementRef<'_>) -> Option<String> {
     let value = element.text().collect::<String>();
-    let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let value = collapse_whitespace(&value);
     (!value.is_empty()).then_some(value)
 }
 
 fn clean_text(value: &str) -> Option<String> {
-    let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let value = collapse_whitespace(value);
     (!value.is_empty()).then_some(value)
+}
+
+/// Collapse whitespace without allocating a temporary vector of borrowed
+/// slices. This keeps DOM text normalization safe on the Android WASM runtime.
+fn collapse_whitespace(value: &str) -> String {
+    let mut normalized = String::with_capacity(value.len());
+    let mut pending_space = false;
+    for character in value.chars() {
+        if character.is_whitespace() {
+            if !normalized.is_empty() {
+                pending_space = true;
+            }
+            continue;
+        }
+        if pending_space {
+            normalized.push(' ');
+            pending_space = false;
+        }
+        normalized.push(character);
+    }
+    normalized
 }
 
 fn normalized_label(value: &str) -> String {
@@ -1015,6 +1036,12 @@ mod tests {
         let element = image.select_first("img").unwrap().unwrap();
         assert_eq!(first_attribute(element, &["missing", "data-src"]), Some("/poster.webp".to_owned()));
         assert_eq!(attribute(element, "data-src"), Some("/poster.webp".to_owned()));
+    }
+
+    #[test]
+    fn collapses_whitespace_without_intermediate_slices() {
+        assert_eq!(super::collapse_whitespace("  Anime\n\t title  "), "Anime title");
+        assert_eq!(super::collapse_whitespace("\n\t"), "");
     }
 
     #[test]
