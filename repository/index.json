@@ -77,7 +77,7 @@
                     {
                         "manifestFormatVersion":  1,
                         "sourceId":  "animego",
-                        "packageVersion":  "0.1.18",
+                        "packageVersion":  "0.1.19",
                         "sourceInfo":  {
                                            "displayName":  "AnimeGo",
                                            "languages":  [
@@ -94,9 +94,9 @@
                                         "abi":  "wasm32-wasi-preview1"
                                     },
                         "entrypoint":  "source.wasm",
-                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-0.1.18.zip",
-                        "sha256":  "d647c364feb7ccbfdce910e0486f47c53a0a2c746d3b0cc4fdb8846a207ddd4d",
-                        "artifactSizeBytes":  409333,
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-0.1.19.zip",
+                        "sha256":  "5f607d4be1d8296f234fa12291062d64afe271108fc6d0a188104f5b26b3e433",
+                        "artifactSizeBytes":  403300,
                         "minClientVersion":  0,
                         "capabilities":  [
                                              "LATEST_RELEASES",

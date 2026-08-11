@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, first_non_empty_text, first_non_empty_url, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, first_non_empty_text, first_non_empty_url, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -87,24 +87,6 @@ fn enc(value: &str) -> String {
         b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => vec![b as char],
         b => format!("%{b:02X}").chars().collect(),
     }).collect()
-}
-
-fn text(value: &str) -> String {
-    let mut output = String::with_capacity(value.len());
-    let mut inside = false;
-    for ch in value.chars() {
-        match ch {
-            '<' => inside = true,
-            '>' => inside = false,
-            _ if !inside => output.push(ch),
-            _ => {},
-        }
-    }
-    output.replace("&nbsp;", " ")
-        .replace("&amp;", "&")
-        .replace("&quot;", "\"")
-        .split_whitespace()
-        .collect::<Vec<_>>().join(" ")
 }
 
 fn poster_url(value: &str) -> (String, Option<String>) {
@@ -426,7 +408,7 @@ fn first_class_text(element: ElementRef<'_>, class_name: &str) -> Option<String>
 }
 
 fn known_type(value: &str) -> Option<String> {
-    normalize_type(value)
+    safe_normalize_type(value)
 }
 
 fn genre_values(value: Option<&Value>) -> Vec<String> {
@@ -456,7 +438,36 @@ fn release_year(value: &str) -> Option<i64> {
 }
 
 fn status_alias(value: &str) -> Option<String> {
-    normalize_status(value)
+    safe_normalize_status(value)
+}
+
+fn safe_normalize_type(value: &str) -> Option<String> {
+    let original = strip_markup(value);
+    if matches!(original.trim(), "Сериал" | "сериал") { return Some("tv".to_owned()); }
+    if matches!(original.trim(), "Фильм" | "фильм") { return Some("movie".to_owned()); }
+    let value = raw_detail_label(&original);
+    match value.as_str() {
+        "сериал" | "tv" | "tvseries" | "tv series" | "serial" => Some("tv".to_owned()),
+        "фильм" | "movie" | "film" => Some("movie".to_owned()),
+        "ova" => Some("ova".to_owned()),
+        "ona" => Some("ona".to_owned()),
+        _ => None,
+    }
+}
+
+fn safe_normalize_status(value: &str) -> Option<String> {
+    let original = strip_markup(value);
+    match original.trim() {
+        "Вышел" | "вышел" | "Завершен" | "завершен" | "Завершён" | "завершён" => Some("released".to_owned()),
+        "Онгоинг" | "онгоинг" | "Выходит" | "выходит" => Some("ongoing".to_owned()),
+        "Анонс" | "анонс" => Some("announcement".to_owned()),
+        _ => match raw_detail_label(&original).as_str() {
+            "released" | "completed" | "finished" | "finished airing" => Some("released".to_owned()),
+            "ongoing" | "airing" | "currently airing" | "releasing" => Some("ongoing".to_owned()),
+            "announcement" | "announced" => Some("announcement".to_owned()),
+            _ => None,
+        },
+    }
 }
 
 fn rating_value(value: &str) -> Option<f64> {
@@ -851,7 +862,7 @@ fn episode_items(html: &str) -> Result<Vec<Value>, String> {
                 .and_then(|value| value.trim().replace(',', ".").parse::<f64>().ok())
                 .or_else(|| {
                     let content = episode.text().collect::<String>();
-                    text(&content).split_whitespace()
+                    strip_markup(&content).split_whitespace()
                         .find_map(|part| part.replace(',', ".").parse::<f64>().ok())
                 })
                 .and_then(positive_finite)?;
