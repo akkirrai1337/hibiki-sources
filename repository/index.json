@@ -132,9 +132,9 @@
                                         "abi":  "wasm32-wasi-preview1"
                                     },
                         "entrypoint":  "source.wasm",
-                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-0.1.0.zip",
-                        "sha256":  "93e4e6c6ca8b2b45e211ebeec44c3319c78a5030f8efcd9df68207191c7e49b1",
-                        "artifactSizeBytes":  374431,
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-0.1.1.zip",
+                        "sha256":  "aeb526b06b8b9ac6c807b327b210dceb0de027acd474d66acc8e324a7def5f99",
+                        "artifactSizeBytes":  380063,
                         "minClientVersion":  0,
                         "capabilities":  [
                                              "LATEST_RELEASES",

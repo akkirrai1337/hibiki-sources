@@ -49,6 +49,14 @@ fn text_in(element: beakokit_html_sdk::ElementRef<'_>, selectors: &[&str]) -> Op
     selectors.iter().find_map(|selector| element.select(&beakokit_html_sdk::Selector::parse(selector).ok()?).find_map(clean_element_text))
 }
 
+fn field_in(element: beakokit_html_sdk::ElementRef<'_>, labels: &[&str]) -> Option<String> {
+    let selector = beakokit_html_sdk::Selector::parse("p, li, .item, .row, span").ok()?;
+    element.select(&selector).filter_map(clean_element_text).find_map(|text| {
+        let (key, value) = text.split_once(':')?;
+        labels.iter().any(|label| key.trim().eq_ignore_ascii_case(label)).then_some(value.trim().to_owned()).filter(|value| !value.is_empty())
+    })
+}
+
 fn number(value: &str) -> Option<f64> { value.trim().replace(',', ".").parse::<f64>().ok().and_then(positive_finite) }
 
 fn card_items(body: &str) -> Result<Vec<Value>, String> {
@@ -65,10 +73,15 @@ fn card_items(body: &str) -> Result<Vec<Value>, String> {
         let Some(name) = card.title.filter(|s| !s.trim().is_empty()) else { continue };
         let element = card.element;
         let poster = card.image_url.filter(|s| is_http_url(s));
-        let metadata = text_in(element, &[".anime-episodes", ".anime-year", ".anime-type", ".anime-status", ".anime-meta", ".anime-info"]);
-        let year = metadata.as_deref().and_then(parse_year);
-        let type_alias = metadata.as_deref().and_then(normalize_type);
-        let status = metadata.as_deref().and_then(normalize_status);
+        let year = field_in(element, &["Aired", "Year"])
+            .or_else(|| text_in(element, &[".anime-year", ".release-year", "[data-year]"]))
+            .and_then(|value| parse_year(&value));
+        let type_alias = field_in(element, &["Type"])
+            .or_else(|| text_in(element, &[".anime-type", ".type", "[data-type]"]))
+            .and_then(|value| normalize_type(&value));
+        let status = field_in(element, &["Status"])
+            .or_else(|| text_in(element, &[".anime-status", ".status", "[data-status]"]))
+            .and_then(|value| normalize_status(&value));
         let score = text_in(element, &[".anime-score", ".anime-rating", ".score"]).and_then(|s| number(&s));
         result.push(json!({
             "id": id, "russianName": name, "englishName": null, "originalName": name, "japaneseName": null,
@@ -88,11 +101,15 @@ fn details(body: &str, id: &str) -> Result<Value, String> {
     let name = document.text_any(&[".page-detail h1 > span:not(.sr-only)", ".page-detail h1", "h1", "meta[property='og:title']"]).map_err(|e| format!("AnimePahe title parse failed: {e:?}"))?.or_else(|| document.meta_content_any(&["og:title", "twitter:title"]).ok().flatten()).ok_or_else(|| format!("AnimePahe title is missing for {id}"))?;
     let poster = document.first_image_url(".anime-poster img, .page-detail img, meta[property='og:image']").ok().flatten().filter(|s| is_http_url(s));
     let description = document.text_any(&[".anime-synopsis", ".anime-description", ".description"]).ok().flatten();
-    let info = document.text_any(&[".anime-info", ".anime-meta"]).ok().flatten();
-    let year = info.as_deref().and_then(parse_year);
-    let type_alias = info.as_deref().and_then(normalize_type);
-    let status = info.as_deref().and_then(normalize_status);
-    let episodes = info.as_deref().and_then(|v| v.split_whitespace().find_map(|x| x.parse::<i64>().ok().filter(|n| *n > 0)));
+    let rows = &[".anime-info p, .anime-info li, .anime-info .item, .anime-info .row", ".anime-meta p, .anime-meta li, .anime-meta .item"];
+    let aired = document.labeled_text_any(rows, &["Aired", "Released", "Year"]).ok().flatten();
+    let type_value = document.labeled_text_any(rows, &["Type", "Format"]).ok().flatten();
+    let status_value = document.labeled_text_any(rows, &["Status", "State"]).ok().flatten();
+    let episode_value = document.labeled_text_any(rows, &["Episode", "Episodes", "Episodes Count"]).ok().flatten();
+    let year = aired.as_deref().and_then(parse_year).or_else(|| document.text_any(&[".anime-year", ".release-year"]).ok().flatten().and_then(|value| parse_year(&value)));
+    let type_alias = type_value.as_deref().and_then(normalize_type).or_else(|| document.text_any(&[".anime-type", ".type"]).ok().flatten().and_then(|value| normalize_type(&value)));
+    let status = status_value.as_deref().and_then(normalize_status).or_else(|| document.text_any(&[".anime-status", ".status"]).ok().flatten().and_then(|value| normalize_status(&value)));
+    let episodes = episode_value.as_deref().and_then(|value| value.split(|c: char| !c.is_ascii_digit()).find_map(|part| part.parse::<i64>().ok().filter(|n| *n > 0))).or_else(|| document.text_any(&[".anime-episodes", ".episode-count"]).ok().flatten().and_then(|value| value.split(|c: char| !c.is_ascii_digit()).find_map(|part| part.parse::<i64>().ok().filter(|n| *n > 0))));
     Ok(json!({ "id": id, "russianName": name, "englishName": null, "originalName": name, "japaneseName": null, "synonyms": [], "year": year, "type": type_alias, "episodeCount": episodes, "posterUrl": poster, "status": status, "description": description.or_else(|| Some(name.clone())), "nextEpisodeAt": null, "genres": document.text(".anime-genre a").unwrap_or_default(), "ratings": [], "ageRating": null, "viewCount": null, "screenshots": [], "trailer": null, "sourceMaterial": null, "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [], "season": null, "availableEpisodeCount": episodes, "posterFallbackUrl": null }))
 }
 
@@ -129,15 +146,25 @@ fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
 }
 
 fn player_links(request_id: &str, episode_id: &str) -> Result<Value, String> {
+    let title_id = episode_id.split('/').next().ok_or("AnimePahe episode title id is missing")?;
     let session = episode_id.rsplit('/').next().ok_or("AnimePahe episode id is invalid")?;
     let session = safe_path_segment(session).ok_or("AnimePahe episode session is invalid")?;
-    let body = ajax(request_id, &format!("/anime/get-servers/{session}"), "/");
+    let body = ajax(request_id, &format!("/anime/get-servers/{session}"), &format!("/play/{title_id}/{session}"));
     let root = json_value(&body?, "servers")?;
-    let links = root.get("servers").and_then(Value::as_array).into_iter().flatten().filter_map(|server| {
-        let url = server.get("url").and_then(Value::as_str)?.trim();
+    let links = root.get("servers").or_else(|| root.get("data")).and_then(Value::as_array).into_iter().flatten().filter_map(|server| {
+        let url = ["url", "link", "src", "iframe", "player_url"].iter().find_map(|key| server.get(*key).and_then(Value::as_str)).unwrap_or("").trim();
         if !is_http_url(url) { return None; }
         Some(json!({"url":url,"type":"EMBED","quality":server.get("resolution"),"headers":{"Referer":format!("{BASE_URL}/")},"playerName":server.get("name"),"translation":"English"}))
     }).collect::<Vec<_>>();
+    if !links.is_empty() { return Ok(json!({ "links": links })); }
+
+    let play_html = page(request_id, &format!("/play/{title_id}/{session}"))?;
+    let fallback = episode_array(&play_html).and_then(|value| value.as_array().cloned()).unwrap_or_default().into_iter().find(|item| item.get("md5_id").and_then(Value::as_str) == Some(session));
+    let player_id = fallback.and_then(|item| item.get("s_id").and_then(Value::as_str).map(str::to_owned));
+    let links = player_id.into_iter().flat_map(|id| [
+        ("Megaplay", format!("https://megaplay.buzz/stream/s-2/{id}/dub")),
+        ("Vidplay", format!("https://vidwish.live/stream/s-2/{id}/dub")),
+    ]).map(|(name, url)| json!({"url":url,"type":"EMBED","quality":null,"headers":{"Referer":format!("{BASE_URL}/play/{title_id}/{session}")},"playerName":name,"translation":"English"})).collect::<Vec<_>>();
     Ok(json!({ "links": links }))
 }
 
@@ -176,7 +203,7 @@ fn host_call(pointer: *const u8, length: i32) -> i64 { call(pointer, length) }
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test] fn extracts_episode_array_from_player_markup() { let body = r#"<script>allEpisodes: [{"md5_id":"ep-1","chapter_number":1}], episodesPerDropdown</script>"#; assert_eq!(episode_array(body).unwrap()[0]["md5_id"], "ep-1"); }
+    #[test] fn extracts_episode_array_from_player_markup() { let body = r#"<script>allEpisodes: [{"md5_id":"ep-1","chapter_number":1,"s_id":"player-1"}], episodesPerDropdown</script>"#; assert_eq!(episode_array(body).unwrap()[0]["md5_id"], "ep-1"); assert_eq!(episode_array(body).unwrap()[0]["s_id"], "player-1"); }
     #[test] fn rejects_unsafe_title_ids() { assert!(safe_path_segment("../admin").is_none()); assert!(safe_path_segment("one-piece-1").is_some()); }
     #[test] fn encodes_search_query() { assert_eq!(enc("one piece"), "one%20piece"); }
 }

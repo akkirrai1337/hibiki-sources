@@ -635,6 +635,26 @@ impl HtmlDocument {
         Ok(None)
     }
 
+    /// Read a labeled value while accepting selector and label fallbacks.
+    ///
+    /// HTML sources commonly move metadata between `p`, `li`, and small
+    /// key/value containers. Keeping the fallback logic here prevents every
+    /// source from reimplementing subtly different label matching.
+    pub fn labeled_text_any(
+        &self,
+        row_selectors: &[&str],
+        labels: &[&str],
+    ) -> Result<Option<String>, HtmlSdkError> {
+        for selector in row_selectors {
+            for label in labels {
+                if let Some(value) = self.labeled_text(selector, label)? {
+                    return Ok(Some(value));
+                }
+            }
+        }
+        Ok(None)
+    }
+
     pub fn absolute_url(&self, value: &str) -> String {
         let value = value.trim();
         if value.is_empty() || value.starts_with('#') || value.starts_with("data:") || value.starts_with("javascript:") {
