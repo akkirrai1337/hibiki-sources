@@ -38,44 +38,6 @@
                     },
                     {
                         "manifestFormatVersion":  1,
-                        "sourceId":  "yummy-anime",
-                        "packageVersion":  "0.1.1",
-                        "sourceInfo":  {
-                                           "displayName":  "YummyAnime",
-                                           "languages":  [
-                                                             "ru"
-                                                         ],
-                                           "primaryLanguage":  "ru",
-                                           "website":  "https://yummyani.me"
-                                       },
-                        "apiVersion":  1,
-                        "hostApiVersion":  1,
-                        "runtime":  {
-                                        "id":  "wasm",
-                                        "abi":  "wasm32-wasi-preview1"
-                                    },
-                        "entrypoint":  "source.wasm",
-                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummyanime-0.1.1.zip",
-                        "sha256":  "1f75478322da2df13ac0df5cb77122c8518c8343be19a11dbab50b61e01e1c87",
-                        "artifactSizeBytes":  108693,
-                        "minClientVersion":  0,
-                        "capabilities":  [
-                                             "LATEST_RELEASES",
-                                             "PLAYBACK"
-                                         ],
-                        "hostCapabilities":  [
-                                                 "NETWORK"
-                                             ],
-                        "hostNetworkPolicy":  {
-                                                  "allowedHosts":  [
-                                                                       "api.yani.tv",
-                                                                       "yummyani.me",
-                                                                       "ru.yummyani.me"
-                                                                   ]
-                                              }
-                    },
-                    {
-                        "manifestFormatVersion":  1,
                         "sourceId":  "animepahe",
                         "packageVersion":  "0.1.2",
                         "sourceInfo":  {
@@ -149,6 +111,44 @@
                                                   "allowedHosts":  [
                                                                        "animego.me",
                                                                        "images.weserv.nl"
+                                                                   ]
+                                              }
+                    },
+                    {
+                        "manifestFormatVersion":  1,
+                        "sourceId":  "yummy-anime",
+                        "packageVersion":  "0.1.1",
+                        "sourceInfo":  {
+                                           "displayName":  "YummyAnime",
+                                           "languages":  [
+                                                             "ru"
+                                                         ],
+                                           "primaryLanguage":  "ru",
+                                           "website":  "https://yummyani.me"
+                                       },
+                        "apiVersion":  1,
+                        "hostApiVersion":  1,
+                        "runtime":  {
+                                        "id":  "wasm",
+                                        "abi":  "wasm32-wasi-preview1"
+                                    },
+                        "entrypoint":  "source.wasm",
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummyanime-0.1.1.zip",
+                        "sha256":  "96b53f3c520f012b1023e729d9b4d14402e32ed900630bf310e9c01f366d0acb",
+                        "artifactSizeBytes":  131048,
+                        "minClientVersion":  0,
+                        "capabilities":  [
+                                             "LATEST_RELEASES",
+                                             "PLAYBACK"
+                                         ],
+                        "hostCapabilities":  [
+                                                 "NETWORK"
+                                             ],
+                        "hostNetworkPolicy":  {
+                                                  "allowedHosts":  [
+                                                                       "api.yani.tv",
+                                                                       "yummyani.me",
+                                                                       "ru.yummyani.me"
                                                                    ]
                                               }
                     }
