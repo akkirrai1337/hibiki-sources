@@ -76,44 +76,6 @@
                     },
                     {
                         "manifestFormatVersion":  1,
-                        "sourceId":  "animego",
-                        "packageVersion":  "0.1.19",
-                        "sourceInfo":  {
-                                           "displayName":  "AnimeGo",
-                                           "languages":  [
-                                                             "ru"
-                                                         ],
-                                           "primaryLanguage":  "ru",
-                                           "website":  "https://animego.me",
-                                           "iconUrl":  "https://animego.me/favicon.ico"
-                                       },
-                        "apiVersion":  1,
-                        "hostApiVersion":  1,
-                        "runtime":  {
-                                        "id":  "wasm",
-                                        "abi":  "wasm32-wasi-preview1"
-                                    },
-                        "entrypoint":  "source.wasm",
-                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-0.1.19.zip",
-                        "sha256":  "5f607d4be1d8296f234fa12291062d64afe271108fc6d0a188104f5b26b3e433",
-                        "artifactSizeBytes":  403300,
-                        "minClientVersion":  0,
-                        "capabilities":  [
-                                             "LATEST_RELEASES",
-                                             "PLAYBACK"
-                                         ],
-                        "hostCapabilities":  [
-                                                 "NETWORK"
-                                             ],
-                        "hostNetworkPolicy":  {
-                                                  "allowedHosts":  [
-                                                                       "animego.me",
-                                                                       "images.weserv.nl"
-                                                                   ]
-                                              }
-                    },
-                    {
-                        "manifestFormatVersion":  1,
                         "sourceId":  "animepahe",
                         "packageVersion":  "0.1.2",
                         "sourceInfo":  {
@@ -149,6 +111,44 @@
                                                                        "kwik.cx",
                                                                        "megaplay.buzz",
                                                                        "vidwish.live"
+                                                                   ]
+                                              }
+                    },
+                    {
+                        "manifestFormatVersion":  1,
+                        "sourceId":  "animego",
+                        "packageVersion":  "0.1.20",
+                        "sourceInfo":  {
+                                           "displayName":  "AnimeGo",
+                                           "languages":  [
+                                                             "ru"
+                                                         ],
+                                           "primaryLanguage":  "ru",
+                                           "website":  "https://animego.me",
+                                           "iconUrl":  "https://animego.me/favicon.ico"
+                                       },
+                        "apiVersion":  1,
+                        "hostApiVersion":  1,
+                        "runtime":  {
+                                        "id":  "wasm",
+                                        "abi":  "wasm32-wasi-preview1"
+                                    },
+                        "entrypoint":  "source.wasm",
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-0.1.20.zip",
+                        "sha256":  "3eb4230fdfa85048921c75b30b4e98f5cb8494fa5ff524d32955356e5d1c2509",
+                        "artifactSizeBytes":  405605,
+                        "minClientVersion":  0,
+                        "capabilities":  [
+                                             "LATEST_RELEASES",
+                                             "PLAYBACK"
+                                         ],
+                        "hostCapabilities":  [
+                                                 "NETWORK"
+                                             ],
+                        "hostNetworkPolicy":  {
+                                                  "allowedHosts":  [
+                                                                       "animego.me",
+                                                                       "images.weserv.nl"
                                                                    ]
                                               }
                     }
