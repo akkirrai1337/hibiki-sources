@@ -232,8 +232,10 @@ try {
     $env:ANILIBERTY_WASM_PATH = $paths[0]
     $env:YUMMYANIME_WASM_PATH = $paths[1]
     $env:ANIMEGO_WASM_PATH = $paths[2]
+    $env:ANIMEPAHE_WASM_PATH = $paths[3]
     node (Join-Path $repositoryRoot "interop-smoke.mjs")
     node (Join-Path $repositoryRoot "animego-wasm\interop-smoke.mjs")
+    node (Join-Path $repositoryRoot "animepahe-wasm\interop-smoke.mjs")
     cargo test --manifest-path (Join-Path $repositoryRoot "animepahe-wasm\Cargo.toml")
 } finally {
     Remove-Item -LiteralPath $unpackRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -243,4 +245,5 @@ try {
     Remove-Item Env:ANILIBERTY_WASM_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:YUMMYANIME_WASM_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:ANIMEGO_WASM_PATH -ErrorAction SilentlyContinue
+    Remove-Item Env:ANIMEPAHE_WASM_PATH -ErrorAction SilentlyContinue
 }
