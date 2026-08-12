@@ -117,7 +117,7 @@
                     {
                         "manifestFormatVersion":  1,
                         "sourceId":  "yummy-anime",
-                        "packageVersion":  "0.1.2",
+                        "packageVersion":  "0.1.3",
                         "sourceInfo":  {
                                            "displayName":  "YummyAnime",
                                            "languages":  [
@@ -133,9 +133,9 @@
                                         "abi":  "wasm32-wasi-preview1"
                                     },
                         "entrypoint":  "source.wasm",
-                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummyanime-0.1.2.zip",
-                        "sha256":  "6d20750c041064d87a82538dd90425881c970bc7b9f02d3123f1abb691b28243",
-                        "artifactSizeBytes":  131048,
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummyanime-0.1.3.zip",
+                        "sha256":  "a52828223b4707f4efe9ffb33bb57ef73049fcbc83d23ccf324566f07878bc8b",
+                        "artifactSizeBytes":  131050,
                         "minClientVersion":  0,
                         "capabilities":  [
                                              "LATEST_RELEASES",

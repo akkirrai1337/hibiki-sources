@@ -102,13 +102,15 @@ fn title(value: &Value) -> Option<Value> {
     let status = raw_status.and_then(normalize_status);
     let year = value.get("year").and_then(normalize_year);
     let age_rating = value.get("min_age").and_then(|v| v.get("title").or_else(|| v.get("title_long")).or(Some(v))).and_then(non_empty_text);
-    let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("alias").or_else(|| v.get("name")).or_else(|| v.get("title")).and_then(non_empty_text)).collect::<Vec<_>>()).unwrap_or_default();
+    let genres = value.get("genres").and_then(Value::as_array).map(|items| items.iter().filter_map(|v| v.get("title").or_else(|| v.get("name")).or_else(|| v.get("alias")).and_then(non_empty_text)).collect::<Vec<_>>()).unwrap_or_default();
+    let episode_count = value.get("episodes_count").and_then(non_negative_i64)
+        .or_else(|| value.get("episodes").and_then(|episodes| episodes.get("count")).and_then(non_negative_i64));
     let synonyms = value.get("synonyms").or_else(|| value.get("aliases")).map(string_values).unwrap_or_default();
     Some(json!({
         "id": id, "russianName": russian.clone().or_else(|| Some(display_name.clone())), "englishName": english, "originalName": original,
         "japaneseName": value.get("title_jp").or_else(|| value.get("title_japanese")),
         "synonyms": synonyms,
-        "year": year, "type": type_alias, "episodeCount": value.get("episodes_count").and_then(non_negative_i64),
+        "year": year, "type": type_alias, "episodeCount": episode_count,
         "posterUrl": poster_url, "status": status,
         "description": value.get("description").and_then(non_empty_text)
             .or_else(|| russian.clone().or(english.clone()).or(original.clone()))
@@ -353,6 +355,15 @@ mod tests {
             "genres": [{ "name": "  Action  " }, { "name": "   " }, { "title": "Drama" }]
         });
         assert_eq!(title(&with_blank_genre).unwrap()["genres"], json!(["Action", "Drama"]));
+        let current_api_shape = json!({
+            "anime_id": "104",
+            "title": "Current API title",
+            "episodes": { "count": 61 },
+            "genres": [{ "title": "Сёнэн", "alias": "senen" }]
+        });
+        let current = title(&current_api_shape).unwrap();
+        assert_eq!(current["episodeCount"], 61);
+        assert_eq!(current["genres"], json!(["Сёнэн"]));
     }
 
     #[test]
