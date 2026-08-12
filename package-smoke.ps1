@@ -232,6 +232,7 @@ try {
     $env:YUMMYANIME_WASM_PATH = $paths[1]
     $env:ANIMEGO_WASM_PATH = $paths[2]
     node (Join-Path $repositoryRoot "interop-smoke.mjs")
+    node (Join-Path $repositoryRoot "animego-wasm\interop-smoke.mjs")
 } finally {
     Remove-Item -LiteralPath $unpackRoot -Recurse -Force -ErrorAction SilentlyContinue
     foreach ($name in $names) {
