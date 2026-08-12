@@ -37,7 +37,11 @@ try {
     if ($RepositoryIndexPath) {
         $manifest.sha256 = $hash
         $manifest.artifactSizeBytes = $artifact.Length
-        $indexPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $RepositoryIndexPath))
+        $indexPath = if ([System.IO.Path]::IsPathRooted($RepositoryIndexPath)) {
+            [System.IO.Path]::GetFullPath($RepositoryIndexPath)
+        } else {
+            [System.IO.Path]::GetFullPath((Join-Path $projectRoot $RepositoryIndexPath))
+        }
         $index = Get-Content -Raw -LiteralPath $indexPath | ConvertFrom-Json
         Assert-RepositoryIndex $index
         $index.sources = @($index.sources | Where-Object { $_.sourceId -ne $manifest.sourceId }) + $manifest

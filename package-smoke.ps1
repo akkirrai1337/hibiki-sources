@@ -2,8 +2,8 @@ $ErrorActionPreference = "Stop"
 $repositoryRoot = (Resolve-Path $PSScriptRoot).Path
 $artifactDirectory = Join-Path $repositoryRoot "artifacts"
 $runId = [Guid]::NewGuid().ToString("N")
-$names = @("ani-liberty-package-$runId.zip", "yummyanime-package-$runId.zip", "animego-package-$runId.zip")
-$expectedSourceIds = @("ani-liberty", "yummy-anime", "animego")
+$names = @("ani-liberty-package-$runId.zip", "yummyanime-package-$runId.zip", "animego-package-$runId.zip", "animepahe-package-$runId.zip")
+$expectedSourceIds = @("ani-liberty", "yummy-anime", "animego", "animepahe")
 $unpackRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("beakokit-package-smoke-" + $runId)
 
 function Assert-ManifestMatchesRepositoryIndex($manifestPaths, $indexPath) {
@@ -167,6 +167,7 @@ try {
     & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0] -PackageUrl ("https://example.invalid/" + $names[0]) -RepositoryIndexPath $indexPath
     & (Join-Path $repositoryRoot "yummyanime-wasm\build.ps1") -OutputName $names[1] -PackageUrl ("https://example.invalid/" + $names[1]) -RepositoryIndexPath $indexPath
     & (Join-Path $repositoryRoot "animego-wasm\build.ps1") -OutputName $names[2] -PackageUrl ("https://example.invalid/" + $names[2]) -RepositoryIndexPath $indexPath
+    & (Join-Path $repositoryRoot "animepahe-wasm\build.ps1") -OutputName $names[3] -PackageUrl ("https://example.invalid/" + $names[3]) -RepositoryIndexPath $indexPath
     & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0] -PackageUrl ("https://example.invalid/" + $names[0]) -RepositoryIndexPath $indexPath
 
     $index = Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json
@@ -233,6 +234,7 @@ try {
     $env:ANIMEGO_WASM_PATH = $paths[2]
     node (Join-Path $repositoryRoot "interop-smoke.mjs")
     node (Join-Path $repositoryRoot "animego-wasm\interop-smoke.mjs")
+    cargo test --manifest-path (Join-Path $repositoryRoot "animepahe-wasm\Cargo.toml")
 } finally {
     Remove-Item -LiteralPath $unpackRoot -Recurse -Force -ErrorAction SilentlyContinue
     foreach ($name in $names) {

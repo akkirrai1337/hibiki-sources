@@ -64,6 +64,8 @@ so the same checks run against the exact `source.wasm` shipped to the client.
 YummyAnime, and AnimeGo together.
 The AnimeGo-specific interop suite is also run against the unpacked AnimeGo
 artifact, so the release gate exercises the exact WASM file being published.
+AnimePahe is included in the archive and manifest gate, and its Rust parser
+tests run as part of the same local check.
 Run it locally before publishing; it fails the release check when a catalog
 item or details response has no usable poster, episode count, or human-readable
 genres. No CI workflow is required for this release gate.
