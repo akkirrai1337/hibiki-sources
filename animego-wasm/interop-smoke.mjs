@@ -15,7 +15,7 @@ const interopDetailsFixture = `
     {"@type":"TVSeries","name":"Minimal"}
   </script>
   <script type="application/ld+json">
-    {"@type":"TVSeries","name":"Complete interop title","image":"/interop-poster.jpg","genre":["Action"],"aggregateRating":{"ratingValue":"8.8","ratingCount":12},"productionCompany":{"name":"Interop Studio"}}
+    {"@type":"TVSeries","name":"Complete interop title","image":"/interop-poster.jpg","genre":["Action"],"numberOfEpisodes":12,"aggregateRating":{"ratingValue":"8.8","ratingCount":12},"productionCompany":{"name":"Interop Studio"}}
   </script>
   <div class="entity-row"><div>Source material</div><div>Manga</div></div>
   <div class="entity__title-synonyms"><ul><li>Interop alias</li></ul></div>
@@ -158,7 +158,7 @@ if (filters.errorCode || filters.payload?.typeOptions?.length !== 1 || filters.p
 }
 
 const details = call(instance, "DETAILS", { id: "krutoy-uchitel-onidzuka-556" });
-if (details.errorCode || details.payload?.id !== "krutoy-uchitel-onidzuka-556" || details.payload?.originalName !== "Complete interop title" || details.payload?.ratings?.[0]?.value !== 8.8 || details.payload?.ratings?.[0]?.votes !== 12 || details.payload?.synonyms?.[0] !== "Interop alias" || details.payload?.sourceMaterial !== "Manga" || details.payload?.studios?.[0] !== "Interop Studio") {
+if (details.errorCode || details.payload?.id !== "krutoy-uchitel-onidzuka-556" || details.payload?.originalName !== "Complete interop title" || !/^https?:\/\//.test(details.payload?.posterUrl || "") || !Number.isInteger(details.payload?.episodeCount) || details.payload.episodeCount <= 0 || !details.payload?.genres?.length || details.payload.genres.some((genre) => /^[a-z0-9_-]+$/.test(genre)) || details.payload?.ratings?.[0]?.value !== 8.8 || details.payload?.ratings?.[0]?.votes !== 12 || details.payload?.synonyms?.[0] !== "Interop alias" || details.payload?.sourceMaterial !== "Manga" || details.payload?.studios?.[0] !== "Interop Studio") {
   throw new Error(`DETAILS failed: ${JSON.stringify(details)}`);
 }
 
