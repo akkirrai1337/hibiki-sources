@@ -39,9 +39,9 @@ const yummyTitle = {
   poster: "//cdn.example/yummy.jpg",
   type: "tv",
   anime_status: "released",
-  episodes_count: 1,
+  episodes: { count: 1 },
   description: "Yummy fixture description",
-  genres: [{ alias: "action" }],
+  genres: [{ title: "Action", alias: "action" }],
 };
 
 const yummyVideo = {
@@ -171,6 +171,24 @@ function assertRuntimeError(module, input, expectedMessage) {
   }
 }
 
+function assertStrictTitleMetadata(name, title, context) {
+  if (!title || typeof title !== "object") {
+    throw new Error(`${name}: ${context} returned no title metadata`);
+  }
+  if (!/^https?:\/\//.test(title.posterUrl || "")) {
+    throw new Error(`${name}: ${context} has no usable poster URL`);
+  }
+  if (!Number.isInteger(title.episodeCount) || title.episodeCount <= 0) {
+    throw new Error(`${name}: ${context} has no valid episode count`);
+  }
+  if (!Array.isArray(title.genres) || title.genres.length === 0 || title.genres.some((genre) => {
+    if (typeof genre !== "string" || !genre.trim()) return true;
+    return /^[a-z0-9_-]+$/.test(genre.trim());
+  })) {
+    throw new Error(`${name}: ${context} has missing or service-formatted genres`);
+  }
+}
+
 for (const [name, path] of modules) {
   const module = await loadModule(name, path);
   if (name !== "kotlin") {
@@ -199,6 +217,8 @@ for (const [name, path] of modules) {
     titleId: sourceId, groupId: sourceId, episodeId: name === "yummy" ? "1" : "episode-1", episodeNumber: 1,
   });
   if (!search.payload?.items?.length) throw new Error(`${name}: search failed`);
+  search.payload.items.forEach((item, index) => assertStrictTitleMetadata(name, item, `search item ${index}`));
+  assertStrictTitleMetadata(name, details.payload, "details");
   if (details.payload?.id !== sourceId) throw new Error(`${name}: details failed`);
   if (!groups.payload?.groups?.[0]?.episodes?.length) throw new Error(`${name}: groups failed`);
   const expectedLink = name === "yummy" ? "player.example/yummy" : "720.m3u8";

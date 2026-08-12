@@ -48,7 +48,8 @@ function Assert-ManifestMatchesRepositoryIndex($manifestPaths, $indexPath) {
 Assert-ManifestMatchesRepositoryIndex @(
     (Join-Path $repositoryRoot "aniliberty-wasm\package\manifest.json"),
     (Join-Path $repositoryRoot "yummyanime-wasm\package\manifest.json"),
-    (Join-Path $repositoryRoot "animego-wasm\package\manifest.json")
+    (Join-Path $repositoryRoot "animego-wasm\package\manifest.json"),
+    (Join-Path $repositoryRoot "animepahe-wasm\package\manifest.json")
 ) (Join-Path $repositoryRoot "repository\index.json")
 
 function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) {
@@ -131,7 +132,7 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
     }
 }
 
-Assert-RepositoryIndex (Join-Path $repositoryRoot "repository\index.json") @("ani-liberty", "yummy-anime", "animego")
+Assert-RepositoryIndex (Join-Path $repositoryRoot "repository\index.json") @("ani-liberty", "yummy-anime", "animego", "animepahe")
 
 try {
     New-Item -ItemType Directory -Force -Path $unpackRoot | Out-Null

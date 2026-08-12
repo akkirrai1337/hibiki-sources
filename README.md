@@ -62,6 +62,9 @@ DETAILS, PLAYBACK_GROUPS, and PLAYER_LINKS against captured HTML/AJAX fixtures.
 so the same checks run against the exact `source.wasm` shipped to the client.
 `package-smoke.ps1` performs the same package-level check for AniLiberty,
 YummyAnime, and AnimeGo together.
+Run it locally before publishing; it fails the release check when a catalog
+item or details response has no usable poster, episode count, or human-readable
+genres. No CI workflow is required for this release gate.
 The production host bridge provisions guest memory when a module starts with
 zero pages, which is required by the current Kotlin/Wasm reference as well as
 supported Rust packages.
