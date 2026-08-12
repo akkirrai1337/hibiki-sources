@@ -56,18 +56,33 @@ async function loadModule() {
   return instance;
 }
 
-function call(instance, operation, payload) {
-  instance.exports.beakokit_reset();
-  const input = new TextEncoder().encode(JSON.stringify({ requestId: `animepahe-${operation}`, operation, payload, protocolVersion: 1 }));
-  const pointer = instance.exports.beakokit_alloc(input.length);
-  new Uint8Array(instance.exports.memory.buffer, pointer, input.length).set(input);
-  const packed = instance.exports.beakokit_call(pointer, input.length);
+function decodePacked(instance, packed) {
   const responsePointer = Number((packed >> 32n) & 0xffffffffn);
   const responseLength = Number(packed & 0xffffffffn);
   return JSON.parse(new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, responsePointer, responseLength)));
 }
 
+function callRaw(instance, input) {
+  instance.exports.beakokit_reset();
+  const pointer = instance.exports.beakokit_alloc(input.length);
+  new Uint8Array(instance.exports.memory.buffer, pointer, input.length).set(input);
+  return decodePacked(instance, instance.exports.beakokit_call(pointer, input.length));
+}
+
+function call(instance, operation, payload) {
+  return callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: `animepahe-${operation}`, operation, payload, protocolVersion: 1 })));
+}
+
 const instance = await loadModule();
+instance.exports.beakokit_reset();
+if (instance.exports.beakokit_alloc(-1) >= 0 || instance.exports.beakokit_alloc(0x7fffffff) >= 0) throw new Error("allocator accepted an invalid length");
+instance.exports.beakokit_reset();
+const invalidPointer = decodePacked(instance, instance.exports.beakokit_call(-1, 1));
+if (invalidPointer.errorMessage !== "runtime request pointer is invalid") throw new Error(`invalid pointer was not rejected: ${JSON.stringify(invalidPointer)}`);
+const invalidRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ operation: "SEARCH", payload: {} })));
+if (invalidRequest.errorCode !== "SOURCE_FAILURE" || !invalidRequest.errorMessage?.includes("requestId")) throw new Error(`invalid request was not rejected: ${JSON.stringify(invalidRequest)}`);
+const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
+if (oversizedRequest.errorCode !== "SOURCE_FAILURE" || !oversizedRequest.errorMessage?.includes("size limit")) throw new Error(`oversized request was not rejected: ${JSON.stringify(oversizedRequest)}`);
 const search = call(instance, "SEARCH", { query: "demo", limit: 20, offset: 0 });
 if (search.errorCode || search.payload?.items?.[0]?.id !== "demo" || search.payload.items[0].episodeCount !== 12) throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 const filters = call(instance, "FILTER_CATALOG", {});
