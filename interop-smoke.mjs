@@ -201,6 +201,9 @@ function assertCatalogResponse(name, response, limit, context) {
 function assertResponseIdentity(name, response, operation) {
   const expected = `${name}-${operation}`;
   if (response.requestId !== expected) throw new Error(`${name}: ${operation} returned requestId '${response.requestId}' instead of '${expected}'`);
+  if (response.protocolVersion !== 1) throw new Error(`${name}: ${operation} returned unsupported protocol version '${response.protocolVersion}'`);
+  if (response.errorCode !== null || response.errorMessage !== null) throw new Error(`${name}: ${operation} returned an error envelope for a successful smoke request`);
+  if (!response.payload || typeof response.payload !== "object") throw new Error(`${name}: ${operation} returned no payload`);
 }
 
 for (const [name, path] of modules) {

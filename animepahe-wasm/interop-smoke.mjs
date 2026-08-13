@@ -85,6 +85,9 @@ function assertCatalogResponse(response, limit, context) {
 function assertResponseIdentity(response, operation) {
   const expected = `animepahe-${operation}`;
   if (response.requestId !== expected) throw new Error(`${operation} returned requestId '${response.requestId}' instead of '${expected}'`);
+  if (response.protocolVersion !== 1) throw new Error(`${operation} returned unsupported protocol version '${response.protocolVersion}'`);
+  if (response.errorCode !== null || response.errorMessage !== null) throw new Error(`${operation} returned an error envelope for a successful smoke request`);
+  if (!response.payload || typeof response.payload !== "object") throw new Error(`${operation} returned no payload`);
 }
 
 const instance = await loadModule();
