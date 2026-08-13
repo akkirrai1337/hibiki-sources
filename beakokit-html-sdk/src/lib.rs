@@ -329,6 +329,20 @@ pub fn validate_search_query(payload: &Value, source: &str) -> Result<(), String
     Ok(())
 }
 
+pub fn validate_string_filters(payload: &Value, fields: &[&str], source: &str) -> Result<(), String> {
+    for field in fields {
+        let Some(values) = payload.get(*field) else { continue; };
+        let values = values.as_array().ok_or_else(|| format!("{source} filter field {field} must be an array"))?;
+        for (index, value) in values.iter().enumerate() {
+            let value = value.as_str().map(str::trim).filter(|value| !value.is_empty())
+                .ok_or_else(|| format!("{source} filter field {field} item {index} must be a string"))?;
+            if value.chars().count() > 64 { return Err(format!("{source} filter field {field} item {index} is too long")); }
+            if value.chars().any(|character| character.is_control()) { return Err(format!("{source} filter field {field} item {index} contains control characters")); }
+        }
+    }
+    Ok(())
+}
+
 /// Accept only a single conservative URL path segment from source data.
 pub fn safe_path_segment(value: &str) -> Option<&str> {
     let value = value.trim();

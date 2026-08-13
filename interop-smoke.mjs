@@ -275,6 +275,8 @@ for (const [name, path] of modules) {
     assertErrorEnvelope(name, call(module, "SEARCH", { query: 42, limit: 20, offset: 0 }), "search query must be a string");
     assertErrorEnvelope(name, call(module, "SEARCH", { query: "x".repeat(257), limit: 20, offset: 0 }), "search query is too long");
     assertErrorEnvelope(name, call(module, "SEARCH", { query: "bad\u0000query", limit: 20, offset: 0 }), "search query contains control characters");
+    assertErrorEnvelope(name, call(module, "SEARCH", { typeAliases: ["x".repeat(65)] }), "filter field typeAliases item 0 is too long");
+    assertErrorEnvelope(name, call(module, "SEARCH", { typeAliases: ["bad\u0000type"] }), "filter field typeAliases item 0 contains control characters");
   }
   if (name !== "kotlin") {
     assertRuntimeError(module, JSON.stringify({ operation: "SEARCH", payload: {} }), "requestId");
