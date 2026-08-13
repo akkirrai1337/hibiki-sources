@@ -103,6 +103,9 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
     if ($null -eq $manifest.minClientVersion -or [int]$manifest.minClientVersion -lt 0) {
         throw "Package $packageName has an invalid minClientVersion"
     }
+    if ([string]$manifest.sourceId -notmatch '^[a-z0-9]+(?:-[a-z0-9]+)*$') {
+        throw "Package $packageName has an invalid sourceId: $($manifest.sourceId)"
+    }
     if ($manifest.sourceId -ne $expectedSourceId) { throw "Package $packageName has sourceId '$($manifest.sourceId)', expected '$expectedSourceId'" }
     if ([string]::IsNullOrWhiteSpace([string]$manifest.packageVersion) -or
         [string]$manifest.packageVersion -notmatch '^\d+\.\d+\.\d+$') {
@@ -182,6 +185,11 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
     $sourceIds = @($index.sources | ForEach-Object { [string]$_.sourceId })
     if ($sourceIds.Count -eq 0 -or @($sourceIds | Sort-Object -Unique).Count -ne $sourceIds.Count) {
         throw "Repository index contains blank or duplicate sourceId values"
+    }
+    foreach ($sourceId in $sourceIds) {
+        if ($sourceId -notmatch '^[a-z0-9]+(?:-[a-z0-9]+)*$') {
+            throw "Repository index contains an invalid sourceId: $sourceId"
+        }
     }
     foreach ($expectedSourceId in $expectedSourceIds) {
         $manifest = @($index.sources | Where-Object { $_.sourceId -eq $expectedSourceId })[0]
