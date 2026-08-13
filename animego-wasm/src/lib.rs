@@ -1,7 +1,7 @@
 #![allow(clippy::items_after_test_module)]
 
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, first_non_empty_text, first_non_empty_url, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_pagination, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_title_metadata, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{attribute as element_attr, bounded_pagination, clean_element_text, first_non_empty_text, first_non_empty_url, host_get_request, is_http_url, non_empty_text, non_negative_i64, normalize_year, parse_year, positive_finite, safe_numeric_segment, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_pagination, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_search_query, validate_title_metadata, ElementRef, HostResponse, HtmlDocument, JsonDocument, Selector, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -947,6 +947,7 @@ fn player_items_with_diagnostics(html: &str) -> Result<Vec<Value>, String> {
 
 fn execute(request: RuntimeRequest) -> Result<Value, String> {
     if matches!(&request.operation, RuntimeOperation::Search | RuntimeOperation::Latest) { validate_pagination(&request.payload, "AnimeGo")?; }
+    if matches!(&request.operation, RuntimeOperation::Search) { validate_search_query(&request.payload, "AnimeGo")?; }
     match request.operation {
         RuntimeOperation::FilterCatalog => filters(&page(&request.request_id, "/anime")?),
         RuntimeOperation::Latest => {

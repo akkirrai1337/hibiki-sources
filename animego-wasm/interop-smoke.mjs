@@ -243,6 +243,9 @@ assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: ["tv", 1] }), "must 
 assertErrorEnvelope(call(instance, "SEARCH", { limit: 0, offset: 0 }), "pagination limit is out of range", "zero limit");
 assertErrorEnvelope(call(instance, "SEARCH", { limit: 20, offset: -1 }), "pagination offset is out of range", "negative offset");
 assertErrorEnvelope(call(instance, "SEARCH", { limit: 51, offset: 0 }), "pagination limit is out of range", "oversized limit");
+assertErrorEnvelope(call(instance, "SEARCH", { query: 42, limit: 20, offset: 0 }), "search query must be a string", "non-string query");
+assertErrorEnvelope(call(instance, "SEARCH", { query: "x".repeat(257), limit: 20, offset: 0 }), "search query is too long", "long query");
+assertErrorEnvelope(call(instance, "SEARCH", { query: "bad\u0000query", limit: 20, offset: 0 }), "search query contains control characters", "control query");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const malformedHostResponse = call(instance, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });

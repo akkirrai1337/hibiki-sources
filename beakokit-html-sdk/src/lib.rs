@@ -317,6 +317,18 @@ pub fn validate_pagination(payload: &Value, source: &str) -> Result<(), String> 
     Ok(())
 }
 
+pub fn validate_search_query(payload: &Value, source: &str) -> Result<(), String> {
+    let Some(value) = payload.get("query") else { return Ok(()); };
+    let query = value.as_str().ok_or_else(|| format!("{source} search query must be a string"))?;
+    if query.chars().count() > 256 {
+        return Err(format!("{source} search query is too long"));
+    }
+    if query.chars().any(|character| character.is_control()) {
+        return Err(format!("{source} search query contains control characters"));
+    }
+    Ok(())
+}
+
 /// Accept only a single conservative URL path segment from source data.
 pub fn safe_path_segment(value: &str) -> Option<&str> {
     let value = value.trim();
