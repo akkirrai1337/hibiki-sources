@@ -241,7 +241,7 @@ function assertPlaybackResponse(name, groups, links, episodeCount) {
     if (group.episodes.some((episode) => typeof episode.number !== "number" || !Number.isFinite(episode.number) || episode.number <= 0 || episode.number > episodeCount)) throw new Error(`${name}: playback group ${group.id} has an invalid episode number`);
   }
   const playerLinks = links.payload?.links;
-  if (!Array.isArray(playerLinks) || playerLinks.length === 0 || playerLinks.some((link) => !/^https?:\/\//.test(link?.url || ""))) throw new Error(`${name}: playback returned no valid HTTP links`);
+  if (!Array.isArray(playerLinks) || playerLinks.length === 0 || playerLinks.some((link) => !/^https?:\/\//.test(link?.url || "") || typeof link.type !== "string" || !link.type.trim())) throw new Error(`${name}: playback returned incomplete links`);
   if (new Set(playerLinks.map((link) => link.url)).size !== playerLinks.length) throw new Error(`${name}: playback returned duplicate links`);
 }
 
