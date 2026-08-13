@@ -200,6 +200,11 @@ function assertErrorEnvelope(response, expectedMessage, context) {
   }
 }
 
+function assertErrorRequestId(response, operation, context) {
+  const expected = `animego-${operation}`;
+  if (response.requestId !== expected) throw new Error(`${context} returned requestId '${response.requestId}' instead of '${expected}'`);
+}
+
 function assertErrorShape(response, context) {
   if (typeof response.requestId !== "string" || !response.requestId.trim() || response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string" || !response.errorMessage.trim() || response.errorMessage.length > 1024 || /[\u0000-\u001f\u007f]/.test(response.errorMessage)) {
     throw new Error(`${context} returned a malformed error envelope: ${JSON.stringify(response)}`);
@@ -222,9 +227,15 @@ assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ 
 assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-bad-version", operation: "SEARCH", payload: {}, protocolVersion: 99 }))), "unsupported runtime protocol version", "unsupported protocol");
 assertErrorShape(callRaw(instance, new TextEncoder().encode("{")), "malformed JSON");
 assertErrorShape(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-unknown", operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))), "unknown operation");
-assertErrorEnvelope(call(instance, "DETAILS", {}), "missing", "missing details id");
-assertErrorEnvelope(call(instance, "PLAYBACK_GROUPS", {}), "missing", "missing playback title id");
-assertErrorEnvelope(call(instance, "PLAYER_LINKS", {}), "missing", "missing player fields");
+const missingDetails = call(instance, "DETAILS", {});
+assertErrorEnvelope(missingDetails, "missing", "missing details id");
+assertErrorRequestId(missingDetails, "DETAILS", "missing details id");
+const missingGroups = call(instance, "PLAYBACK_GROUPS", {});
+assertErrorEnvelope(missingGroups, "missing", "missing playback title id");
+assertErrorRequestId(missingGroups, "PLAYBACK_GROUPS", "missing playback title id");
+const missingLinks = call(instance, "PLAYER_LINKS", {});
+assertErrorEnvelope(missingLinks, "missing", "missing player fields");
+assertErrorRequestId(missingLinks, "PLAYER_LINKS", "missing player fields");
 assertErrorEnvelope(call(instance, "DETAILS", { id: "../invalid-title" }), "invalid", "invalid details id");
 assertErrorEnvelope(call(instance, "PLAYER_LINKS", { titleId: "fixture-556", episodeId: "../invalid-episode" }), "invalid", "invalid episode id");
 assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: "tv" }), "must be an array", "scalar filter");

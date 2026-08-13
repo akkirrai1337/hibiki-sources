@@ -183,6 +183,11 @@ function assertErrorEnvelope(name, response, expectedMessage) {
   }
 }
 
+function assertErrorRequestId(name, response, operation) {
+  const expected = `${name}-${operation}`;
+  if (response.requestId !== expected) throw new Error(`${name}: ${operation} error returned requestId '${response.requestId}' instead of '${expected}'`);
+}
+
 function assertErrorShape(name, response) {
   if (typeof response.requestId !== "string" || !response.requestId.trim() || response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string" || !response.errorMessage.trim() || response.errorMessage.length > 1024 || /[\u0000-\u001f\u007f]/.test(response.errorMessage)) {
     throw new Error(`${name}: malformed runtime error envelope: ${JSON.stringify(response)}`);
@@ -273,9 +278,15 @@ for (const [name, path] of modules) {
     assertRuntimeError(module, JSON.stringify({ requestId: `${name}-bad-version`, operation: "SEARCH", payload: {}, protocolVersion: 99 }), "unsupported runtime protocol version");
     assertErrorShape(name, callEncoded(module, new TextEncoder().encode("{")));
     assertErrorShape(name, callEncoded(module, new TextEncoder().encode(JSON.stringify({ requestId: `${name}-unknown`, operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))));
-    assertErrorEnvelope(name, call(module, "DETAILS", {}), "missing");
-    assertErrorEnvelope(name, call(module, "PLAYBACK_GROUPS", {}), "missing");
-    assertErrorEnvelope(name, call(module, "PLAYER_LINKS", {}), "missing");
+    const missingDetails = call(module, "DETAILS", {});
+    assertErrorEnvelope(name, missingDetails, "missing");
+    assertErrorRequestId(name, missingDetails, "DETAILS");
+    const missingGroups = call(module, "PLAYBACK_GROUPS", {});
+    assertErrorEnvelope(name, missingGroups, "missing");
+    assertErrorRequestId(name, missingGroups, "PLAYBACK_GROUPS");
+    const missingLinks = call(module, "PLAYER_LINKS", {});
+    assertErrorEnvelope(name, missingLinks, "missing");
+    assertErrorRequestId(name, missingLinks, "PLAYER_LINKS");
     assertErrorEnvelope(name, call(module, "DETAILS", { id: "../invalid-title" }), "invalid");
   }
   const sourceId = name === "yummy" ? "100" : "413";
