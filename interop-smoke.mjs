@@ -201,6 +201,9 @@ function assertStrictTitleMetadata(name, title, context) {
   if (!Number.isInteger(title.episodeCount) || title.episodeCount <= 0) {
     throw new Error(`${name}: ${context} has no valid episode count`);
   }
+  if (title.availableEpisodeCount !== null && title.availableEpisodeCount !== undefined && (!Number.isInteger(title.availableEpisodeCount) || title.availableEpisodeCount < 0 || title.availableEpisodeCount > title.episodeCount)) {
+    throw new Error(`${name}: ${context} has inconsistent available episode count`);
+  }
   if (!Array.isArray(title.genres) || title.genres.length === 0 || title.genres.some((genre) => {
     if (typeof genre !== "string" || !genre.trim()) return true;
     return /^[a-z0-9_-]+$/.test(genre.trim());

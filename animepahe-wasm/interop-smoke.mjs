@@ -86,7 +86,7 @@ function assertCatalogResponse(response, limit, context) {
 
 function assertCatalogMetadata(response, context) {
   for (const [index, item] of response.payload.items.entries()) {
-    if (!String(item.russianName || item.originalName || item.englishName || "").trim() || !/^https?:\/\//.test(item.posterUrl || "") || !Number.isInteger(item.episodeCount) || item.episodeCount <= 0 || !Array.isArray(item.genres) || item.genres.length === 0 || item.genres.some((genre) => typeof genre !== "string" || !genre.trim() || /^[a-z0-9_-]+$/.test(genre.trim()))) {
+    if (!String(item.russianName || item.originalName || item.englishName || "").trim() || !/^https?:\/\//.test(item.posterUrl || "") || !Number.isInteger(item.episodeCount) || item.episodeCount <= 0 || (item.availableEpisodeCount !== null && item.availableEpisodeCount !== undefined && (!Number.isInteger(item.availableEpisodeCount) || item.availableEpisodeCount < 0 || item.availableEpisodeCount > item.episodeCount)) || !Array.isArray(item.genres) || item.genres.length === 0 || item.genres.some((genre) => typeof genre !== "string" || !genre.trim() || /^[a-z0-9_-]+$/.test(genre.trim()))) {
       throw new Error(`${context} item ${index} has incomplete metadata: ${JSON.stringify(item)}`);
     }
   }
