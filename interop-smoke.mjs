@@ -177,7 +177,7 @@ function assertErrorEnvelope(name, response, expectedMessage) {
 }
 
 function assertErrorShape(name, response) {
-  if (typeof response.requestId !== "string" || !response.requestId.trim() || response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string") {
+  if (typeof response.requestId !== "string" || !response.requestId.trim() || response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string" || !response.errorMessage.trim() || response.errorMessage.length > 1024 || /[\u0000-\u001f\u007f]/.test(response.errorMessage)) {
     throw new Error(`${name}: malformed runtime error envelope: ${JSON.stringify(response)}`);
   }
 }
