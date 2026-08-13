@@ -71,6 +71,8 @@ item or details response has no usable poster, episode count, or human-readable
 genres. No CI workflow is required for this release gate.
 It also verifies that every production artifact referenced by
 `repository/index.json` exists locally with the exact recorded size and SHA-256.
+Each referenced ZIP is unpacked and checked for the exact two-file layout and
+manifest-to-index consistency before the temporary build checks begin.
 The production host bridge provisions guest memory when a module starts with
 zero pages, which is required by the current Kotlin/Wasm reference as well as
 supported Rust packages.

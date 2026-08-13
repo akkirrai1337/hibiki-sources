@@ -149,11 +149,37 @@ function Assert-ProductionArtifactsMatchIndex($indexPath, $artifactDirectory) {
     }
 }
 
+function Assert-ProductionArchiveLayouts($indexPath, $artifactDirectory, $unpackRoot) {
+    $index = Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json
+    foreach ($entry in @($index.sources)) {
+        $artifactName = [System.IO.Path]::GetFileName(([Uri][string]$entry.packageUrl).AbsolutePath)
+        $artifactPath = Join-Path $artifactDirectory $artifactName
+        $destination = Join-Path $unpackRoot ("production-" + [System.IO.Path]::GetFileNameWithoutExtension($artifactName))
+        Expand-Archive -LiteralPath $artifactPath -DestinationPath $destination -Force
+        $files = @(Get-ChildItem -LiteralPath $destination -File -Recurse | ForEach-Object {
+            $_.FullName.Substring($destination.Length + 1).Replace([System.IO.Path]::DirectorySeparatorChar, "/")
+        })
+        if ($files.Count -ne 2 -or "manifest.json" -notin $files -or "source.wasm" -notin $files) {
+            throw "Production artifact $artifactName has an invalid file layout: $($files -join ', ')"
+        }
+        $manifest = Get-Content -LiteralPath (Join-Path $destination "manifest.json") -Raw | ConvertFrom-Json
+        if ([string]$manifest.sourceId -ne [string]$entry.sourceId -or
+            [string]$manifest.packageVersion -ne [string]$entry.packageVersion -or
+            [string]$manifest.entrypoint -ne [string]$entry.entrypoint) {
+            throw "Production artifact $artifactName manifest does not match repository index"
+        }
+        if (-not [System.IO.File]::Exists((Join-Path $destination ([string]$manifest.entrypoint)))) {
+            throw "Production artifact $artifactName is missing its manifest entrypoint"
+        }
+    }
+}
+
 Assert-RepositoryIndex (Join-Path $repositoryRoot "repository\index.json") @("ani-liberty", "yummy-anime", "animego", "animepahe")
 Assert-ProductionArtifactsMatchIndex (Join-Path $repositoryRoot "repository\index.json") $artifactDirectory
 
 try {
     New-Item -ItemType Directory -Force -Path $unpackRoot | Out-Null
+    Assert-ProductionArchiveLayouts (Join-Path $repositoryRoot "repository\index.json") $artifactDirectory $unpackRoot
     $indexPath = Join-Path $unpackRoot "index.json"
     $fixtureManifest = [pscustomobject]@{
         manifestFormatVersion = 1
