@@ -79,6 +79,8 @@ function Assert-PackageUrl($url, $expectedArtifactName, $context) {
     try { $parsedUrl = [Uri][string]$url } catch { throw "$context has an invalid packageUrl" }
     if (-not $parsedUrl.IsAbsoluteUri -or $parsedUrl.Scheme -ne "https" -or
         [string]::IsNullOrWhiteSpace($parsedUrl.Host) -or
+        -not [string]::IsNullOrEmpty($parsedUrl.UserInfo) -or
+        $parsedUrl.Port -ne 443 -and $parsedUrl.Port -ne -1 -or
         -not [string]::IsNullOrEmpty($parsedUrl.Query) -or
         -not [string]::IsNullOrEmpty($parsedUrl.Fragment)) {
         throw "$context packageUrl must be an absolute HTTPS URL without query or fragment"
