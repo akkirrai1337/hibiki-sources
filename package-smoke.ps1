@@ -163,7 +163,11 @@ function Assert-ProductionArchiveLayouts($indexPath, $artifactDirectory, $unpack
             throw "Production artifact $artifactName has an invalid file layout: $($files -join ', ')"
         }
         $manifest = Get-Content -LiteralPath (Join-Path $destination "manifest.json") -Raw | ConvertFrom-Json
-        if ([string]$manifest.sourceId -ne [string]$entry.sourceId -or
+        if ([int]$manifest.manifestFormatVersion -ne [int]$entry.manifestFormatVersion -or
+            [int]$manifest.apiVersion -ne [int]$entry.apiVersion -or
+            [int]$manifest.hostApiVersion -ne [int]$entry.hostApiVersion -or
+            [int]$manifest.minClientVersion -ne [int]$entry.minClientVersion -or
+            [string]$manifest.sourceId -ne [string]$entry.sourceId -or
             [string]$manifest.packageVersion -ne [string]$entry.packageVersion -or
             [string]$manifest.entrypoint -ne [string]$entry.entrypoint) {
             throw "Production artifact $artifactName manifest does not match repository index"
