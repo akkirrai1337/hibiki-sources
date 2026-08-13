@@ -180,6 +180,8 @@ const invalidRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify
 assertErrorEnvelope(invalidRequest, "requestId", "invalid request");
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 assertErrorEnvelope(oversizedRequest, "size limit", "oversized request");
+assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-null-payload", operation: "SEARCH", payload: null, protocolVersion: 1 }))), "payload must be an object", "null payload");
+assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-bad-version", operation: "SEARCH", payload: {}, protocolVersion: 99 }))), "unsupported runtime protocol version", "unsupported protocol");
 assertErrorShape(callRaw(instance, new TextEncoder().encode("{")), "malformed JSON");
 assertErrorShape(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-unknown", operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))), "unknown operation");
 assertErrorEnvelope(call(instance, "DETAILS", { id: "../invalid-title" }), "invalid", "invalid details id");
