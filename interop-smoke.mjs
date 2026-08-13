@@ -189,6 +189,15 @@ function assertStrictTitleMetadata(name, title, context) {
   }
 }
 
+function assertCatalogResponse(name, response, limit, context) {
+  const items = response.payload?.items;
+  if (!Array.isArray(items)) throw new Error(`${name}: ${context} returned no catalog items array`);
+  if (items.length > limit) throw new Error(`${name}: ${context} returned ${items.length} items for limit ${limit}`);
+  const ids = items.map((item) => item?.id);
+  if (ids.some((id) => typeof id !== "string" || !id.trim())) throw new Error(`${name}: ${context} contains a blank item id`);
+  if (new Set(ids).size !== ids.length) throw new Error(`${name}: ${context} contains duplicate item ids`);
+}
+
 for (const [name, path] of modules) {
   const module = await loadModule(name, path);
   if (name !== "kotlin") {
@@ -217,6 +226,7 @@ for (const [name, path] of modules) {
     titleId: sourceId, groupId: sourceId, episodeId: name === "yummy" ? "1" : "episode-1", episodeNumber: 1,
   });
   if (!search.payload?.items?.length) throw new Error(`${name}: search failed`);
+  assertCatalogResponse(name, search, 20, "search");
   search.payload.items.forEach((item, index) => assertStrictTitleMetadata(name, item, `search item ${index}`));
   assertStrictTitleMetadata(name, details.payload, "details");
   if (details.payload?.id !== sourceId) throw new Error(`${name}: details failed`);

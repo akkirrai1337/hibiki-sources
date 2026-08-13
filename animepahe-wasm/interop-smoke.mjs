@@ -73,6 +73,15 @@ function call(instance, operation, payload) {
   return callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: `animepahe-${operation}`, operation, payload, protocolVersion: 1 })));
 }
 
+function assertCatalogResponse(response, limit, context) {
+  const items = response.payload?.items;
+  if (!Array.isArray(items)) throw new Error(`${context} returned no catalog items array: ${JSON.stringify(response)}`);
+  if (items.length > limit) throw new Error(`${context} returned ${items.length} items for limit ${limit}`);
+  const ids = items.map((item) => item?.id);
+  if (ids.some((id) => typeof id !== "string" || !id.trim())) throw new Error(`${context} contains a blank item id`);
+  if (new Set(ids).size !== ids.length) throw new Error(`${context} contains duplicate item ids`);
+}
+
 const instance = await loadModule();
 instance.exports.beakokit_reset();
 if (instance.exports.beakokit_alloc(-1) >= 0 || instance.exports.beakokit_alloc(0x7fffffff) >= 0) throw new Error("allocator accepted an invalid length");
@@ -84,6 +93,7 @@ if (invalidRequest.errorCode !== "SOURCE_FAILURE" || !invalidRequest.errorMessag
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 if (oversizedRequest.errorCode !== "SOURCE_FAILURE" || !oversizedRequest.errorMessage?.includes("size limit")) throw new Error(`oversized request was not rejected: ${JSON.stringify(oversizedRequest)}`);
 const search = call(instance, "SEARCH", { query: "demo", limit: 20, offset: 0 });
+assertCatalogResponse(search, 20, "SEARCH");
 if (search.errorCode || search.payload?.items?.[0]?.id !== "demo" || search.payload.items[0].episodeCount !== 12 || !/^https?:\/\//.test(search.payload.items[0].posterUrl || "") || search.payload.items[0].genres?.length !== 1 || search.payload.items[0].genres[0] !== "Action") throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 const filters = call(instance, "FILTER_CATALOG", {});
 if (filters.errorCode || filters.payload?.sortOptions?.[0]?.id !== "relevance") throw new Error(`FILTER_CATALOG failed: ${JSON.stringify(filters)}`);
