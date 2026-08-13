@@ -69,6 +69,12 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
 
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     if ($manifest.manifestFormatVersion -ne 1) { throw "Package $packageName has an unsupported manifest format" }
+    if ($manifest.apiVersion -ne 1 -or $manifest.hostApiVersion -ne 1) {
+        throw "Package $packageName declares an unsupported API version"
+    }
+    if ($null -eq $manifest.minClientVersion -or [int]$manifest.minClientVersion -lt 0) {
+        throw "Package $packageName has an invalid minClientVersion"
+    }
     if ($manifest.sourceId -ne $expectedSourceId) { throw "Package $packageName has sourceId '$($manifest.sourceId)', expected '$expectedSourceId'" }
     if ([string]::IsNullOrWhiteSpace([string]$manifest.packageVersion) -or
         [string]$manifest.packageVersion -notmatch '^\d+\.\d+\.\d+$') {
@@ -104,7 +110,10 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
     foreach ($urlField in @("website", "iconUrl")) {
         $url = [string]$manifest.sourceInfo.$urlField
         if (-not [string]::IsNullOrWhiteSpace($url)) {
-            try { $urlHost = ([Uri]$url).DnsSafeHost } catch { throw "Package $packageName has an invalid sourceInfo.$urlField URL" }
+            try { $parsedUrl = [Uri]$url; $urlHost = $parsedUrl.DnsSafeHost } catch { throw "Package $packageName has an invalid sourceInfo.$urlField URL" }
+            if ($parsedUrl.Scheme -ne "https" -or [string]::IsNullOrWhiteSpace($urlHost)) {
+                throw "Package $packageName sourceInfo.$urlField must be an HTTPS URL"
+            }
             if ($urlHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
                 throw "Package $packageName sourceInfo.$urlField host is not allowed: $urlHost"
             }
@@ -156,6 +165,7 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
     foreach ($expectedSourceId in $expectedSourceIds) {
         $manifest = @($index.sources | Where-Object { $_.sourceId -eq $expectedSourceId })[0]
         if ($null -eq $manifest -or $manifest.manifestFormatVersion -ne 1 -or
+            $manifest.apiVersion -ne 1 -or $manifest.hostApiVersion -ne 1 -or $null -eq $manifest.minClientVersion -or [int]$manifest.minClientVersion -lt 0 -or
             [string]$manifest.packageVersion -notmatch '^\d+\.\d+\.\d+$' -or
             [string]::IsNullOrWhiteSpace([string]$manifest.sourceInfo.displayName) -or
             $manifest.runtime.id -ne "wasm" -or $manifest.runtime.abi -ne "wasm32-wasi-preview1" -or
@@ -180,7 +190,10 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
         foreach ($urlField in @("website", "iconUrl")) {
             $url = [string]$manifest.sourceInfo.$urlField
             if (-not [string]::IsNullOrWhiteSpace($url)) {
-                try { $urlHost = ([Uri]$url).DnsSafeHost } catch { throw "Repository index entry has an invalid sourceInfo.$urlField URL: $expectedSourceId" }
+                try { $parsedUrl = [Uri]$url; $urlHost = $parsedUrl.DnsSafeHost } catch { throw "Repository index entry has an invalid sourceInfo.$urlField URL: $expectedSourceId" }
+                if ($parsedUrl.Scheme -ne "https" -or [string]::IsNullOrWhiteSpace($urlHost)) {
+                    throw "Repository index entry sourceInfo.$urlField must be an HTTPS URL: $expectedSourceId"
+                }
                 if ($urlHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
                     throw "Repository index entry sourceInfo.$urlField host is not allowed: $expectedSourceId"
                 }
