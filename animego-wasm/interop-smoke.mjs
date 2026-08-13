@@ -89,7 +89,7 @@ async function loadModule() {
         const body = responseFor(request.payload.url);
         const encoded = new TextEncoder().encode(JSON.stringify({
           requestId: request.requestId,
-          payload: { statusCode: 200, headers: {}, body },
+          payload: { statusCode: request.payload.url.includes("http-500") ? 503 : 200, headers: {}, body },
           errorCode: null,
           errorMessage: null,
           protocolVersion: 1,
@@ -161,6 +161,8 @@ const invalidRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify
 assertErrorEnvelope(invalidRequest, "requestId", "invalid request");
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 assertErrorEnvelope(oversizedRequest, "size limit", "oversized request");
+const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
+assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
 assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");

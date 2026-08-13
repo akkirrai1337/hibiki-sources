@@ -12,7 +12,7 @@ const playHtml = `<script>allEpisodes: [{"md5_id":"s1","chapter_number":1,"title
 const serversJson = JSON.stringify({ servers: [{ url: "https://player.example/episode-1", name: "Provider" }] });
 
 function hostBody(url) {
-  if (url.includes("/search?q=demo") || url.endsWith("/latest-updated")) return catalogHtml;
+  if (url.includes("/search?q=") || url.endsWith("/latest-updated")) return catalogHtml;
   if (url.endsWith("/anime/demo")) return detailsHtml;
   if (url.includes("/viewApi?m=release&id=demo")) return episodesJson;
   if (url.endsWith("/play/demo/s1")) return playHtml;
@@ -44,7 +44,7 @@ async function loadModule() {
     host: { call(pointer, length) {
       const request = JSON.parse(new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, pointer, length)));
       const body = hostBody(request.payload.url);
-      const encoded = new TextEncoder().encode(JSON.stringify({ requestId: request.requestId, payload: { statusCode: 200, headers: {}, body }, errorCode: null, errorMessage: null, protocolVersion: 1 }));
+      const encoded = new TextEncoder().encode(JSON.stringify({ requestId: request.requestId, payload: { statusCode: request.payload.url.includes("http-500") ? 503 : 200, headers: {}, body }, errorCode: null, errorMessage: null, protocolVersion: 1 }));
       const responsePointer = instance.exports.beakokit_alloc(encoded.length);
       new Uint8Array(instance.exports.memory.buffer, responsePointer, encoded.length).set(encoded);
       return (BigInt(responsePointer) << 32n) | BigInt(encoded.length);
@@ -106,6 +106,8 @@ const invalidRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify
 assertErrorEnvelope(invalidRequest, "requestId", "invalid request");
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 assertErrorEnvelope(oversizedRequest, "size limit", "oversized request");
+const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
+assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const search = call(instance, "SEARCH", { query: "demo", limit: 20, offset: 0 });
 assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");

@@ -110,7 +110,7 @@ async function loadModule(name, relativePath) {
         const body = hostBody(request.payload.url, name);
         const response = JSON.stringify({
           requestId: request.requestId,
-          payload: { statusCode: 200, headers: {}, body },
+          payload: { statusCode: request.payload.url.includes("http-500") ? 503 : 200, headers: {}, body },
           errorCode: null,
           errorMessage: null,
           protocolVersion: 1,
@@ -224,6 +224,8 @@ for (const [name, path] of modules) {
       JSON.stringify({ requestId: `${name}-oversized`, operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) } }),
       "runtime request exceeds size limit",
     );
+    const hostFailure = call(module, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
+    assertErrorEnvelope(name, hostFailure, "503");
   }
   if (name !== "kotlin") {
     assertRuntimeError(module, JSON.stringify({ operation: "SEARCH", payload: {} }), "requestId");
