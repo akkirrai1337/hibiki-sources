@@ -169,7 +169,8 @@ function Assert-ProductionArchiveLayouts($indexPath, $artifactDirectory, $unpack
             [int]$manifest.minClientVersion -ne [int]$entry.minClientVersion -or
             [string]$manifest.sourceId -ne [string]$entry.sourceId -or
             [string]$manifest.packageVersion -ne [string]$entry.packageVersion -or
-            [string]$manifest.entrypoint -ne [string]$entry.entrypoint) {
+            [string]$manifest.entrypoint -ne [string]$entry.entrypoint -or
+            [string]$manifest.packageUrl -ne [string]$entry.packageUrl) {
             throw "Production artifact $artifactName manifest does not match repository index"
         }
         if ((ConvertTo-Json @($manifest.capabilities) -Compress) -ne (ConvertTo-Json @($entry.capabilities) -Compress) -or

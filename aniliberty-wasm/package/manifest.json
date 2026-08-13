@@ -15,7 +15,7 @@
     "abi": "wasm32-wasi-preview1"
   },
   "entrypoint": "source.wasm",
-  "packageUrl": "https://example.invalid/ani-liberty-0.1.0.zip",
+  "packageUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-0.1.0.zip",
   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "artifactSizeBytes": 1,
   "minClientVersion": 0,

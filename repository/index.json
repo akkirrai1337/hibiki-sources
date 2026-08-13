@@ -3,41 +3,6 @@
     "sources":  [
                     {
                         "manifestFormatVersion":  1,
-                        "sourceId":  "ani-liberty",
-                        "packageVersion":  "0.1.0",
-                        "sourceInfo":  {
-                                           "displayName":  "AniLiberty",
-                                           "languages":  [
-                                                             "ru"
-                                                         ],
-                                           "primaryLanguage":  "ru",
-                                           "website":  "https://anilibria.top"
-                                       },
-                        "apiVersion":  1,
-                        "hostApiVersion":  1,
-                        "runtime":  {
-                                        "id":  "wasm",
-                                        "abi":  "wasm32-wasi-preview1"
-                                    },
-                        "entrypoint":  "source.wasm",
-                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-0.1.0.zip",
-                        "sha256":  "33e3b6f48d4673f606028a42877c8c3d707229ed84f583dd6dc57578d7e36fa1",
-                        "artifactSizeBytes":  98410,
-                        "minClientVersion":  0,
-                        "capabilities":  [
-                                             "PLAYBACK"
-                                         ],
-                        "hostCapabilities":  [
-                                                 "NETWORK"
-                                             ],
-                        "hostNetworkPolicy":  {
-                                                  "allowedHosts":  [
-                                                                       "anilibria.top"
-                                                                   ]
-                                              }
-                    },
-                    {
-                        "manifestFormatVersion":  1,
                         "sourceId":  "animepahe",
                         "packageVersion":  "0.1.2",
                         "sourceInfo":  {
@@ -149,6 +114,41 @@
                                                                        "api.yani.tv",
                                                                        "yummyani.me",
                                                                        "ru.yummyani.me"
+                                                                   ]
+                                              }
+                    },
+                    {
+                        "manifestFormatVersion":  1,
+                        "sourceId":  "ani-liberty",
+                        "packageVersion":  "0.1.0",
+                        "sourceInfo":  {
+                                           "displayName":  "AniLiberty",
+                                           "languages":  [
+                                                             "ru"
+                                                         ],
+                                           "primaryLanguage":  "ru",
+                                           "website":  "https://anilibria.top"
+                                       },
+                        "apiVersion":  1,
+                        "hostApiVersion":  1,
+                        "runtime":  {
+                                        "id":  "wasm",
+                                        "abi":  "wasm32-wasi-preview1"
+                                    },
+                        "entrypoint":  "source.wasm",
+                        "packageUrl":  "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-0.1.0.zip",
+                        "sha256":  "a3275864252bb69f55e1584dfe491551134c6f4025c01c87c7d8721ee417e646",
+                        "artifactSizeBytes":  126780,
+                        "minClientVersion":  0,
+                        "capabilities":  [
+                                             "PLAYBACK"
+                                         ],
+                        "hostCapabilities":  [
+                                                 "NETWORK"
+                                             ],
+                        "hostNetworkPolicy":  {
+                                                  "allowedHosts":  [
+                                                                       "anilibria.top"
                                                                    ]
                                               }
                     }
