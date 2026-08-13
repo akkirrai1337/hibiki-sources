@@ -155,6 +155,8 @@ const invalidPointer = decodePacked(instance, instance.exports.beakokit_call(-1,
 assertErrorEnvelope(invalidPointer, "runtime request pointer is invalid", "invalid pointer");
 const invalidRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ operation: "SEARCH", payload: {} })));
 assertErrorEnvelope(invalidRequest, "requestId", "invalid request");
+assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "x".repeat(129), operation: "SEARCH", payload: {}, protocolVersion: 1 }))), "requestId is too long", "long request id");
+assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "bad\u0000id", operation: "SEARCH", payload: {}, protocolVersion: 1 }))), "control characters", "control request id");
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 assertErrorEnvelope(oversizedRequest, "size limit", "oversized request");
 assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-null-payload", operation: "SEARCH", payload: null, protocolVersion: 1 }))), "payload must be an object", "null payload");

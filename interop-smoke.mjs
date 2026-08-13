@@ -254,6 +254,8 @@ for (const [name, path] of modules) {
   }
   if (name !== "kotlin") {
     assertRuntimeError(module, JSON.stringify({ operation: "SEARCH", payload: {} }), "requestId");
+    assertRuntimeError(module, JSON.stringify({ requestId: "x".repeat(129), operation: "SEARCH", payload: {}, protocolVersion: 1 }), "requestId is too long");
+    assertRuntimeError(module, JSON.stringify({ requestId: "bad\u0000id", operation: "SEARCH", payload: {}, protocolVersion: 1 }), "control characters");
     assertRuntimeError(module, JSON.stringify({ requestId: `${name}-null-payload`, operation: "SEARCH", payload: null, protocolVersion: 1 }), "payload must be an object");
     assertRuntimeError(module, JSON.stringify({ requestId: `${name}-bad-version`, operation: "SEARCH", payload: {}, protocolVersion: 99 }), "unsupported runtime protocol version");
     assertErrorShape(name, callEncoded(module, new TextEncoder().encode("{")));
