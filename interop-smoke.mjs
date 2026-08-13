@@ -192,6 +192,9 @@ function assertStrictTitleMetadata(name, title, context) {
   if (!title || typeof title !== "object") {
     throw new Error(`${name}: ${context} returned no title metadata`);
   }
+  if (!String(title.russianName || title.originalName || title.englishName || "").trim()) {
+    throw new Error(`${name}: ${context} has no display title`);
+  }
   if (!/^https?:\/\//.test(title.posterUrl || "")) {
     throw new Error(`${name}: ${context} has no usable poster URL`);
   }
