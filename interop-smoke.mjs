@@ -214,7 +214,7 @@ function assertCatalogResponse(name, response, limit, context) {
   if (!Array.isArray(items)) throw new Error(`${name}: ${context} returned no catalog items array`);
   if (items.length > limit) throw new Error(`${name}: ${context} returned ${items.length} items for limit ${limit}`);
   const ids = items.map((item) => item?.id);
-  if (ids.some((id) => typeof id !== "string" || !id.trim())) throw new Error(`${name}: ${context} contains a blank item id`);
+  if (ids.some((id) => typeof id !== "string" || !/^[A-Za-z0-9._~-]+$/.test(id.trim()) || id.trim() === "." || id.trim() === "..")) throw new Error(`${name}: ${context} contains an invalid item id`);
   if (new Set(ids).size !== ids.length) throw new Error(`${name}: ${context} contains duplicate item ids`);
 }
 

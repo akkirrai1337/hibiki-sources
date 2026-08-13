@@ -80,7 +80,7 @@ function assertCatalogResponse(response, limit, context) {
   if (!Array.isArray(items)) throw new Error(`${context} returned no catalog items array: ${JSON.stringify(response)}`);
   if (items.length > limit) throw new Error(`${context} returned ${items.length} items for limit ${limit}`);
   const ids = items.map((item) => item?.id);
-  if (ids.some((id) => typeof id !== "string" || !id.trim())) throw new Error(`${context} contains a blank item id`);
+  if (ids.some((id) => typeof id !== "string" || !/^[A-Za-z0-9._~-]+$/.test(id.trim()) || id.trim() === "." || id.trim() === "..")) throw new Error(`${context} contains an invalid item id`);
   if (new Set(ids).size !== ids.length) throw new Error(`${context} contains duplicate item ids`);
 }
 
