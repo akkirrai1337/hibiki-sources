@@ -244,6 +244,17 @@ if (yearFiltered.errorCode || !requestedUrls.at(-1)?.includes("year-from-2020-to
   throw new Error(`YEAR_RANGE failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(yearFiltered)}`);
 }
 
+const optionFiltered = call(instance, "SEARCH", {
+  includedGenreAliases: ["action"], excludedGenreAliases: ["horror"], typeAliases: ["tv series"], statusAliases: ["released"], limit: 20, offset: 0,
+});
+assertResponseIdentity(optionFiltered, "SEARCH");
+assertCatalogResponse(optionFiltered, 20, "FILTERED SEARCH");
+assertCatalogMetadata(optionFiltered, "FILTERED SEARCH");
+const filteredUrl = requestedUrls.at(-1) || "";
+if (optionFiltered.errorCode || !filteredUrl.includes("genres-is-action-or-!horror") || !filteredUrl.includes("type-is-tv%20series") || !filteredUrl.includes("status-is-released")) {
+  throw new Error(`FILTERED SEARCH failed: url=${filteredUrl} response=${JSON.stringify(optionFiltered)}`);
+}
+
 const latestPageTwo = call(instance, "LATEST", { limit: 20, offset: 20 });
 assertResponseIdentity(latestPageTwo, "LATEST");
 assertCatalogResponse(latestPageTwo, 20, "LATEST pagination");
