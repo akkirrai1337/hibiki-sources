@@ -127,6 +127,7 @@ const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringi
 assertErrorEnvelope(oversizedRequest, "size limit", "oversized request");
 assertErrorShape(callRaw(instance, new TextEncoder().encode("{")), "malformed JSON");
 assertErrorShape(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-unknown", operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))), "unknown operation");
+assertErrorEnvelope(call(instance, "DETAILS", { id: "../invalid-title" }), "invalid", "invalid details id");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const search = call(instance, "SEARCH", { query: "demo", limit: 20, offset: 0 });
