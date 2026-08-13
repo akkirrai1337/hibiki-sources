@@ -141,7 +141,7 @@ assertResponseIdentity(filters, "FILTER_CATALOG");
 if (filters.errorCode || filters.payload?.sortOptions?.[0]?.id !== "relevance") throw new Error(`FILTER_CATALOG failed: ${JSON.stringify(filters)}`);
 const details = call(instance, "DETAILS", { id: "demo" });
 assertResponseIdentity(details, "DETAILS");
-if (details.errorCode || details.payload?.id !== "demo" || details.payload?.episodeCount !== 12 || details.payload?.genres?.[0] !== "Action") throw new Error(`DETAILS failed: ${JSON.stringify(details)}`);
+if (details.errorCode || details.payload?.id !== "demo" || !/^https?:\/\//.test(details.payload?.posterUrl || "") || details.payload?.episodeCount !== 12 || details.payload?.genres?.[0] !== "Action") throw new Error(`DETAILS failed: ${JSON.stringify(details)}`);
 const groups = call(instance, "PLAYBACK_GROUPS", { titleId: "demo" });
 assertResponseIdentity(groups, "PLAYBACK_GROUPS");
 const episodeId = groups.payload?.groups?.[0]?.episodes?.[0]?.id;
