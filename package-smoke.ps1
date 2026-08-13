@@ -124,6 +124,11 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
     if ($null -eq $manifest.hostCapabilities -or @($manifest.hostCapabilities).Count -eq 0) {
         throw "Package $packageName is missing hostCapabilities"
     }
+    $hostCapabilities = @($manifest.hostCapabilities | ForEach-Object { [string]$_ })
+    $unknownHostCapabilities = @($hostCapabilities | Where-Object { $_ -notin @("NETWORK") })
+    if ($unknownHostCapabilities.Count -gt 0) {
+        throw "Package $packageName has invalid hostCapabilities: $($unknownHostCapabilities -join ', ')"
+    }
     if ($null -eq $manifest.hostNetworkPolicy -or $null -eq $manifest.hostNetworkPolicy.allowedHosts -or
         @($manifest.hostNetworkPolicy.allowedHosts).Count -eq 0) {
         throw "Package $packageName is missing hostNetworkPolicy.allowedHosts"
@@ -218,6 +223,10 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
         $unknownCapabilities = @($capabilities | Where-Object { $_ -notin @("LATEST_RELEASES", "PLAYBACK") })
         if ($unknownCapabilities.Count -gt 0 -or "PLAYBACK" -notin $capabilities) {
             throw "Repository index entry has invalid capabilities: $expectedSourceId"
+        }
+        $hostCapabilities = @($manifest.hostCapabilities | ForEach-Object { [string]$_ })
+        if ($hostCapabilities.Count -eq 0 -or @($hostCapabilities | Where-Object { $_ -notin @("NETWORK") }).Count -gt 0) {
+            throw "Repository index entry has invalid hostCapabilities: $expectedSourceId"
         }
         if ("LATEST_RELEASES" -in $capabilities -and $expectedSourceId -notin @("yummy-anime", "animego", "animepahe")) {
             throw "Repository index entry declares LATEST_RELEASES without a latest smoke scenario: $expectedSourceId"
