@@ -62,6 +62,19 @@ Assert-ManifestMatchesRepositoryIndex @(
     (Join-Path $repositoryRoot "animepahe-wasm\package\manifest.json")
 ) (Join-Path $repositoryRoot "repository\index.json")
 
+function Assert-LanguageMetadata($languages, $primaryLanguage, $context) {
+    $items = @($languages | ForEach-Object { [string]$_ })
+    if ($items.Count -eq 0) { throw "$context has no languages" }
+    foreach ($language in $items) {
+        if ($language -notmatch '^[a-z]{2,3}(?:-[A-Z]{2})?$') {
+            throw "$context has an invalid language code: $language"
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$primaryLanguage) -or $items -notcontains [string]$primaryLanguage) {
+        throw "$context has an invalid primaryLanguage"
+    }
+}
+
 function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) {
     if (-not [System.IO.File]::Exists($manifestPath)) {
         throw "Package $packageName does not contain manifest.json"
@@ -83,13 +96,7 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
     if ([string]::IsNullOrWhiteSpace([string]$manifest.sourceInfo.displayName)) {
         throw "Package $packageName is missing sourceInfo.displayName"
     }
-    if ($null -eq $manifest.sourceInfo.languages -or $manifest.sourceInfo.languages.Count -eq 0) {
-        throw "Package $packageName is missing sourceInfo.languages"
-    }
-    if ([string]::IsNullOrWhiteSpace([string]$manifest.sourceInfo.primaryLanguage) -or
-        @($manifest.sourceInfo.languages) -notcontains [string]$manifest.sourceInfo.primaryLanguage) {
-        throw "Package $packageName has an invalid sourceInfo.primaryLanguage"
-    }
+    Assert-LanguageMetadata $manifest.sourceInfo.languages $manifest.sourceInfo.primaryLanguage "Package $packageName sourceInfo"
     if ($null -eq $manifest.hostCapabilities -or @($manifest.hostCapabilities).Count -eq 0) {
         throw "Package $packageName is missing hostCapabilities"
     }
@@ -168,12 +175,14 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
             $manifest.apiVersion -ne 1 -or $manifest.hostApiVersion -ne 1 -or $null -eq $manifest.minClientVersion -or [int]$manifest.minClientVersion -lt 0 -or
             [string]$manifest.packageVersion -notmatch '^\d+\.\d+\.\d+$' -or
             [string]::IsNullOrWhiteSpace([string]$manifest.sourceInfo.displayName) -or
+            $null -eq $manifest.sourceInfo.languages -or $manifest.sourceInfo.languages.Count -eq 0 -or
             $manifest.runtime.id -ne "wasm" -or $manifest.runtime.abi -ne "wasm32-wasi-preview1" -or
             $manifest.entrypoint -ne "source.wasm" -or $null -eq $manifest.capabilities -or $manifest.capabilities.Count -eq 0 -or
             [string]$manifest.packageUrl -notmatch '^https://[^\s/]+(?:/[^\s]*)?$' -or
             [string]$manifest.sha256 -notmatch '^[0-9a-fA-F]{64}$' -or [int64]$manifest.artifactSizeBytes -le 0) {
             throw "Repository index entry is invalid: $expectedSourceId"
         }
+        Assert-LanguageMetadata $manifest.sourceInfo.languages $manifest.sourceInfo.primaryLanguage "Repository index entry $expectedSourceId sourceInfo"
         $capabilities = @($manifest.capabilities | ForEach-Object { [string]$_ })
         $unknownCapabilities = @($capabilities | Where-Object { $_ -notin @("LATEST_RELEASES", "PLAYBACK") })
         if ($unknownCapabilities.Count -gt 0 -or "PLAYBACK" -notin $capabilities) {
