@@ -145,6 +145,18 @@ function assertResponseIdentity(response, operation) {
   if (!response.payload || typeof response.payload !== "object") throw new Error(`${operation} returned no payload`);
 }
 
+function assertPlaybackResponse(groups, links) {
+  const playbackGroups = groups.payload?.groups;
+  if (!Array.isArray(playbackGroups) || playbackGroups.length === 0) throw new Error(`PLAYBACK_GROUPS returned no groups: ${JSON.stringify(groups)}`);
+  for (const group of playbackGroups) {
+    if (!Array.isArray(group.episodes) || group.episodes.length === 0) throw new Error(`PLAYBACK_GROUPS returned an empty group: ${JSON.stringify(groups)}`);
+    const ids = group.episodes.map((episode) => episode?.id);
+    if (ids.some((id) => typeof id !== "string" || !id.trim()) || new Set(ids).size !== ids.length || group.episodes.some((episode) => typeof episode.number !== "number" || !Number.isFinite(episode.number) || episode.number <= 0)) throw new Error(`PLAYBACK_GROUPS returned invalid episodes: ${JSON.stringify(groups)}`);
+  }
+  const playerLinks = links.payload?.links;
+  if (!Array.isArray(playerLinks) || playerLinks.length === 0 || playerLinks.some((link) => !/^https?:\/\//.test(link?.url || "")) || new Set(playerLinks.map((link) => link.url)).size !== playerLinks.length) throw new Error(`PLAYER_LINKS returned invalid links: ${JSON.stringify(links)}`);
+}
+
 function assertErrorEnvelope(response, expectedMessage, context) {
   if (response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string" || !response.errorMessage.includes(expectedMessage)) {
     throw new Error(`${context} returned a malformed error envelope: ${JSON.stringify(response)}`);
@@ -209,5 +221,6 @@ assertResponseIdentity(links, "PLAYER_LINKS");
 if (links.errorCode || !links.payload?.links?.[0]?.url?.includes("player.example") || links.payload?.links?.[0]?.playerName !== "Aksor" || links.payload?.links?.[0]?.translation !== "Dub") {
   throw new Error(`PLAYER_LINKS failed: ${JSON.stringify(links)}`);
 }
+assertPlaybackResponse(groups, links);
 
 console.log("AnimeGo package WASM smoke passed: SEARCH, SEARCH_PAGINATION, LATEST_PAGINATION, FILTER_CATALOG, DETAILS, PLAYBACK_GROUPS, PLAYER_LINKS");
