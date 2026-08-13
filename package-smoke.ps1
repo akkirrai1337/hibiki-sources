@@ -5,6 +5,12 @@ $runId = [Guid]::NewGuid().ToString("N")
 $names = @("ani-liberty-package-$runId.zip", "yummyanime-package-$runId.zip", "animego-package-$runId.zip", "animepahe-package-$runId.zip")
 $expectedSourceIds = @("ani-liberty", "yummy-anime", "animego", "animepahe")
 $unpackRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("beakokit-package-smoke-" + $runId)
+$requiredHostsBySource = @{
+    "ani-liberty" = @("anilibria.top")
+    "yummy-anime" = @("api.yani.tv", "yummyani.me")
+    "animego" = @("animego.me")
+    "animepahe" = @("animepahetv.to")
+}
 
 function Assert-NativeSuccess($description) {
     if ($LASTEXITCODE -ne 0) { throw "$description failed with exit code $LASTEXITCODE" }
@@ -90,6 +96,20 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
             throw "Package $packageName has an invalid hostNetworkPolicy.allowedHosts value: $allowedHost"
         }
     }
+    foreach ($requiredHost in $requiredHostsBySource[$expectedSourceId]) {
+        if ($requiredHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
+            throw "Package $packageName does not allow required host: $requiredHost"
+        }
+    }
+    foreach ($urlField in @("website", "iconUrl")) {
+        $url = [string]$manifest.sourceInfo.$urlField
+        if (-not [string]::IsNullOrWhiteSpace($url)) {
+            try { $urlHost = ([Uri]$url).DnsSafeHost } catch { throw "Package $packageName has an invalid sourceInfo.$urlField URL" }
+            if ($urlHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
+                throw "Package $packageName sourceInfo.$urlField host is not allowed: $urlHost"
+            }
+        }
+    }
     foreach ($field in @("sourceInfo.languages", "capabilities", "hostCapabilities", "hostNetworkPolicy.allowedHosts")) {
         $value = $manifest
         foreach ($part in $field.Split('.')) { $value = $value.$part }
@@ -151,6 +171,20 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
         }
         if ("LATEST_RELEASES" -in $capabilities -and $expectedSourceId -notin @("yummy-anime", "animego", "animepahe")) {
             throw "Repository index entry declares LATEST_RELEASES without a latest smoke scenario: $expectedSourceId"
+        }
+        foreach ($requiredHost in $requiredHostsBySource[$expectedSourceId]) {
+            if ($requiredHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
+                throw "Repository index entry does not allow required host ${requiredHost}: $expectedSourceId"
+            }
+        }
+        foreach ($urlField in @("website", "iconUrl")) {
+            $url = [string]$manifest.sourceInfo.$urlField
+            if (-not [string]::IsNullOrWhiteSpace($url)) {
+                try { $urlHost = ([Uri]$url).DnsSafeHost } catch { throw "Repository index entry has an invalid sourceInfo.$urlField URL: $expectedSourceId" }
+                if ($urlHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
+                    throw "Repository index entry sourceInfo.$urlField host is not allowed: $expectedSourceId"
+                }
+            }
         }
     }
     $artifactNames = @($index.sources | ForEach-Object {
