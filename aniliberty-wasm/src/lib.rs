@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_type, normalize_year, positive_finite_value, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_type, normalize_year, positive_finite_value, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -233,7 +233,9 @@ fn catalog_titles(items: &[Value]) -> Result<Vec<Value>, String> {
         .iter()
         .enumerate()
         .map(|(index, item)| {
-            title(item).ok_or_else(|| format!("AniLiberty catalog item {index} is invalid"))
+            let parsed = title(item).ok_or_else(|| format!("AniLiberty catalog item {index} is invalid"))?;
+            validate_title_metadata(&parsed, "AniLiberty", &format!("catalog item {index}"))?;
+            Ok(parsed)
         })
         .collect()
 }
@@ -434,7 +436,9 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
                 .ok_or_else(|| "details id is missing".to_owned());
             id.and_then(|id| {
                 release(&request.request_id, id).and_then(|value| {
-                    title(&value).ok_or_else(|| "AniLiberty returned an invalid release".to_owned())
+                    let parsed = title(&value).ok_or_else(|| "AniLiberty returned an invalid release".to_owned())?;
+                    validate_title_metadata(&parsed, "AniLiberty", "release")?;
+                    Ok(parsed)
                 })
             })
         }

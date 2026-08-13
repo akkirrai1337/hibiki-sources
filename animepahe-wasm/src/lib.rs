@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use beakokit_html_sdk::{bounded_pagination, clean_element_text, first_attribute, host_get_request, is_http_url, normalize_status, normalize_type, parse_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, HostResponse, HtmlDocument, JsonDocument, Selector, MAX_RUNTIME_RESPONSE_BYTES, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{bounded_pagination, clean_element_text, first_attribute, host_get_request, is_http_url, normalize_status, normalize_type, parse_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, HtmlDocument, JsonDocument, Selector, MAX_RUNTIME_RESPONSE_BYTES, DEFAULT_MAX_DOCUMENT_BYTES};
 
 const BASE_URL: &str = "https://animepahetv.to";
 const PROTOCOL: u32 = 1;
@@ -80,7 +80,10 @@ fn card_items(body: &str) -> Result<Vec<Value>, String> {
             let genres = text_in(container, &[".anime-genre a", ".anime-genres a", ".genres a"]).into_iter().collect::<Vec<_>>();
             result.push(title_json(id, name, poster, year, type_alias, status, episode_count, score, genres));
         }
-        if !result.is_empty() { return Ok(result); }
+        if !result.is_empty() {
+            for (index, item) in result.iter().enumerate() { validate_title_metadata(item, "AnimePahe", &format!("catalog item {index}"))?; }
+            return Ok(result);
+        }
     }
     let cards = document.linked_cards_unique(
         "a[href*='/anime/'], a[data-href*='/anime/'], a[data-url*='/anime/']",
@@ -108,6 +111,7 @@ fn card_items(body: &str) -> Result<Vec<Value>, String> {
         result.push(title_json(id, name, poster, year, type_alias, status, None, score, genres));
     }
     if result.is_empty() { return Err(format!("AnimePahe catalog returned no cards; bodyBytes={}", body.len())); }
+    for (index, item) in result.iter().enumerate() { validate_title_metadata(item, "AnimePahe", &format!("catalog item {index}"))?; }
     Ok(result)
 }
 
@@ -200,7 +204,7 @@ fn execute(request: Request) -> Result<Value, String> {
         Operation::FilterCatalog => Ok(json!({"sortOptions":[{"id":"relevance","title":"Relevance"}],"typeOptions":[],"statusOptions":[],"genreOptions":[],"capabilities":{"supportedSorts":["RELEVANCE"],"supportedFilters":[],"features":["LATEST_RELEASES"]}})),
         Operation::Latest => { let (_, limit) = bounded_pagination(&request.payload); let items = card_items(&page(&request.request_id, "/latest-updated")?)?; Ok(json!({"items":items.into_iter().take(limit as usize).collect::<Vec<_>>() })) }
         Operation::Search => { let (offset, limit) = bounded_pagination(&request.payload); let query = request.payload.get("query").and_then(Value::as_str).unwrap_or("").trim(); let path = if query.is_empty() { "/latest-updated".to_owned() } else { format!("/search?q={}", enc(query)) }; let items = card_items(&page(&request.request_id, &path)?)?; Ok(json!({"items":items.into_iter().skip(offset as usize).take(limit as usize).collect::<Vec<_>>() })) }
-        Operation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("AnimePahe details id is missing")?; let id = safe_path_segment(id).ok_or("AnimePahe details id is invalid")?; details(&page(&request.request_id, &format!("/anime/{id}"))?, id) }
+        Operation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("AnimePahe details id is missing")?; let id = safe_path_segment(id).ok_or("AnimePahe details id is invalid")?; let parsed = details(&page(&request.request_id, &format!("/anime/{id}"))?, id)?; validate_title_metadata(&parsed, "AnimePahe", "details")?; Ok(parsed) }
         Operation::PlaybackGroups => { let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("AnimePahe playback titleId is missing")?; playback_groups(&request.request_id, id) }
         Operation::PlayerLinks => { let id = request.payload.get("episodeId").and_then(Value::as_str).ok_or("AnimePahe player episodeId is missing")?; player_links(&request.request_id, id) }
     }
@@ -232,7 +236,7 @@ mod tests {
     use super::*;
     #[test] fn extracts_episode_array_from_player_markup() { let body = r#"<script>allEpisodes: [{"md5_id":"ep-1","chapter_number":1,"s_id":"player-1"}], episodesPerDropdown</script>"#; assert_eq!(episode_array(body).unwrap()[0]["md5_id"], "ep-1"); assert_eq!(episode_array(body).unwrap()[0]["s_id"], "player-1"); }
     #[test] fn parses_animepahe_catalog_metadata_from_card_container() {
-        let body = r#"<div class="anime-item"><a class="anime-poster" href="/anime/demo"><img src="/poster.jpg"></a><div class="anime-detail"><div class="anime-name"><a href="/anime/demo">Demo</a></div><div class="anime-meta"><span class="anime-type">TV</span><span class="anime-episodes">12 Eps</span><span class="anime-year">2026</span></div></div></div>"#;
+        let body = r#"<div class="anime-item"><a class="anime-poster" href="/anime/demo"><img src="/poster.jpg"></a><div class="anime-detail"><div class="anime-name"><a href="/anime/demo">Demo</a></div><div class="anime-meta"><span class="anime-type">TV</span><span class="anime-episodes">12 Eps</span><span class="anime-year">2026</span></div><div class="anime-genre"><a>Action</a></div></div></div>"#;
         let item = card_items(body).unwrap().remove(0);
         assert_eq!(item["year"], 2026);
         assert_eq!(item["type"], "tv");

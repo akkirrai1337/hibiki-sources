@@ -145,6 +145,38 @@ pub fn is_http_url(value: &str) -> bool {
     is_valid_http_host(host)
 }
 
+/// Validate the metadata fields that the client requires for a usable title.
+/// Sources should fail the operation instead of returning a partially empty title.
+pub fn validate_title_metadata(value: &Value, source: &str, context: &str) -> Result<(), String> {
+    let object = value.as_object().ok_or_else(|| format!("{source} {context} is not an object"))?;
+    let display_name = ["russianName", "originalName", "englishName"]
+        .iter()
+        .find_map(|key| object.get(*key).and_then(non_empty_text));
+    if display_name.is_none() {
+        return Err(format!("{source} {context} has no display title"));
+    }
+    let poster = object.get("posterUrl").and_then(Value::as_str).map(str::trim).unwrap_or("");
+    if !is_http_url(poster) {
+        return Err(format!("{source} {context} has no usable poster URL"));
+    }
+    let episode_count = object.get("episodeCount").and_then(Value::as_i64).filter(|count| *count > 0)
+        .ok_or_else(|| format!("{source} {context} has no valid episode count"))?;
+    if let Some(available) = object.get("availableEpisodeCount").filter(|value| !value.is_null()) {
+        let available = available.as_i64().filter(|count| *count >= 0 && *count <= episode_count)
+            .ok_or_else(|| format!("{source} {context} has an inconsistent available episode count"))?;
+        let _ = available;
+    }
+    let genres = object.get("genres").and_then(Value::as_array)
+        .filter(|genres| !genres.is_empty())
+        .ok_or_else(|| format!("{source} {context} has no genres"))?;
+    if genres.iter().any(|genre| genre.as_str().map(str::trim).filter(|value| !value.is_empty()).is_none_or(|value| {
+        value == value.to_ascii_lowercase() && value.chars().all(|character| character.is_ascii_alphanumeric() || character == '_' || character == '-')
+    })) {
+        return Err(format!("{source} {context} has service-formatted genres"));
+    }
+    Ok(())
+}
+
 fn is_valid_http_host(host: &str) -> bool {
     if host == "localhost" {
         return true;
