@@ -14,6 +14,7 @@ const serversJson = JSON.stringify({ servers: [{ url: "https://player.example/ep
 function hostBody(url) {
   const parsedUrl = new URL(url);
   if (parsedUrl.protocol !== "https:" || parsedUrl.hostname !== "animepahetv.to") throw new Error(`AnimePahe request escaped the package host allowlist: ${url}`);
+  if (url.includes("http-malformed")) return "{";
   if (url.includes("/search?q=") || url.endsWith("/latest-updated")) return catalogHtml;
   if (url.endsWith("/anime/demo")) return detailsHtml;
   if (url.includes("/viewApi?m=release&id=demo")) return episodesJson;
@@ -170,6 +171,8 @@ assertErrorShape(callRaw(instance, new TextEncoder().encode(JSON.stringify({ req
 assertErrorEnvelope(call(instance, "DETAILS", { id: "../invalid-title" }), "invalid", "invalid details id");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
+const malformedHostResponse = call(instance, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });
+assertErrorEnvelope(malformedHostResponse, "catalog", "malformed host response");
 const search = call(instance, "SEARCH", { query: "demo", limit: 20, offset: 0 });
 assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");
