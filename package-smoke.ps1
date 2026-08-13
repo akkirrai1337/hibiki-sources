@@ -132,7 +132,25 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
     }
 }
 
+function Assert-ProductionArtifactsMatchIndex($indexPath, $artifactDirectory) {
+    $index = Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json
+    foreach ($entry in @($index.sources)) {
+        $artifactName = [System.IO.Path]::GetFileName(([Uri][string]$entry.packageUrl).AbsolutePath)
+        $artifactPath = Join-Path $artifactDirectory $artifactName
+        if (-not [System.IO.File]::Exists($artifactPath)) {
+            throw "Repository index artifact is missing locally: $artifactName"
+        }
+        $artifact = Get-Item -LiteralPath $artifactPath
+        $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ([int64]$entry.artifactSizeBytes -ne $artifact.Length -or
+            $hash -ne ([string]$entry.sha256).ToLowerInvariant()) {
+            throw "Repository index artifact metadata does not match local artifact: $($entry.sourceId)"
+        }
+    }
+}
+
 Assert-RepositoryIndex (Join-Path $repositoryRoot "repository\index.json") @("ani-liberty", "yummy-anime", "animego", "animepahe")
+Assert-ProductionArtifactsMatchIndex (Join-Path $repositoryRoot "repository\index.json") $artifactDirectory
 
 try {
     New-Item -ItemType Directory -Force -Path $unpackRoot | Out-Null
