@@ -191,6 +191,12 @@ pub fn validate_playback_payload(value: &Value, source: &str) -> Result<(), Stri
             .ok_or_else(|| format!("{source} playback group {group_index} has no episodes"))?;
         for (episode_index, episode) in episodes.iter().enumerate() {
             let episode = episode.as_object().ok_or_else(|| format!("{source} playback episode {episode_index} is invalid"))?;
+            let episode_id = episode.get("id").and_then(Value::as_str).map(str::trim)
+                .filter(|value| !value.is_empty() && value.split('/').all(|segment| safe_path_segment(segment).is_some()))
+                .ok_or_else(|| format!("{source} playback episode {episode_index} has an unsafe id"))?;
+            if episodes.iter().take(episode_index).any(|previous| previous.get("id").and_then(Value::as_str).map(str::trim) == Some(episode_id)) {
+                return Err(format!("{source} playback group {group_index} contains duplicate episode IDs"));
+            }
             if episode.get("id").and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()).is_none() {
                 return Err(format!("{source} playback episode {episode_index} has no id"));
             }
