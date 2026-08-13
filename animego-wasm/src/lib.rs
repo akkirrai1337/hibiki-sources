@@ -181,6 +181,10 @@ fn card_titles_dom(html: &str) -> Result<Vec<Value>, String> {
                 .filter(|value| release_year(value).is_none() && known_type(value).is_none() && status_alias(value).is_none())
                 .cloned()
                 .collect::<Vec<_>>();
+            let episode_count = first_class_text(card_element, "ani-list__item-episodes")
+                .or_else(|| first_class_text(card_element, "ani-grid__item-episodes"))
+                .or_else(|| first_class_text(card_element, "episode-count"))
+                .and_then(|value| positive_episode_count(&value));
             let description = first_class_text(card_element, "ani-list__item-description");
 
             Ok(Some(json!({
@@ -190,7 +194,7 @@ fn card_titles_dom(html: &str) -> Result<Vec<Value>, String> {
                 "originalName": original,
                 "japaneseName": null,
                 "synonyms": [], "year": year, "type": type_alias,
-                "episodeCount": null, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
+                "episodeCount": episode_count, "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) }, "status": status,
                 "description": description.or_else(|| Some(name.clone())), "nextEpisodeAt": null,
                 "genres": genres,
                 "ratings": rating.map(|value| vec![json!({ "source": "AnimeGo", "value": value, "votes": null })]).unwrap_or_default(),
@@ -254,6 +258,10 @@ fn raw_card_titles(html: &str) -> Vec<Value> {
         let genres = metadata.iter()
             .filter(|value| release_year(value).is_none() && known_type(value).is_none() && status_alias(value).is_none())
             .cloned().collect::<Vec<_>>();
+        let episode_count = ["ani-list__item-episodes", "ani-grid__item-episodes", "episode-count"]
+            .into_iter()
+            .find_map(|class| raw_tag_with_class(block.text, "div", class).or_else(|| raw_tag_with_class(block.text, "span", class)))
+            .and_then(|tag| positive_episode_count(&strip_markup(tag.body)));
         let description = raw_tag_with_class(block.text, "div", "ani-list__item-description")
             .or_else(|| raw_tag_with_class(block.text, "div", "ani-grid__item-description"))
             .map(|tag| strip_markup(tag.body)).filter(|value| !value.is_empty());
@@ -264,7 +272,7 @@ fn raw_card_titles(html: &str) -> Vec<Value> {
             "id": id, "russianName": name,
             "englishName": if original != name { Some(original.clone()) } else { None::<String> },
             "originalName": original, "japaneseName": null, "synonyms": [], "year": year,
-            "type": type_alias, "episodeCount": null,
+            "type": type_alias, "episodeCount": episode_count,
             "posterUrl": if poster.is_empty() { Value::Null } else { json!(poster) },
             "status": status, "description": description.or_else(|| Some(name.clone())),
             "nextEpisodeAt": null, "genres": genres,
@@ -477,6 +485,11 @@ fn rating_value(value: &str) -> Option<f64> {
         .parse::<f64>()
         .ok()
         .and_then(positive_finite)
+}
+
+fn positive_episode_count(value: &str) -> Option<i64> {
+    value.split(|character: char| !character.is_ascii_digit())
+        .find_map(|part| part.parse::<i64>().ok().filter(|count| *count > 0))
 }
 
 fn raw_detail_field(html: &str, labels: &[&str]) -> Option<String> {

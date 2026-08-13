@@ -139,7 +139,7 @@ if (invalidRequest.errorCode !== "SOURCE_FAILURE" || !invalidRequest.errorMessag
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 if (oversizedRequest.errorCode !== "SOURCE_FAILURE" || !oversizedRequest.errorMessage?.includes("size limit")) throw new Error(`oversized request was not rejected: ${JSON.stringify(oversizedRequest)}`);
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
-if (search.errorCode || search.payload?.items?.[0]?.id !== "krutoy-uchitel-onidzuka-556" || search.payload?.items?.[0]?.ratings?.[0]?.value !== 8.7) {
+if (search.errorCode || search.payload?.items?.[0]?.id !== "krutoy-uchitel-onidzuka-556" || search.payload?.items?.[0]?.ratings?.[0]?.value !== 8.7 || !/^https?:\/\//.test(search.payload.items[0].posterUrl || "") || search.payload.items[0].episodeCount !== 43 || search.payload.items[0].genres?.length !== 1 || search.payload.items[0].genres[0] !== "Комедия") {
   throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 }
 const searchPageTwo = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 20 });

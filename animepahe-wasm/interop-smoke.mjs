@@ -5,7 +5,7 @@ const wasmPath = process.env.ANIMEPAHE_WASM_PATH
   ? pathToFileURL(process.env.ANIMEPAHE_WASM_PATH)
   : new URL("./target/wasm32-wasip1/release/animepahe_wasm.wasm", import.meta.url);
 
-const catalogHtml = `<div class="anime-item"><a class="anime-poster" href="/anime/demo"><img src="/poster.jpg"></a><div class="anime-detail"><div class="anime-name"><a href="/anime/demo">Demo</a></div><div class="anime-meta"><span class="anime-type">TV</span><span class="anime-episodes">12 Eps</span><span class="anime-year">2026</span></div></div></div>`;
+const catalogHtml = `<div class="anime-item"><a class="anime-poster" href="/anime/demo"><img src="/poster.jpg"></a><div class="anime-detail"><div class="anime-name"><a href="/anime/demo">Demo</a></div><div class="anime-meta"><span class="anime-type">TV</span><span class="anime-episodes">12 Eps</span><span class="anime-year">2026</span></div><div class="anime-genre"><a>Action</a></div></div></div>`;
 const detailsHtml = `<div class="page-detail"><h1>Demo</h1><div class="anime-poster"><img src="/poster.jpg"></div><div class="anime-synopsis">Demo description</div><div class="anime-info"><p><strong>Type:</strong><a>TV</a></p><p><strong>Episode:</strong> 12</p><p><strong>Aired:</strong> Jul 7, 2026</p></div><div class="anime-genre"><a>Action</a></div></div>`;
 const episodesJson = JSON.stringify({ data: [{ session: "s1" }] });
 const playHtml = `<script>allEpisodes: [{"md5_id":"s1","chapter_number":1,"title":"Episode 1"}], episodesPerDropdown</script>`;
@@ -84,7 +84,7 @@ if (invalidRequest.errorCode !== "SOURCE_FAILURE" || !invalidRequest.errorMessag
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 if (oversizedRequest.errorCode !== "SOURCE_FAILURE" || !oversizedRequest.errorMessage?.includes("size limit")) throw new Error(`oversized request was not rejected: ${JSON.stringify(oversizedRequest)}`);
 const search = call(instance, "SEARCH", { query: "demo", limit: 20, offset: 0 });
-if (search.errorCode || search.payload?.items?.[0]?.id !== "demo" || search.payload.items[0].episodeCount !== 12) throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
+if (search.errorCode || search.payload?.items?.[0]?.id !== "demo" || search.payload.items[0].episodeCount !== 12 || !/^https?:\/\//.test(search.payload.items[0].posterUrl || "") || search.payload.items[0].genres?.length !== 1 || search.payload.items[0].genres[0] !== "Action") throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 const filters = call(instance, "FILTER_CATALOG", {});
 if (filters.errorCode || filters.payload?.sortOptions?.[0]?.id !== "relevance") throw new Error(`FILTER_CATALOG failed: ${JSON.stringify(filters)}`);
 const details = call(instance, "DETAILS", { id: "demo" });

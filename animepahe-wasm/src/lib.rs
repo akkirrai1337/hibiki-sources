@@ -77,7 +77,8 @@ fn card_items(body: &str) -> Result<Vec<Value>, String> {
             let status = text_in(container, &[".anime-status", ".status", "[data-status]"]).and_then(|value| normalize_status(&value));
             let score = text_in(container, &[".anime-score", ".anime-rating", ".score"]).and_then(|s| number(&s));
             let episode_count = text_in(container, &[".anime-episodes", ".episode-count"]).and_then(|value| value.split(|c: char| !c.is_ascii_digit()).find_map(|part| part.parse::<i64>().ok().filter(|n| *n > 0)));
-            result.push(title_json(id, name, poster, year, type_alias, status, episode_count, score));
+            let genres = text_in(container, &[".anime-genre a", ".anime-genres a", ".genres a"]).into_iter().collect::<Vec<_>>();
+            result.push(title_json(id, name, poster, year, type_alias, status, episode_count, score, genres));
         }
         if !result.is_empty() { return Ok(result); }
     }
@@ -103,17 +104,18 @@ fn card_items(body: &str) -> Result<Vec<Value>, String> {
             .or_else(|| text_in(element, &[".anime-status", ".status", "[data-status]"]))
             .and_then(|value| normalize_status(&value));
         let score = text_in(element, &[".anime-score", ".anime-rating", ".score"]).and_then(|s| number(&s));
-        result.push(title_json(id, name, poster, year, type_alias, status, None, score));
+        let genres = text_in(element, &[".anime-genre a", ".anime-genres a", ".genres a"]).into_iter().collect::<Vec<_>>();
+        result.push(title_json(id, name, poster, year, type_alias, status, None, score, genres));
     }
     if result.is_empty() { return Err(format!("AnimePahe catalog returned no cards; bodyBytes={}", body.len())); }
     Ok(result)
 }
 
-fn title_json(id: String, name: String, poster: Option<String>, year: Option<i64>, type_alias: Option<String>, status: Option<String>, episode_count: Option<i64>, score: Option<f64>) -> Value {
+fn title_json(id: String, name: String, poster: Option<String>, year: Option<i64>, type_alias: Option<String>, status: Option<String>, episode_count: Option<i64>, score: Option<f64>, genres: Vec<String>) -> Value {
     json!({
         "id": id, "russianName": name, "englishName": null, "originalName": name, "japaneseName": null,
         "synonyms": [], "year": year, "type": type_alias, "episodeCount": episode_count, "posterUrl": poster,
-        "status": status, "description": name, "nextEpisodeAt": null, "genres": [],
+        "status": status, "description": name, "nextEpisodeAt": null, "genres": genres,
         "ratings": score.map(|v| vec![json!({"source":"AnimePahe","value":v,"votes":null})]).unwrap_or_default(),
         "ageRating": null, "viewCount": null, "screenshots": [], "trailer": null, "sourceMaterial": null,
         "studios": [], "mainCharacters": [], "similarAnime": [], "franchiseAnime": [], "relatedAnime": [], "season": null, "availableEpisodeCount": null, "posterFallbackUrl": null
