@@ -227,9 +227,14 @@ static mut HEAP: usize = 4096;
     if let Err(error) = validate_runtime_input(pointer, length) { return write(fail("invalid-request".to_owned(), error)); }
     let input = if length == 0 { &[] } else { unsafe { core::slice::from_raw_parts(pointer as *const u8, length as usize) } };
     let response = serde_json::from_slice::<Value>(input).map_err(|e| e.to_string()).and_then(|value| { let id = validate_runtime_request(&value)?; let mut request = serde_json::from_value::<Request>(value).map_err(|e| e.to_string())?; request.request_id = id; Ok(request) }).map(|request| { let id = request.request_id.clone(); match execute(request) { Ok(payload) => serde_json::to_vec(&Response { request_id:id, payload:Some(payload), error_code:None, error_message:None, protocol_version:PROTOCOL }).unwrap(), Err(error) => fail(id, error) } }).unwrap_or_else(|error| fail("invalid-request".to_owned(), error));
+    let response = if response.len() > MAX_RUNTIME_RESPONSE_BYTES {
+        fail("runtime-response".to_owned(), "runtime response exceeds size limit")
+    } else {
+        response
+    };
     write(response)
 }
-fn write(response: Vec<u8>) -> i64 { if response.len() > MAX_RUNTIME_RESPONSE_BYTES { return -1 } let pointer = beakokit_alloc(response.len() as i32); if pointer < 0 { return -1 } unsafe { core::ptr::copy_nonoverlapping(response.as_ptr(), pointer as *mut u8, response.len()); } ((pointer as u64) << 32 | response.len() as u64) as i64 }
+fn write(response: Vec<u8>) -> i64 { let pointer = beakokit_alloc(response.len() as i32); if pointer < 0 { return -1 } unsafe { core::ptr::copy_nonoverlapping(response.as_ptr(), pointer as *mut u8, response.len()); } ((pointer as u64) << 32 | response.len() as u64) as i64 }
 #[cfg(not(test))]
 #[link(wasm_import_module = "host")]
 extern "C" { #[link_name = "call"] fn host_call(pointer: *const u8, length: i32) -> i64; }
