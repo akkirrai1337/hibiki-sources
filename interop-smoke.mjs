@@ -166,8 +166,12 @@ function call(module, operation, payload) {
 
 function assertRuntimeError(module, input, expectedMessage) {
   const response = callEncoded(module, new TextEncoder().encode(input));
-  if (response.errorCode !== "SOURCE_FAILURE" || !response.errorMessage?.includes(expectedMessage)) {
-    throw new Error(`${module.name}: expected runtime error containing '${expectedMessage}'`);
+  assertErrorEnvelope(module.name, response, expectedMessage);
+}
+
+function assertErrorEnvelope(name, response, expectedMessage) {
+  if (response.protocolVersion !== 1 || response.payload !== null || typeof response.errorCode !== "string" || typeof response.errorMessage !== "string" || !response.errorMessage.includes(expectedMessage)) {
+    throw new Error(`${name}: malformed runtime error envelope: ${JSON.stringify(response)}`);
   }
 }
 
@@ -214,9 +218,7 @@ for (const [name, path] of modules) {
       throw new Error(`${name}: allocator accepted an invalid length`);
     }
     const invalidPointer = callInvalidPointer(module);
-    if (invalidPointer.errorMessage !== "runtime request pointer is invalid") {
-      throw new Error(`${name}: invalid pointer was not rejected precisely`);
-    }
+    assertErrorEnvelope(name, invalidPointer, "runtime request pointer is invalid");
     assertRuntimeError(
       module,
       JSON.stringify({ requestId: `${name}-oversized`, operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) } }),

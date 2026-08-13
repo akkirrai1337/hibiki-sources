@@ -145,16 +145,22 @@ function assertResponseIdentity(response, operation) {
   if (!response.payload || typeof response.payload !== "object") throw new Error(`${operation} returned no payload`);
 }
 
+function assertErrorEnvelope(response, expectedMessage, context) {
+  if (response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string" || !response.errorMessage.includes(expectedMessage)) {
+    throw new Error(`${context} returned a malformed error envelope: ${JSON.stringify(response)}`);
+  }
+}
+
 const instance = await loadModule();
 instance.exports.beakokit_reset();
 if (instance.exports.beakokit_alloc(-1) >= 0 || instance.exports.beakokit_alloc(0x7fffffff) >= 0) throw new Error("allocator accepted an invalid length");
 instance.exports.beakokit_reset();
 const invalidPointer = decodePacked(instance, instance.exports.beakokit_call(-1, 1));
-if (invalidPointer.errorMessage !== "runtime request pointer is invalid") throw new Error(`invalid pointer was not rejected: ${JSON.stringify(invalidPointer)}`);
+assertErrorEnvelope(invalidPointer, "runtime request pointer is invalid", "invalid pointer");
 const invalidRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ operation: "SEARCH", payload: {} })));
-if (invalidRequest.errorCode !== "SOURCE_FAILURE" || !invalidRequest.errorMessage?.includes("requestId")) throw new Error(`invalid request was not rejected: ${JSON.stringify(invalidRequest)}`);
+assertErrorEnvelope(invalidRequest, "requestId", "invalid request");
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
-if (oversizedRequest.errorCode !== "SOURCE_FAILURE" || !oversizedRequest.errorMessage?.includes("size limit")) throw new Error(`oversized request was not rejected: ${JSON.stringify(oversizedRequest)}`);
+assertErrorEnvelope(oversizedRequest, "size limit", "oversized request");
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
 assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");
