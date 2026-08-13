@@ -124,13 +124,13 @@ function assertResponseIdentity(response, operation) {
   if (!response.payload || typeof response.payload !== "object") throw new Error(`${operation} returned no payload`);
 }
 
-function assertPlaybackResponse(groups, links) {
+function assertPlaybackResponse(groups, links, episodeCount) {
   const playbackGroups = groups.payload?.groups;
   if (!Array.isArray(playbackGroups) || playbackGroups.length === 0) throw new Error(`PLAYBACK_GROUPS returned no groups: ${JSON.stringify(groups)}`);
   for (const group of playbackGroups) {
     if (!Array.isArray(group.episodes) || group.episodes.length === 0) throw new Error(`PLAYBACK_GROUPS returned an empty group: ${JSON.stringify(groups)}`);
     const ids = group.episodes.map((episode) => episode?.id);
-    if (ids.some((id) => typeof id !== "string" || !id.trim() || id.split("/").some((segment) => !/^[A-Za-z0-9._~-]+$/.test(segment) || segment === "." || segment === "..")) || new Set(ids).size !== ids.length || group.episodes.some((episode) => typeof episode.number !== "number" || !Number.isFinite(episode.number) || episode.number <= 0)) throw new Error(`PLAYBACK_GROUPS returned invalid episodes: ${JSON.stringify(groups)}`);
+    if (ids.some((id) => typeof id !== "string" || !id.trim() || id.split("/").some((segment) => !/^[A-Za-z0-9._~-]+$/.test(segment) || segment === "." || segment === "..")) || new Set(ids).size !== ids.length || group.episodes.some((episode) => typeof episode.number !== "number" || !Number.isFinite(episode.number) || episode.number <= 0 || episode.number > episodeCount)) throw new Error(`PLAYBACK_GROUPS returned invalid episodes: ${JSON.stringify(groups)}`);
   }
   const playerLinks = links.payload?.links;
   if (!Array.isArray(playerLinks) || playerLinks.length === 0 || playerLinks.some((link) => !/^https?:\/\//.test(link?.url || "")) || new Set(playerLinks.map((link) => link.url)).size !== playerLinks.length) throw new Error(`PLAYER_LINKS returned invalid links: ${JSON.stringify(links)}`);
@@ -187,5 +187,5 @@ if (groups.errorCode || episodeId !== "demo/s1") throw new Error(`PLAYBACK_GROUP
 const links = call(instance, "PLAYER_LINKS", { episodeId });
 assertResponseIdentity(links, "PLAYER_LINKS");
 if (links.errorCode || !links.payload?.links?.[0]?.url?.includes("player.example")) throw new Error(`PLAYER_LINKS failed: ${JSON.stringify(links)}`);
-assertPlaybackResponse(groups, links);
+assertPlaybackResponse(groups, links, details.payload.episodeCount);
 console.log("AnimePahe package WASM smoke passed: SEARCH, FILTER_CATALOG, DETAILS, PLAYBACK_GROUPS, PLAYER_LINKS");

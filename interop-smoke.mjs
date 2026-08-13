@@ -229,7 +229,7 @@ function assertResponseIdentity(name, response, operation) {
   if (!response.payload || typeof response.payload !== "object") throw new Error(`${name}: ${operation} returned no payload`);
 }
 
-function assertPlaybackResponse(name, groups, links) {
+function assertPlaybackResponse(name, groups, links, episodeCount) {
   const playbackGroups = groups.payload?.groups;
   if (!Array.isArray(playbackGroups) || playbackGroups.length === 0) throw new Error(`${name}: playback returned no groups`);
   const groupIds = playbackGroups.map((group) => group?.id);
@@ -238,7 +238,7 @@ function assertPlaybackResponse(name, groups, links) {
     if (!Array.isArray(group.episodes) || group.episodes.length === 0) throw new Error(`${name}: playback group ${group.id} has no episodes`);
     const episodeIds = group.episodes.map((episode) => episode?.id);
     if (episodeIds.some((id) => typeof id !== "string" || !id.trim() || id.split("/").some((segment) => !/^[A-Za-z0-9._~-]+$/.test(segment) || segment === "." || segment === "..")) || new Set(episodeIds).size !== episodeIds.length) throw new Error(`${name}: playback group ${group.id} has invalid or duplicate episode ids`);
-    if (group.episodes.some((episode) => typeof episode.number !== "number" || !Number.isFinite(episode.number) || episode.number <= 0)) throw new Error(`${name}: playback group ${group.id} has an invalid episode number`);
+    if (group.episodes.some((episode) => typeof episode.number !== "number" || !Number.isFinite(episode.number) || episode.number <= 0 || episode.number > episodeCount)) throw new Error(`${name}: playback group ${group.id} has an invalid episode number`);
   }
   const playerLinks = links.payload?.links;
   if (!Array.isArray(playerLinks) || playerLinks.length === 0 || playerLinks.some((link) => !/^https?:\/\//.test(link?.url || ""))) throw new Error(`${name}: playback returned no valid HTTP links`);
@@ -300,7 +300,7 @@ for (const [name, path] of modules) {
   assertStrictTitleMetadata(name, details.payload, "details");
   if (details.payload?.id !== sourceId) throw new Error(`${name}: details failed`);
   if (!groups.payload?.groups?.[0]?.episodes?.length) throw new Error(`${name}: groups failed`);
-  assertPlaybackResponse(name, groups, links);
+  assertPlaybackResponse(name, groups, links, details.payload.episodeCount);
   const expectedLink = name === "yummy" ? "player.example/yummy" : "720.m3u8";
   if (!links.payload?.links?.[0]?.url?.includes(expectedLink)) throw new Error(`${name}: links failed`);
   console.log(`${name}: SEARCH, DETAILS, PLAYBACK_GROUPS, PLAYER_LINKS passed`);
