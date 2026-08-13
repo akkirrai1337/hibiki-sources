@@ -111,6 +111,17 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
     if ($null -eq $manifest.capabilities -or $manifest.capabilities.Count -eq 0) {
         throw "Package $packageName is missing capabilities"
     }
+    $capabilities = @($manifest.capabilities | ForEach-Object { [string]$_ })
+    $unknownCapabilities = @($capabilities | Where-Object { $_ -notin @("LATEST_RELEASES", "PLAYBACK") })
+    if ($unknownCapabilities.Count -gt 0) {
+        throw "Package $packageName declares unknown capabilities: $($unknownCapabilities -join ', ')"
+    }
+    if ("PLAYBACK" -notin $capabilities) {
+        throw "Package $packageName does not declare required PLAYBACK capability"
+    }
+    if ("LATEST_RELEASES" -in $capabilities -and $expectedSourceId -notin @("yummy-anime", "animego", "animepahe")) {
+        throw "Package $packageName declares LATEST_RELEASES without a latest smoke scenario"
+    }
     return $manifest
 }
 
@@ -132,6 +143,14 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
             [string]$manifest.packageUrl -notmatch '^https://[^\s/]+(?:/[^\s]*)?$' -or
             [string]$manifest.sha256 -notmatch '^[0-9a-fA-F]{64}$' -or [int64]$manifest.artifactSizeBytes -le 0) {
             throw "Repository index entry is invalid: $expectedSourceId"
+        }
+        $capabilities = @($manifest.capabilities | ForEach-Object { [string]$_ })
+        $unknownCapabilities = @($capabilities | Where-Object { $_ -notin @("LATEST_RELEASES", "PLAYBACK") })
+        if ($unknownCapabilities.Count -gt 0 -or "PLAYBACK" -notin $capabilities) {
+            throw "Repository index entry has invalid capabilities: $expectedSourceId"
+        }
+        if ("LATEST_RELEASES" -in $capabilities -and $expectedSourceId -notin @("yummy-anime", "animego", "animepahe")) {
+            throw "Repository index entry declares LATEST_RELEASES without a latest smoke scenario: $expectedSourceId"
         }
     }
     $artifactNames = @($index.sources | ForEach-Object {
