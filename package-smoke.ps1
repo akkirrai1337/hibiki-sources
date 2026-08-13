@@ -130,6 +130,20 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
             throw "Repository index entry is invalid: $expectedSourceId"
         }
     }
+    $artifactNames = @($index.sources | ForEach-Object {
+        [System.IO.Path]::GetFileName(([Uri][string]$_.packageUrl).AbsolutePath)
+    })
+    if (@($artifactNames | Sort-Object -Unique).Count -ne $artifactNames.Count) {
+        throw "Repository index contains duplicate artifact filenames"
+    }
+    foreach ($entry in @($index.sources)) {
+        $artifactStem = if ([string]$entry.sourceId -eq "yummy-anime") { "yummyanime" } else { [string]$entry.sourceId }
+        $expectedArtifactName = "$artifactStem-$($entry.packageVersion).zip"
+        $actualArtifactName = [System.IO.Path]::GetFileName(([Uri][string]$entry.packageUrl).AbsolutePath)
+        if ($actualArtifactName -ne $expectedArtifactName) {
+            throw "Repository index artifact filename does not match source/version: $($entry.sourceId)"
+        }
+    }
 }
 
 function Assert-ProductionArtifactsMatchIndex($indexPath, $artifactDirectory) {
