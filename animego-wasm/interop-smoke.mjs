@@ -267,6 +267,15 @@ for (const sort of ["YEAR", "RATING"]) {
   if (sorted.errorCode || !sortUrl.includes(expectedSort)) throw new Error(`${sort} sorting failed: url=${sortUrl} response=${JSON.stringify(sorted)}`);
 }
 
+const fallbackSorted = call(instance, "SEARCH", { sort: "UNSUPPORTED", limit: 20, offset: 0 });
+assertResponseIdentity(fallbackSorted, "SEARCH");
+assertCatalogResponse(fallbackSorted, 20, "fallback SEARCH");
+assertCatalogMetadata(fallbackSorted, "fallback SEARCH");
+const fallbackUrl = requestedUrls.at(-1) || "";
+if (fallbackSorted.errorCode || !fallbackUrl.includes("sort=createdAt") || !fallbackUrl.includes("direction=asc")) {
+  throw new Error(`fallback sorting failed: url=${fallbackUrl} response=${JSON.stringify(fallbackSorted)}`);
+}
+
 const latestPageTwo = call(instance, "LATEST", { limit: 20, offset: 20 });
 assertResponseIdentity(latestPageTwo, "LATEST");
 assertCatalogResponse(latestPageTwo, 20, "LATEST pagination");
