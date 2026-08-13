@@ -439,6 +439,7 @@ pub struct HtmlCard<'document> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum HttpSdkError {
     Remote { source: String, message: String },
+    InvalidEnvelope { source: String, message: String },
     MissingStatus { source: String },
     Status { source: String, status: u16 },
     MissingBody { source: String },
@@ -454,8 +455,19 @@ pub struct HostResponse {
 impl HostResponse {
     pub fn from_value(value: &Value, source: impl Into<String>) -> Result<Self, HttpSdkError> {
         let source = source.into();
+        let protocol = value.get("protocolVersion").and_then(Value::as_u64)
+            .ok_or_else(|| HttpSdkError::InvalidEnvelope { source: source.clone(), message: "missing protocol version".to_owned() })?;
+        if protocol != HOST_PROTOCOL_VERSION as u64 {
+            return Err(HttpSdkError::InvalidEnvelope { source: source.clone(), message: format!("unsupported protocol version {protocol}") });
+        }
+        if value.get("requestId").and_then(Value::as_str).map(str::trim).filter(|id| !id.is_empty()).is_none() {
+            return Err(HttpSdkError::InvalidEnvelope { source: source.clone(), message: "missing request ID".to_owned() });
+        }
         if let Some(message) = value.get("errorMessage").and_then(Value::as_str) {
             return Err(HttpSdkError::Remote { source, message: message.to_owned() });
+        }
+        if value.get("errorCode").is_some_and(|code| !code.is_null()) {
+            return Err(HttpSdkError::InvalidEnvelope { source, message: "error code has no error message".to_owned() });
         }
         let status_code = value.pointer("/payload/statusCode")
             .and_then(Value::as_u64)
@@ -1393,13 +1405,13 @@ mod tests {
 
     #[test]
     fn validates_host_http_response_once() {
-        let response = serde_json::json!({ "payload": { "statusCode": 200, "body": "{}" } });
+        let response = serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": null, "errorMessage": null, "payload": { "statusCode": 200, "body": "{}" } });
         let parsed = HostResponse::from_value(&response, "fixture").unwrap();
         assert_eq!(parsed.status_code, 200);
         assert_eq!(parsed.body(), "{}");
-        assert_eq!(HostResponse::from_value(&serde_json::json!({ "payload": { "statusCode": 503 } }), "fixture"), Err(HttpSdkError::Status { source: "fixture".to_owned(), status: 503 }));
-        assert_eq!(HostResponse::from_value(&serde_json::json!({ "payload": { "body": "{}" } }), "fixture"), Err(HttpSdkError::MissingStatus { source: "fixture".to_owned() }));
-        assert_eq!(HostResponse::from_value_limited(&serde_json::json!({ "payload": { "statusCode": 200, "body": "12345" } }), "fixture", 4), Err(HttpSdkError::BodyTooLarge { source: "fixture".to_owned(), actual: 5, maximum: 4 }));
+        assert_eq!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "payload": { "statusCode": 503 } }), "fixture"), Err(HttpSdkError::Status { source: "fixture".to_owned(), status: 503 }));
+        assert_eq!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "payload": { "body": "{}" } }), "fixture"), Err(HttpSdkError::MissingStatus { source: "fixture".to_owned() }));
+        assert_eq!(HostResponse::from_value_limited(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "payload": { "statusCode": 200, "body": "12345" } }), "fixture", 4), Err(HttpSdkError::BodyTooLarge { source: "fixture".to_owned(), actual: 5, maximum: 4 }));
     }
 
     #[test]
