@@ -219,6 +219,8 @@ assertErrorShape(callRaw(instance, new TextEncoder().encode("{")), "malformed JS
 assertErrorShape(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-unknown", operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))), "unknown operation");
 assertErrorEnvelope(call(instance, "DETAILS", { id: "../invalid-title" }), "invalid", "invalid details id");
 assertErrorEnvelope(call(instance, "PLAYER_LINKS", { titleId: "fixture-556", episodeId: "../invalid-episode" }), "invalid", "invalid episode id");
+assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: "tv" }), "must be an array", "scalar filter");
+assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: ["tv", 1] }), "must be a string", "non-string filter");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
