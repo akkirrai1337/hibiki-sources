@@ -90,6 +90,14 @@ function Assert-PackageUrl($url, $expectedArtifactName, $context) {
     }
 }
 
+function Assert-DisplayName($displayName, $context) {
+    $value = [string]$displayName
+    if ([string]::IsNullOrWhiteSpace($value) -or $value.Length -gt 64 -or
+        $value -ne $value.Trim() -or $value.IndexOfAny([char[]]([char]0..[char]31)) -ge 0) {
+        throw "$context has an invalid displayName"
+    }
+}
+
 function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) {
     if (-not [System.IO.File]::Exists($manifestPath)) {
         throw "Package $packageName does not contain manifest.json"
@@ -111,9 +119,7 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
         [string]$manifest.packageVersion -notmatch '^\d+\.\d+\.\d+$') {
         throw "Package $packageName has an invalid packageVersion"
     }
-    if ([string]::IsNullOrWhiteSpace([string]$manifest.sourceInfo.displayName)) {
-        throw "Package $packageName is missing sourceInfo.displayName"
-    }
+    Assert-DisplayName $manifest.sourceInfo.displayName "Package $packageName sourceInfo"
     Assert-LanguageMetadata $manifest.sourceInfo.languages $manifest.sourceInfo.primaryLanguage "Package $packageName sourceInfo"
     if ($null -eq $manifest.hostCapabilities -or @($manifest.hostCapabilities).Count -eq 0) {
         throw "Package $packageName is missing hostCapabilities"
@@ -204,6 +210,7 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
             [string]$manifest.sha256 -notmatch '^[0-9a-fA-F]{64}$' -or [int64]$manifest.artifactSizeBytes -le 0) {
             throw "Repository index entry is invalid: $expectedSourceId"
         }
+        Assert-DisplayName $manifest.sourceInfo.displayName "Repository index entry $expectedSourceId sourceInfo"
         $artifactStem = if ($expectedSourceId -eq "yummy-anime") { "yummyanime" } else { $expectedSourceId }
         Assert-PackageUrl $manifest.packageUrl "$artifactStem-$($manifest.packageVersion).zip" "Repository index entry $expectedSourceId"
         Assert-LanguageMetadata $manifest.sourceInfo.languages $manifest.sourceInfo.primaryLanguage "Repository index entry $expectedSourceId sourceInfo"
