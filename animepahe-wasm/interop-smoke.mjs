@@ -47,7 +47,7 @@ async function loadModule() {
     host: { call(pointer, length) {
       const request = JSON.parse(new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, pointer, length)));
       const body = hostBody(request.payload.url);
-      const encoded = new TextEncoder().encode(JSON.stringify({ requestId: request.requestId, payload: { statusCode: request.payload.url.includes("http-500") ? 503 : 200, headers: {}, body }, errorCode: null, errorMessage: null, protocolVersion: 1 }));
+      const encoded = new TextEncoder().encode(JSON.stringify({ requestId: request.payload.url.includes("http-wrong-request") ? "wrong-http" : request.requestId, payload: { statusCode: request.payload.url.includes("http-500") ? 503 : 200, headers: {}, body }, errorCode: null, errorMessage: null, protocolVersion: 1 }));
       const responsePointer = instance.exports.beakokit_alloc(encoded.length);
       new Uint8Array(instance.exports.memory.buffer, responsePointer, encoded.length).set(encoded);
       return (BigInt(responsePointer) << 32n) | BigInt(encoded.length);
@@ -193,6 +193,7 @@ const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, off
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const malformedHostResponse = call(instance, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });
 assertErrorEnvelope(malformedHostResponse, "catalog", "malformed host response");
+assertErrorEnvelope(call(instance, "SEARCH", { query: "http-wrong-request", limit: 20, offset: 0 }), "request ID does not match expected", "host request correlation");
 const search = call(instance, "SEARCH", { query: "demo", limit: 20, offset: 0 });
 assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");

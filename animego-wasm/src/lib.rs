@@ -57,7 +57,7 @@ fn http(request_id: &str, path: &str, headers: Value) -> Result<String, String> 
     let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
     let raw = unsafe { unpack_host_response(packed, "AnimeGo")? };
     let response: Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
-    HostResponse::from_value_limited(&response, "AnimeGo", MAX_RESPONSE_BYTES as usize)
+    HostResponse::from_value_limited_for_request(&response, "AnimeGo", request_id, MAX_RESPONSE_BYTES as usize)
         .map(|response| response.body().to_owned())
         .map_err(|error| format!("AnimeGo HTTP response invalid: {error:?}"))
 }

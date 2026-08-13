@@ -89,7 +89,7 @@ async function loadModule() {
         const request = JSON.parse(new TextDecoder().decode(new Uint8Array(memory.buffer, pointer, length)));
         const body = responseFor(request.payload.url);
         const encoded = new TextEncoder().encode(JSON.stringify({
-          requestId: request.requestId,
+          requestId: request.payload.url.includes("http-wrong-request") ? "wrong-http" : request.requestId,
           payload: { statusCode: request.payload.url.includes("http-500") ? 503 : 200, headers: {}, body },
           errorCode: null,
           errorMessage: null,
@@ -254,6 +254,7 @@ const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, off
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const malformedHostResponse = call(instance, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });
 assertErrorEnvelope(malformedHostResponse, "returned no cards", "malformed host response");
+assertErrorEnvelope(call(instance, "SEARCH", { query: "http-wrong-request", limit: 20, offset: 0 }), "request ID does not match expected", "host request correlation");
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
 assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");

@@ -59,7 +59,7 @@ fn host_http(request_id: &str, url: String) -> Result<String, String> {
     let packed = unsafe { host_call(request_bytes.as_ptr(), request_bytes.len() as i32) };
     let response = unsafe { unpack_host_response(packed, "AniLiberty")? };
     let response: Value = serde_json::from_slice(response).map_err(|error| error.to_string())?;
-    HostResponse::from_value_limited(&response, "AniLiberty", MAX_RESPONSE_BYTES as usize)
+    HostResponse::from_value_limited_for_request(&response, "AniLiberty", request_id, MAX_RESPONSE_BYTES as usize)
         .map(|response| response.body().to_owned())
         .map_err(|error| format!("AniLiberty HTTP response invalid: {error:?}"))
 }

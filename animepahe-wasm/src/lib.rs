@@ -20,7 +20,7 @@ fn get(request_id: &str, path: &str, headers: Value) -> Result<String, String> {
     let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
     let raw = unsafe { unpack_host_response(packed, "AnimePahe")? };
     let value: Value = serde_json::from_slice(raw).map_err(|e| format!("AnimePahe host response JSON invalid: {e}"))?;
-    HostResponse::from_value_limited(&value, "AnimePahe", MAX_BODY as usize)
+    HostResponse::from_value_limited_for_request(&value, "AnimePahe", request_id, MAX_BODY as usize)
         .map(|response| response.body().to_owned())
         .map_err(|e| format!("AnimePahe HTTP response invalid: {e:?}"))
 }

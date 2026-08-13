@@ -43,7 +43,7 @@ fn http(request_id: &str, path: &str, query: &str) -> Result<String, String> {
     let packed = unsafe { host_call(bytes.as_ptr(), bytes.len() as i32) };
     let raw = unsafe { unpack_host_response(packed, "YummyAnime")? };
     let response: Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
-    HostResponse::from_value_limited(&response, "YummyAnime", MAX_RESPONSE_BYTES as usize)
+    HostResponse::from_value_limited_for_request(&response, "YummyAnime", request_id, MAX_RESPONSE_BYTES as usize)
         .map(|response| response.body().to_owned())
         .map_err(|error| format!("YummyAnime HTTP response invalid: {error:?}"))
 }

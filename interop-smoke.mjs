@@ -116,7 +116,7 @@ async function loadModule(name, relativePath) {
         const request = JSON.parse(new TextDecoder().decode(new Uint8Array(memory.buffer, pointer, length)));
         const body = hostBody(request.payload.url, name);
         const response = JSON.stringify({
-          requestId: request.requestId,
+          requestId: request.payload.url.includes("http-wrong-request") ? "wrong-http" : request.requestId,
           payload: { statusCode: request.payload.url.includes("http-500") ? 503 : 200, headers: {}, body },
           errorCode: null,
           errorMessage: null,
@@ -269,6 +269,7 @@ for (const [name, path] of modules) {
     assertErrorEnvelope(name, hostFailure, "503");
     const malformedHostResponse = call(module, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });
     assertErrorEnvelope(name, malformedHostResponse, "JSON");
+    assertErrorEnvelope(name, call(module, "SEARCH", { query: "http-wrong-request", limit: 20, offset: 0 }), "request ID does not match expected");
     assertErrorEnvelope(name, call(module, "SEARCH", { query: "fixture", limit: 0, offset: 0 }), "pagination limit is out of range");
     assertErrorEnvelope(name, call(module, "SEARCH", { query: "fixture", limit: 20, offset: -1 }), "pagination offset is out of range");
     assertErrorEnvelope(name, call(module, "SEARCH", { query: "fixture", limit: 51, offset: 0 }), "pagination limit is out of range");

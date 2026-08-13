@@ -448,6 +448,7 @@ pub enum HttpSdkError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HostResponse {
+    pub request_id: String,
     pub status_code: u16,
     body: String,
 }
@@ -479,7 +480,7 @@ impl HostResponse {
         let body = value.pointer("/payload/body")
             .and_then(Value::as_str)
             .ok_or(HttpSdkError::MissingBody { source })?;
-        Ok(Self { status_code, body: body.to_owned() })
+        Ok(Self { request_id: value.get("requestId").and_then(Value::as_str).unwrap().to_owned(), status_code, body: body.to_owned() })
     }
 
     pub fn body(&self) -> &str { &self.body }
@@ -495,6 +496,23 @@ impl HostResponse {
                 source: source.into(),
                 actual: response.body.len(),
                 maximum: maximum_bytes,
+            });
+        }
+        Ok(response)
+    }
+
+    pub fn from_value_limited_for_request(
+        value: &Value,
+        source: impl Into<String> + Clone,
+        request_id: &str,
+        maximum_bytes: usize,
+    ) -> Result<Self, HttpSdkError> {
+        let response = Self::from_value_limited(value, source.clone(), maximum_bytes)?;
+        let expected = format!("{request_id}-http");
+        if response.request_id != expected {
+            return Err(HttpSdkError::InvalidEnvelope {
+                source: source.into(),
+                message: format!("request ID does not match expected {expected}"),
             });
         }
         Ok(response)
@@ -1408,6 +1426,7 @@ mod tests {
         let response = serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": null, "errorMessage": null, "payload": { "statusCode": 200, "body": "{}" } });
         let parsed = HostResponse::from_value(&response, "fixture").unwrap();
         assert_eq!(parsed.status_code, 200);
+        assert_eq!(parsed.request_id, "fixture-http");
         assert_eq!(parsed.body(), "{}");
         assert_eq!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "payload": { "statusCode": 503 } }), "fixture"), Err(HttpSdkError::Status { source: "fixture".to_owned(), status: 503 }));
         assert_eq!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "payload": { "body": "{}" } }), "fixture"), Err(HttpSdkError::MissingStatus { source: "fixture".to_owned() }));
