@@ -137,6 +137,11 @@ function assertCatalogResponse(response, limit, context) {
   if (new Set(ids).size !== ids.length) throw new Error(`${context} contains duplicate item ids`);
 }
 
+function assertResponseIdentity(response, operation) {
+  const expected = `animego-${operation}`;
+  if (response.requestId !== expected) throw new Error(`${operation} returned requestId '${response.requestId}' instead of '${expected}'`);
+}
+
 const instance = await loadModule();
 instance.exports.beakokit_reset();
 if (instance.exports.beakokit_alloc(-1) >= 0 || instance.exports.beakokit_alloc(0x7fffffff) >= 0) throw new Error("allocator accepted an invalid length");
@@ -148,31 +153,37 @@ if (invalidRequest.errorCode !== "SOURCE_FAILURE" || !invalidRequest.errorMessag
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 if (oversizedRequest.errorCode !== "SOURCE_FAILURE" || !oversizedRequest.errorMessage?.includes("size limit")) throw new Error(`oversized request was not rejected: ${JSON.stringify(oversizedRequest)}`);
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
+assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");
 if (search.errorCode || search.payload?.items?.[0]?.id !== "krutoy-uchitel-onidzuka-556" || search.payload?.items?.[0]?.ratings?.[0]?.value !== 8.7 || !/^https?:\/\//.test(search.payload.items[0].posterUrl || "") || search.payload.items[0].episodeCount !== 43 || search.payload.items[0].genres?.length !== 1 || search.payload.items[0].genres[0] !== "Комедия") {
   throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 }
 const searchPageTwo = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 20 });
+assertResponseIdentity(searchPageTwo, "SEARCH");
 if (searchPageTwo.errorCode || !requestedUrls.at(-1)?.includes("page=2")) {
   throw new Error(`SEARCH pagination failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(searchPageTwo)}`);
 }
 
 const latestPageTwo = call(instance, "LATEST", { limit: 20, offset: 20 });
+assertResponseIdentity(latestPageTwo, "LATEST");
 if (latestPageTwo.errorCode || !requestedUrls.at(-1)?.endsWith("/anime/2")) {
   throw new Error(`LATEST pagination failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(latestPageTwo)}`);
 }
 
 const filters = call(instance, "FILTER_CATALOG", {});
+assertResponseIdentity(filters, "FILTER_CATALOG");
 if (filters.errorCode || filters.payload?.typeOptions?.length !== 1 || filters.payload?.typeOptions?.[0]?.title !== "TV Series" || filters.payload?.genreOptions?.length !== 1 || filters.payload?.genreOptions?.[0]?.title !== "Action") {
   throw new Error(`FILTER_CATALOG failed: ${JSON.stringify(filters)}`);
 }
 
 const details = call(instance, "DETAILS", { id: "krutoy-uchitel-onidzuka-556" });
+assertResponseIdentity(details, "DETAILS");
 if (details.errorCode || details.payload?.id !== "krutoy-uchitel-onidzuka-556" || details.payload?.originalName !== "Complete interop title" || !/^https?:\/\//.test(details.payload?.posterUrl || "") || !Number.isInteger(details.payload?.episodeCount) || details.payload.episodeCount <= 0 || !details.payload?.genres?.length || details.payload.genres.some((genre) => /^[a-z0-9_-]+$/.test(genre)) || details.payload?.ratings?.[0]?.value !== 8.8 || details.payload?.ratings?.[0]?.votes !== 12 || details.payload?.synonyms?.[0] !== "Interop alias" || details.payload?.sourceMaterial !== "Manga" || details.payload?.studios?.[0] !== "Interop Studio") {
   throw new Error(`DETAILS failed: ${JSON.stringify(details)}`);
 }
 
 const groups = call(instance, "PLAYBACK_GROUPS", { titleId: "krutoy-uchitel-onidzuka-556" });
+assertResponseIdentity(groups, "PLAYBACK_GROUPS");
 if (groups.errorCode || groups.payload?.groups?.[0]?.episodes?.[0]?.id !== "episode-1" || groups.payload?.groups?.[0]?.episodes?.[0]?.number !== 1 || groups.payload?.groups?.[0]?.episodes?.[0]?.title !== "Episode 1") {
   throw new Error(`PLAYBACK_GROUPS failed: ${JSON.stringify(groups)}`);
 }
@@ -183,6 +194,7 @@ const links = call(instance, "PLAYER_LINKS", {
   episodeId: "episode-1",
   episodeNumber: 1,
 });
+assertResponseIdentity(links, "PLAYER_LINKS");
 if (links.errorCode || !links.payload?.links?.[0]?.url?.includes("player.example") || links.payload?.links?.[0]?.playerName !== "Aksor" || links.payload?.links?.[0]?.translation !== "Dub") {
   throw new Error(`PLAYER_LINKS failed: ${JSON.stringify(links)}`);
 }

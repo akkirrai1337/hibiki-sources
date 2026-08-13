@@ -198,6 +198,11 @@ function assertCatalogResponse(name, response, limit, context) {
   if (new Set(ids).size !== ids.length) throw new Error(`${name}: ${context} contains duplicate item ids`);
 }
 
+function assertResponseIdentity(name, response, operation) {
+  const expected = `${name}-${operation}`;
+  if (response.requestId !== expected) throw new Error(`${name}: ${operation} returned requestId '${response.requestId}' instead of '${expected}'`);
+}
+
 for (const [name, path] of modules) {
   const module = await loadModule(name, path);
   if (name !== "kotlin") {
@@ -225,6 +230,9 @@ for (const [name, path] of modules) {
   const links = call(module, "PLAYER_LINKS", {
     titleId: sourceId, groupId: sourceId, episodeId: name === "yummy" ? "1" : "episode-1", episodeNumber: 1,
   });
+  for (const [operation, response] of [["SEARCH", search], ["DETAILS", details], ["PLAYBACK_GROUPS", groups], ["PLAYER_LINKS", links]]) {
+    assertResponseIdentity(name, response, operation);
+  }
   if (!search.payload?.items?.length) throw new Error(`${name}: search failed`);
   assertCatalogResponse(name, search, 20, "search");
   search.payload.items.forEach((item, index) => assertStrictTitleMetadata(name, item, `search item ${index}`));

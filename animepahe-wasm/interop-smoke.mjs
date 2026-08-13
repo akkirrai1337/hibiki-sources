@@ -82,6 +82,11 @@ function assertCatalogResponse(response, limit, context) {
   if (new Set(ids).size !== ids.length) throw new Error(`${context} contains duplicate item ids`);
 }
 
+function assertResponseIdentity(response, operation) {
+  const expected = `animepahe-${operation}`;
+  if (response.requestId !== expected) throw new Error(`${operation} returned requestId '${response.requestId}' instead of '${expected}'`);
+}
+
 const instance = await loadModule();
 instance.exports.beakokit_reset();
 if (instance.exports.beakokit_alloc(-1) >= 0 || instance.exports.beakokit_alloc(0x7fffffff) >= 0) throw new Error("allocator accepted an invalid length");
@@ -93,15 +98,20 @@ if (invalidRequest.errorCode !== "SOURCE_FAILURE" || !invalidRequest.errorMessag
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 if (oversizedRequest.errorCode !== "SOURCE_FAILURE" || !oversizedRequest.errorMessage?.includes("size limit")) throw new Error(`oversized request was not rejected: ${JSON.stringify(oversizedRequest)}`);
 const search = call(instance, "SEARCH", { query: "demo", limit: 20, offset: 0 });
+assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");
 if (search.errorCode || search.payload?.items?.[0]?.id !== "demo" || search.payload.items[0].episodeCount !== 12 || !/^https?:\/\//.test(search.payload.items[0].posterUrl || "") || search.payload.items[0].genres?.length !== 1 || search.payload.items[0].genres[0] !== "Action") throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 const filters = call(instance, "FILTER_CATALOG", {});
+assertResponseIdentity(filters, "FILTER_CATALOG");
 if (filters.errorCode || filters.payload?.sortOptions?.[0]?.id !== "relevance") throw new Error(`FILTER_CATALOG failed: ${JSON.stringify(filters)}`);
 const details = call(instance, "DETAILS", { id: "demo" });
+assertResponseIdentity(details, "DETAILS");
 if (details.errorCode || details.payload?.id !== "demo" || details.payload?.episodeCount !== 12 || details.payload?.genres?.[0] !== "Action") throw new Error(`DETAILS failed: ${JSON.stringify(details)}`);
 const groups = call(instance, "PLAYBACK_GROUPS", { titleId: "demo" });
+assertResponseIdentity(groups, "PLAYBACK_GROUPS");
 const episodeId = groups.payload?.groups?.[0]?.episodes?.[0]?.id;
 if (groups.errorCode || episodeId !== "demo/s1") throw new Error(`PLAYBACK_GROUPS failed: ${JSON.stringify(groups)}`);
 const links = call(instance, "PLAYER_LINKS", { episodeId });
+assertResponseIdentity(links, "PLAYER_LINKS");
 if (links.errorCode || !links.payload?.links?.[0]?.url?.includes("player.example")) throw new Error(`PLAYER_LINKS failed: ${JSON.stringify(links)}`);
 console.log("AnimePahe package WASM smoke passed: SEARCH, FILTER_CATALOG, DETAILS, PLAYBACK_GROUPS, PLAYER_LINKS");
