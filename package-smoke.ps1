@@ -75,6 +75,21 @@ function Assert-LanguageMetadata($languages, $primaryLanguage, $context) {
     }
 }
 
+function Assert-PackageUrl($url, $expectedArtifactName, $context) {
+    try { $parsedUrl = [Uri][string]$url } catch { throw "$context has an invalid packageUrl" }
+    if (-not $parsedUrl.IsAbsoluteUri -or $parsedUrl.Scheme -ne "https" -or
+        [string]::IsNullOrWhiteSpace($parsedUrl.Host) -or
+        -not [string]::IsNullOrEmpty($parsedUrl.Query) -or
+        -not [string]::IsNullOrEmpty($parsedUrl.Fragment)) {
+        throw "$context packageUrl must be an absolute HTTPS URL without query or fragment"
+    }
+    $actualArtifactName = [System.IO.Path]::GetFileName($parsedUrl.AbsolutePath)
+    if ($actualArtifactName -notmatch '^[a-z0-9-]+(?:-\d+\.\d+\.\d+)?\.zip$' -or
+        (-not [string]::IsNullOrWhiteSpace([string]$expectedArtifactName) -and $actualArtifactName -ne $expectedArtifactName)) {
+        throw "$context packageUrl does not point to the expected ZIP artifact: $actualArtifactName"
+    }
+}
+
 function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) {
     if (-not [System.IO.File]::Exists($manifestPath)) {
         throw "Package $packageName does not contain manifest.json"
@@ -138,9 +153,8 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
         throw "Package $packageName has an invalid WASM runtime declaration"
     }
     if ($manifest.entrypoint -ne "source.wasm") { throw "Package $packageName has an invalid entrypoint" }
-    if ([string]$manifest.packageUrl -notmatch '^https://[^\s/]+(?:/[^\s]*)?$') {
-        throw "Package $packageName has an invalid packageUrl"
-    }
+    $artifactStem = if ($expectedSourceId -eq "yummy-anime") { "yummyanime" } else { $expectedSourceId }
+    Assert-PackageUrl $manifest.packageUrl $null "Package $packageName"
     if ([string]$manifest.sha256 -notmatch '^[0-9a-fA-F]{64}$') {
         throw "Package $packageName has an invalid sha256"
     }
@@ -178,10 +192,12 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
             $null -eq $manifest.sourceInfo.languages -or $manifest.sourceInfo.languages.Count -eq 0 -or
             $manifest.runtime.id -ne "wasm" -or $manifest.runtime.abi -ne "wasm32-wasi-preview1" -or
             $manifest.entrypoint -ne "source.wasm" -or $null -eq $manifest.capabilities -or $manifest.capabilities.Count -eq 0 -or
-            [string]$manifest.packageUrl -notmatch '^https://[^\s/]+(?:/[^\s]*)?$' -or
+            [string]::IsNullOrWhiteSpace([string]$manifest.packageUrl) -or
             [string]$manifest.sha256 -notmatch '^[0-9a-fA-F]{64}$' -or [int64]$manifest.artifactSizeBytes -le 0) {
             throw "Repository index entry is invalid: $expectedSourceId"
         }
+        $artifactStem = if ($expectedSourceId -eq "yummy-anime") { "yummyanime" } else { $expectedSourceId }
+        Assert-PackageUrl $manifest.packageUrl "$artifactStem-$($manifest.packageVersion).zip" "Repository index entry $expectedSourceId"
         Assert-LanguageMetadata $manifest.sourceInfo.languages $manifest.sourceInfo.primaryLanguage "Repository index entry $expectedSourceId sourceInfo"
         $capabilities = @($manifest.capabilities | ForEach-Object { [string]$_ })
         $unknownCapabilities = @($capabilities | Where-Object { $_ -notin @("LATEST_RELEASES", "PLAYBACK") })
