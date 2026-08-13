@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_type, normalize_year, positive_finite_value, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_type, normalize_year, positive_finite_value, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -299,18 +299,20 @@ fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
             }))
         })
         .collect::<Vec<_>>();
-    if episodes.is_empty() {
-        Ok(json!({ "groups": [] }))
+    let payload = if episodes.is_empty() {
+        json!({ "groups": [] })
     } else {
-        Ok(json!({
+        json!({
             "groups": [{
                 "id": title_id,
                 "title": "AniLiberty",
                 "qualityLabel": "HLS",
                 "episodes": episodes
             }]
-        }))
-    }
+        })
+    };
+    validate_playback_payload(&payload, "AniLiberty")?;
+    Ok(payload)
 }
 
 fn player_links(request_id: &str, title_id: &str, episode_id: &str) -> Result<Value, String> {
@@ -341,7 +343,9 @@ fn player_links(request_id: &str, title_id: &str, episode_id: &str) -> Result<Va
             }));
         }
     }
-    Ok(json!({ "links": links }))
+    let payload = json!({ "links": links });
+    validate_player_links_payload(&payload, "AniLiberty")?;
+    Ok(payload)
 }
 
 fn episode_segments(episode: &Value) -> Vec<Value> {

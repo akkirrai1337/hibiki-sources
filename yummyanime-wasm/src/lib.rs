@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -193,7 +193,9 @@ fn playback_groups(request_id: &str, id: &str) -> Result<Value, String> {
         }
         if !episodes.is_empty() { groups.push(json!({ "id": name, "title": name, "qualityLabel": null, "episodes": episodes })); }
     }
-    Ok(json!({ "groups": groups }))
+    let payload = json!({ "groups": groups });
+    validate_playback_payload(&payload, "YummyAnime")?;
+    Ok(payload)
 }
 
 fn player_links(request_id: &str, id: &str, episode_id: &str) -> Result<Value, String> {
@@ -217,7 +219,9 @@ fn player_links(request_id: &str, id: &str, episode_id: &str) -> Result<Value, S
         Some(json!({ "url": url, "type": "EMBED", "quality": null, "headers": { "Referer": "https://ru.yummyani.me/" }, "playerName": player, "translation": translation, "segments": segments, "videoId": v.get("video_id") }))
     }).collect::<Vec<_>>();
     ensure_player_links(&links, episode_id)?;
-    Ok(json!({ "links": links }))
+    let payload = json!({ "links": links });
+    validate_player_links_payload(&payload, "YummyAnime")?;
+    Ok(payload)
 }
 
 fn ensure_player_links(links: &[Value], episode_id: &str) -> Result<(), String> {

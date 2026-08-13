@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use beakokit_html_sdk::{bounded_pagination, clean_element_text, first_attribute, host_get_request, is_http_url, normalize_status, normalize_type, parse_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, HtmlDocument, JsonDocument, Selector, MAX_RUNTIME_RESPONSE_BYTES, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{bounded_pagination, clean_element_text, first_attribute, host_get_request, is_http_url, normalize_status, normalize_type, parse_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, HtmlDocument, JsonDocument, Selector, MAX_RUNTIME_RESPONSE_BYTES, DEFAULT_MAX_DOCUMENT_BYTES};
 
 const BASE_URL: &str = "https://animepahetv.to";
 const PROTOCOL: u32 = 1;
@@ -173,7 +173,9 @@ fn playback_groups(request_id: &str, title_id: &str) -> Result<Value, String> {
         let number = item.get("chapter_number").or_else(|| item.get("episode")).and_then(|v| v.as_f64()).or_else(|| item.get("chapter_number").and_then(Value::as_str).and_then(number))?;
         if !seen.iter().any(|id: &String| id == session) { seen.push(session.to_owned()); Some(json!({"id": format!("{id}/{session}"), "number": number, "title": item.get("title").and_then(Value::as_str) })) } else { None }
     }).collect::<Vec<_>>();
-    Ok(json!({ "groups": if episodes.is_empty() { Vec::<Value>::new() } else { vec![json!({"id":id,"title":"English","qualityLabel":null,"episodes":episodes})] } }))
+    let payload = json!({ "groups": if episodes.is_empty() { Vec::<Value>::new() } else { vec![json!({"id":id,"title":"English","qualityLabel":null,"episodes":episodes})] } });
+    validate_playback_payload(&payload, "AnimePahe")?;
+    Ok(payload)
 }
 
 fn player_links(request_id: &str, episode_id: &str) -> Result<Value, String> {
@@ -187,7 +189,11 @@ fn player_links(request_id: &str, episode_id: &str) -> Result<Value, String> {
         if !is_http_url(url) { return None; }
         Some(json!({"url":url,"type":"EMBED","quality":server.get("resolution"),"headers":{"Referer":format!("{BASE_URL}/")},"playerName":server.get("name"),"translation":"English"}))
     }).collect::<Vec<_>>();
-    if !links.is_empty() { return Ok(json!({ "links": links })); }
+    if !links.is_empty() {
+        let payload = json!({ "links": links });
+        validate_player_links_payload(&payload, "AnimePahe")?;
+        return Ok(payload);
+    }
 
     let play_html = page(request_id, &format!("/play/{title_id}/{session}"))?;
     let fallback = episode_array(&play_html).and_then(|value| value.as_array().cloned()).unwrap_or_default().into_iter().find(|item| item.get("md5_id").and_then(Value::as_str) == Some(session));
@@ -196,7 +202,9 @@ fn player_links(request_id: &str, episode_id: &str) -> Result<Value, String> {
         ("Megaplay", format!("https://megaplay.buzz/stream/s-2/{id}/dub")),
         ("Vidplay", format!("https://vidwish.live/stream/s-2/{id}/dub")),
     ]).map(|(name, url)| json!({"url":url,"type":"EMBED","quality":null,"headers":{"Referer":format!("{BASE_URL}/play/{title_id}/{session}")},"playerName":name,"translation":"English"})).collect::<Vec<_>>();
-    Ok(json!({ "links": links }))
+    let payload = json!({ "links": links });
+    validate_player_links_payload(&payload, "AnimePahe")?;
+    Ok(payload)
 }
 
 fn execute(request: Request) -> Result<Value, String> {

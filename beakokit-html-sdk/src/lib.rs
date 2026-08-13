@@ -177,6 +177,48 @@ pub fn validate_title_metadata(value: &Value, source: &str, context: &str) -> Re
     Ok(())
 }
 
+pub fn validate_playback_payload(value: &Value, source: &str) -> Result<(), String> {
+    let groups = value.get("groups").and_then(Value::as_array).filter(|groups| !groups.is_empty())
+        .ok_or_else(|| format!("{source} playback returned no groups"))?;
+    for (group_index, group) in groups.iter().enumerate() {
+        let group = group.as_object().ok_or_else(|| format!("{source} playback group {group_index} is invalid"))?;
+        for field in ["id", "title"] {
+            if group.get(field).and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()).is_none() {
+                return Err(format!("{source} playback group {group_index} has no {field}"));
+            }
+        }
+        let episodes = group.get("episodes").and_then(Value::as_array).filter(|episodes| !episodes.is_empty())
+            .ok_or_else(|| format!("{source} playback group {group_index} has no episodes"))?;
+        for (episode_index, episode) in episodes.iter().enumerate() {
+            let episode = episode.as_object().ok_or_else(|| format!("{source} playback episode {episode_index} is invalid"))?;
+            if episode.get("id").and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()).is_none() {
+                return Err(format!("{source} playback episode {episode_index} has no id"));
+            }
+            if episode.get("number").and_then(Value::as_f64).filter(|number| number.is_finite() && *number > 0.0).is_none() {
+                return Err(format!("{source} playback episode {episode_index} has no valid number"));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_player_links_payload(value: &Value, source: &str) -> Result<(), String> {
+    let links = value.get("links").and_then(Value::as_array).filter(|links| !links.is_empty())
+        .ok_or_else(|| format!("{source} playback returned no player links"))?;
+    let mut urls = Vec::new();
+    for (index, link) in links.iter().enumerate() {
+        let link = link.as_object().ok_or_else(|| format!("{source} player link {index} is invalid"))?;
+        let url = link.get("url").and_then(Value::as_str).map(str::trim).filter(|url| is_http_url(url))
+            .ok_or_else(|| format!("{source} player link {index} has no valid URL"))?;
+        if urls.iter().any(|known| known == url) { return Err(format!("{source} player links contain duplicate URLs")); }
+        urls.push(url.to_owned());
+        if link.get("type").and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()).is_none() {
+            return Err(format!("{source} player link {index} has no type"));
+        }
+    }
+    Ok(())
+}
+
 fn is_valid_http_host(host: &str) -> bool {
     if host == "localhost" {
         return true;
