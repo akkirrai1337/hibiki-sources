@@ -260,17 +260,20 @@ for (const [name, path] of modules) {
   }
   const sourceId = name === "yummy" ? "100" : "413";
   const search = call(module, "SEARCH", { query: name === "yummy" ? "fixture" : "naruto", limit: 20, offset: 0 });
+  const searchPageTwo = call(module, "SEARCH", { query: name === "yummy" ? "fixture" : "naruto", limit: 20, offset: 20 });
   const details = call(module, "DETAILS", { id: sourceId });
   const groups = call(module, "PLAYBACK_GROUPS", { titleId: sourceId });
   const links = call(module, "PLAYER_LINKS", {
     titleId: sourceId, groupId: sourceId, episodeId: name === "yummy" ? "1" : "episode-1", episodeNumber: 1,
   });
-  for (const [operation, response] of [["SEARCH", search], ["DETAILS", details], ["PLAYBACK_GROUPS", groups], ["PLAYER_LINKS", links]]) {
+  for (const [operation, response] of [["SEARCH", search], ["SEARCH", searchPageTwo], ["DETAILS", details], ["PLAYBACK_GROUPS", groups], ["PLAYER_LINKS", links]]) {
     assertResponseIdentity(name, response, operation);
   }
   if (!search.payload?.items?.length) throw new Error(`${name}: search failed`);
   assertCatalogResponse(name, search, 20, "search");
   search.payload.items.forEach((item, index) => assertStrictTitleMetadata(name, item, `search item ${index}`));
+  assertCatalogResponse(name, searchPageTwo, 20, "search page 2");
+  searchPageTwo.payload.items.forEach((item, index) => assertStrictTitleMetadata(name, item, `search page 2 item ${index}`));
   assertStrictTitleMetadata(name, details.payload, "details");
   if (details.payload?.id !== sourceId) throw new Error(`${name}: details failed`);
   if (!groups.payload?.groups?.[0]?.episodes?.length) throw new Error(`${name}: groups failed`);
