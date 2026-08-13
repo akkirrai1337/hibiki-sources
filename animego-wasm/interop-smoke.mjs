@@ -236,6 +236,14 @@ if (searchPageTwo.errorCode || !requestedUrls.at(-1)?.includes("page=2")) {
   throw new Error(`SEARCH pagination failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(searchPageTwo)}`);
 }
 
+const yearFiltered = call(instance, "SEARCH", { yearFrom: "2020", yearTo: "2024", limit: 20, offset: 0 });
+assertResponseIdentity(yearFiltered, "SEARCH");
+assertCatalogResponse(yearFiltered, 20, "YEAR_RANGE");
+assertCatalogMetadata(yearFiltered, "YEAR_RANGE");
+if (yearFiltered.errorCode || !requestedUrls.at(-1)?.includes("year-from-2020-to-2024")) {
+  throw new Error(`YEAR_RANGE failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(yearFiltered)}`);
+}
+
 const latestPageTwo = call(instance, "LATEST", { limit: 20, offset: 20 });
 assertResponseIdentity(latestPageTwo, "LATEST");
 assertCatalogResponse(latestPageTwo, 20, "LATEST pagination");
