@@ -90,6 +90,17 @@ function assertCatalogMetadata(response, context) {
   }
 }
 
+function assertFilterOptions(response, context) {
+  for (const field of ["sortOptions", "typeOptions", "statusOptions", "genreOptions"]) {
+    const options = response.payload?.[field];
+    if (!Array.isArray(options)) throw new Error(`${context} has no ${field} array`);
+    const ids = options.map((option) => option?.id);
+    if (ids.some((id) => typeof id !== "string" || !id.trim()) || new Set(ids).size !== ids.length || options.some((option) => typeof option?.title !== "string" || !option.title.trim())) {
+      throw new Error(`${context} has invalid ${field}: ${JSON.stringify(options)}`);
+    }
+  }
+}
+
 function assertResponseIdentity(response, operation) {
   const expected = `animepahe-${operation}`;
   if (response.requestId !== expected) throw new Error(`${operation} returned requestId '${response.requestId}' instead of '${expected}'`);
@@ -147,6 +158,7 @@ assertCatalogMetadata(search, "SEARCH");
 if (search.errorCode || search.payload?.items?.[0]?.id !== "demo" || search.payload.items[0].episodeCount !== 12 || !/^https?:\/\//.test(search.payload.items[0].posterUrl || "") || search.payload.items[0].genres?.length !== 1 || search.payload.items[0].genres[0] !== "Action") throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 const filters = call(instance, "FILTER_CATALOG", {});
 assertResponseIdentity(filters, "FILTER_CATALOG");
+assertFilterOptions(filters, "FILTER_CATALOG");
 if (filters.errorCode || filters.payload?.sortOptions?.[0]?.id !== "relevance") throw new Error(`FILTER_CATALOG failed: ${JSON.stringify(filters)}`);
 const details = call(instance, "DETAILS", { id: "demo" });
 assertResponseIdentity(details, "DETAILS");
