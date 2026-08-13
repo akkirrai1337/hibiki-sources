@@ -168,6 +168,14 @@ function Assert-ProductionArchiveLayouts($indexPath, $artifactDirectory, $unpack
             [string]$manifest.entrypoint -ne [string]$entry.entrypoint) {
             throw "Production artifact $artifactName manifest does not match repository index"
         }
+        if ((ConvertTo-Json @($manifest.capabilities) -Compress) -ne (ConvertTo-Json @($entry.capabilities) -Compress) -or
+            (ConvertTo-Json $manifest.sourceInfo -Depth 10 -Compress) -ne (ConvertTo-Json $entry.sourceInfo -Depth 10 -Compress) -or
+            (ConvertTo-Json @($manifest.hostCapabilities) -Compress) -ne (ConvertTo-Json @($entry.hostCapabilities) -Compress) -or
+            (ConvertTo-Json $manifest.hostNetworkPolicy -Depth 10 -Compress) -ne (ConvertTo-Json $entry.hostNetworkPolicy -Depth 10 -Compress) -or
+            [string]$manifest.runtime.id -ne [string]$entry.runtime.id -or
+            [string]$manifest.runtime.abi -ne [string]$entry.runtime.abi) {
+            throw "Production artifact $artifactName declaration does not match repository index"
+        }
         if (-not [System.IO.File]::Exists((Join-Path $destination ([string]$manifest.entrypoint)))) {
             throw "Production artifact $artifactName is missing its manifest entrypoint"
         }
