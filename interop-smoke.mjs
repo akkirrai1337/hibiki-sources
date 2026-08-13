@@ -177,7 +177,7 @@ function assertErrorEnvelope(name, response, expectedMessage) {
 }
 
 function assertErrorShape(name, response) {
-  if (response.protocolVersion !== 1 || response.payload !== null || typeof response.errorCode !== "string" || typeof response.errorMessage !== "string") {
+  if (response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string") {
     throw new Error(`${name}: malformed runtime error envelope: ${JSON.stringify(response)}`);
   }
 }

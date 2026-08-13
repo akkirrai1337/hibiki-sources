@@ -198,7 +198,7 @@ function assertErrorEnvelope(response, expectedMessage, context) {
 }
 
 function assertErrorShape(response, context) {
-  if (response.protocolVersion !== 1 || response.payload !== null || typeof response.errorCode !== "string" || typeof response.errorMessage !== "string") {
+  if (response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string") {
     throw new Error(`${context} returned a malformed error envelope: ${JSON.stringify(response)}`);
   }
 }
