@@ -57,8 +57,10 @@ const yummyInvalidVideo = {
   ...yummyVideo,
   iframe_url: "javascript:alert(1)",
 };
+const requestedUrls = [];
 
 function hostBody(url, sourceName) {
+  requestedUrls.push(url);
   if (url.startsWith("https://api.yani.tv")) {
     if (url.includes("/anime/100/videos")) return JSON.stringify({ response: [yummyInvalidVideo, yummyVideo] });
     if (url.includes("/anime/100")) return JSON.stringify({ response: yummyTitle });
@@ -261,6 +263,7 @@ for (const [name, path] of modules) {
   const sourceId = name === "yummy" ? "100" : "413";
   const search = call(module, "SEARCH", { query: name === "yummy" ? "fixture" : "naruto", limit: 20, offset: 0 });
   const searchPageTwo = call(module, "SEARCH", { query: name === "yummy" ? "fixture" : "naruto", limit: 20, offset: 20 });
+  const searchPageTwoUrl = requestedUrls.at(-1) || "";
   const details = call(module, "DETAILS", { id: sourceId });
   const groups = call(module, "PLAYBACK_GROUPS", { titleId: sourceId });
   const links = call(module, "PLAYER_LINKS", {
@@ -274,6 +277,8 @@ for (const [name, path] of modules) {
   search.payload.items.forEach((item, index) => assertStrictTitleMetadata(name, item, `search item ${index}`));
   assertCatalogResponse(name, searchPageTwo, 20, "search page 2");
   searchPageTwo.payload.items.forEach((item, index) => assertStrictTitleMetadata(name, item, `search page 2 item ${index}`));
+  if (name === "rust" && !searchPageTwoUrl.includes("page=2")) throw new Error(`${name}: search page 2 did not request page=2: ${searchPageTwoUrl}`);
+  if (name === "yummy" && !searchPageTwoUrl.includes("offset=20")) throw new Error(`${name}: search page 2 did not request offset=20: ${searchPageTwoUrl}`);
   assertStrictTitleMetadata(name, details.payload, "details");
   if (details.payload?.id !== sourceId) throw new Error(`${name}: details failed`);
   if (!groups.payload?.groups?.[0]?.episodes?.length) throw new Error(`${name}: groups failed`);
