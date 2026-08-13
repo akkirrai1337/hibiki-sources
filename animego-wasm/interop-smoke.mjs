@@ -137,6 +137,14 @@ function assertCatalogResponse(response, limit, context) {
   if (new Set(ids).size !== ids.length) throw new Error(`${context} contains duplicate item ids`);
 }
 
+function assertCatalogMetadata(response, context) {
+  for (const [index, item] of response.payload.items.entries()) {
+    if (!/^https?:\/\//.test(item.posterUrl || "") || !Number.isInteger(item.episodeCount) || item.episodeCount <= 0 || !Array.isArray(item.genres) || item.genres.length === 0 || item.genres.some((genre) => typeof genre !== "string" || !genre.trim() || /^[a-z0-9_-]+$/.test(genre.trim()))) {
+      throw new Error(`${context} item ${index} has incomplete metadata: ${JSON.stringify(item)}`);
+    }
+  }
+}
+
 function assertResponseIdentity(response, operation) {
   const expected = `animego-${operation}`;
   if (response.requestId !== expected) throw new Error(`${operation} returned requestId '${response.requestId}' instead of '${expected}'`);
@@ -191,11 +199,14 @@ assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
 assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");
+assertCatalogMetadata(search, "SEARCH");
 if (search.errorCode || search.payload?.items?.[0]?.id !== "krutoy-uchitel-onidzuka-556" || search.payload?.items?.[0]?.ratings?.[0]?.value !== 8.7 || !/^https?:\/\//.test(search.payload.items[0].posterUrl || "") || search.payload.items[0].episodeCount !== 43 || search.payload.items[0].genres?.length !== 1 || search.payload.items[0].genres[0] !== "Комедия") {
   throw new Error(`SEARCH failed: ${JSON.stringify(search)}`);
 }
 const searchPageTwo = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 20 });
 assertResponseIdentity(searchPageTwo, "SEARCH");
+assertCatalogResponse(searchPageTwo, 20, "SEARCH pagination");
+assertCatalogMetadata(searchPageTwo, "SEARCH pagination");
 if (searchPageTwo.errorCode || !requestedUrls.at(-1)?.includes("page=2")) {
   throw new Error(`SEARCH pagination failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(searchPageTwo)}`);
 }
