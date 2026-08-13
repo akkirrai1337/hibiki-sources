@@ -133,6 +133,10 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
         @($manifest.hostNetworkPolicy.allowedHosts).Count -eq 0) {
         throw "Package $packageName is missing hostNetworkPolicy.allowedHosts"
     }
+    $normalizedAllowedHosts = @($manifest.hostNetworkPolicy.allowedHosts | ForEach-Object { ([string]$_).ToLowerInvariant() })
+    if (@($normalizedAllowedHosts | Sort-Object -Unique).Count -ne $normalizedAllowedHosts.Count) {
+        throw "Package $packageName has duplicate hostNetworkPolicy.allowedHosts values"
+    }
     foreach ($allowedHost in @($manifest.hostNetworkPolicy.allowedHosts)) {
         if ([string]$allowedHost -notmatch '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$') {
             throw "Package $packageName has an invalid hostNetworkPolicy.allowedHosts value: $allowedHost"
@@ -235,6 +239,10 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
             if ($requiredHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
                 throw "Repository index entry does not allow required host ${requiredHost}: $expectedSourceId"
             }
+        }
+        $normalizedAllowedHosts = @($manifest.hostNetworkPolicy.allowedHosts | ForEach-Object { ([string]$_).ToLowerInvariant() })
+        if (@($normalizedAllowedHosts | Sort-Object -Unique).Count -ne $normalizedAllowedHosts.Count) {
+            throw "Repository index entry has duplicate allowed hosts: $expectedSourceId"
         }
         foreach ($urlField in @("website", "iconUrl")) {
             $url = [string]$manifest.sourceInfo.$urlField
