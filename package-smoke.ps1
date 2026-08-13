@@ -153,7 +153,9 @@ function Assert-PackageManifest($manifestPath, $expectedSourceId, $packageName) 
         $url = [string]$manifest.sourceInfo.$urlField
         if (-not [string]::IsNullOrWhiteSpace($url)) {
             try { $parsedUrl = [Uri]$url; $urlHost = $parsedUrl.DnsSafeHost } catch { throw "Package $packageName has an invalid sourceInfo.$urlField URL" }
-            if ($parsedUrl.Scheme -ne "https" -or [string]::IsNullOrWhiteSpace($urlHost)) {
+            if ($parsedUrl.Scheme -ne "https" -or [string]::IsNullOrWhiteSpace($urlHost) -or
+                -not [string]::IsNullOrEmpty($parsedUrl.UserInfo) -or
+                ($parsedUrl.Port -ne 443 -and $parsedUrl.Port -ne -1)) {
                 throw "Package $packageName sourceInfo.$urlField must be an HTTPS URL"
             }
             if ($urlHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
@@ -250,7 +252,9 @@ function Assert-RepositoryIndex($indexPath, $expectedSourceIds) {
             $url = [string]$manifest.sourceInfo.$urlField
             if (-not [string]::IsNullOrWhiteSpace($url)) {
                 try { $parsedUrl = [Uri]$url; $urlHost = $parsedUrl.DnsSafeHost } catch { throw "Repository index entry has an invalid sourceInfo.$urlField URL: $expectedSourceId" }
-                if ($parsedUrl.Scheme -ne "https" -or [string]::IsNullOrWhiteSpace($urlHost)) {
+                if ($parsedUrl.Scheme -ne "https" -or [string]::IsNullOrWhiteSpace($urlHost) -or
+                    -not [string]::IsNullOrEmpty($parsedUrl.UserInfo) -or
+                    ($parsedUrl.Port -ne 443 -and $parsedUrl.Port -ne -1)) {
                     throw "Repository index entry sourceInfo.$urlField must be an HTTPS URL: $expectedSourceId"
                 }
                 if ($urlHost -notin @($manifest.hostNetworkPolicy.allowedHosts)) {
