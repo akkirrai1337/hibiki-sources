@@ -99,6 +99,19 @@ function assertFilterOptions(response, context) {
       throw new Error(`${context} has invalid ${field}: ${JSON.stringify(options)}`);
     }
   }
+  const capabilities = response.payload?.capabilities;
+  if (!Array.isArray(capabilities?.supportedSorts) || !Array.isArray(capabilities?.supportedFilters)) throw new Error(`${context} has invalid capabilities`);
+  const sortIds = new Set(response.payload.sortOptions.map((option) => String(option.id).toUpperCase()));
+  if (capabilities.supportedSorts.some((sort) => !sortIds.has(String(sort).toUpperCase()))) throw new Error(`${context} advertises an unavailable sort`);
+  const filterOptions = {
+    TYPE: response.payload.typeOptions,
+    STATUS: response.payload.statusOptions,
+    INCLUDED_GENRES: response.payload.genreOptions,
+    EXCLUDED_GENRES: response.payload.genreOptions,
+  };
+  for (const filter of capabilities.supportedFilters) {
+    if (!Array.isArray(filterOptions[filter]) || filterOptions[filter].length === 0) throw new Error(`${context} advertises an unavailable filter: ${filter}`);
+  }
 }
 
 function assertResponseIdentity(response, operation) {
