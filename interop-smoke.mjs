@@ -61,6 +61,10 @@ const requestedUrls = [];
 
 function hostBody(url, sourceName) {
   requestedUrls.push(url);
+  const expectedHost = sourceName === "yummy" ? "api.yani.tv" : sourceName === "rust" ? "anilibria.top" : null;
+  if (expectedHost && new URL(url).hostname !== expectedHost) {
+    throw new Error(`${sourceName}: request escaped the package host allowlist: ${url}`);
+  }
   if (url.startsWith("https://api.yani.tv")) {
     if (url.includes("/anime/100/videos")) return JSON.stringify({ response: [yummyInvalidVideo, yummyVideo] });
     if (url.includes("/anime/100")) return JSON.stringify({ response: yummyTitle });

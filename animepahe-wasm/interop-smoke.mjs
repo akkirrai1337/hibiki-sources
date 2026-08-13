@@ -12,6 +12,7 @@ const playHtml = `<script>allEpisodes: [{"md5_id":"s1","chapter_number":1,"title
 const serversJson = JSON.stringify({ servers: [{ url: "https://player.example/episode-1", name: "Provider" }] });
 
 function hostBody(url) {
+  if (new URL(url).hostname !== "animepahetv.to") throw new Error(`AnimePahe request escaped the package host allowlist: ${url}`);
   if (url.includes("/search?q=") || url.endsWith("/latest-updated")) return catalogHtml;
   if (url.endsWith("/anime/demo")) return detailsHtml;
   if (url.includes("/viewApi?m=release&id=demo")) return episodesJson;
