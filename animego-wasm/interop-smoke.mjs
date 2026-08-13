@@ -35,7 +35,7 @@ const requestedUrls = [];
 function responseFor(url) {
   requestedUrls.push(url);
   let body;
-  if (url.includes("/search/all") || url.includes("/anime/filter") || /^https:\/\/animego\.me\/anime(?:\/\d+)?$/.test(url)) {
+  if (url.includes("/search/all") || url.includes("/anime/filter") || /^https:\/\/animego\.me\/anime(?:\/\d+)?(?:\?.*)?$/.test(url)) {
     body = JSON.stringify({ status: "success", data: { content: catalogRatingFixture + interopFilterFixture } });
   } else if (url.includes("/anime/krutoy-uchitel-onidzuka-556")) {
     body = interopDetailsFixture;
@@ -255,6 +255,16 @@ assertCatalogMetadata(optionFiltered, "FILTERED SEARCH");
 const filteredUrl = requestedUrls.at(-1) || "";
 if (optionFiltered.errorCode || !filteredUrl.includes("genres-is-action-or-!horror") || !filteredUrl.includes("type-is-tv%20series") || !filteredUrl.includes("status-is-released")) {
   throw new Error(`FILTERED SEARCH failed: url=${filteredUrl} response=${JSON.stringify(optionFiltered)}`);
+}
+
+for (const sort of ["YEAR", "RATING"]) {
+  const sorted = call(instance, "SEARCH", { sort, limit: 20, offset: 0 });
+  assertResponseIdentity(sorted, "SEARCH");
+  assertCatalogResponse(sorted, 20, `${sort} SEARCH`);
+  assertCatalogMetadata(sorted, `${sort} SEARCH`);
+  const sortUrl = requestedUrls.at(-1) || "";
+  const expectedSort = sort === "YEAR" ? "sort=startDate" : "sort=rating";
+  if (sorted.errorCode || !sortUrl.includes(expectedSort)) throw new Error(`${sort} sorting failed: url=${sortUrl} response=${JSON.stringify(sorted)}`);
 }
 
 const latestPageTwo = call(instance, "LATEST", { limit: 20, offset: 20 });
