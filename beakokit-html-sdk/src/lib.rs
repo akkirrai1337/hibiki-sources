@@ -343,6 +343,17 @@ pub fn validate_string_filters(payload: &Value, fields: &[&str], source: &str) -
     Ok(())
 }
 
+pub fn validate_year_range(payload: &Value, source: &str) -> Result<(), String> {
+    let from = payload.get("yearFrom").map(|value| normalize_year(value)
+        .ok_or_else(|| format!("{source} yearFrom is invalid"))).transpose()?;
+    let to = payload.get("yearTo").map(|value| normalize_year(value)
+        .ok_or_else(|| format!("{source} yearTo is invalid"))).transpose()?;
+    if let (Some(from), Some(to)) = (from, to) {
+        if from > to { return Err(format!("{source} year range is inverted")); }
+    }
+    Ok(())
+}
+
 /// Accept only a single conservative URL path segment from source data.
 pub fn safe_path_segment(value: &str) -> Option<&str> {
     let value = value.trim();

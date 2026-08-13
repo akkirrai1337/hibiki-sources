@@ -248,6 +248,8 @@ assertErrorEnvelope(call(instance, "SEARCH", { query: "x".repeat(257), limit: 20
 assertErrorEnvelope(call(instance, "SEARCH", { query: "bad\u0000query", limit: 20, offset: 0 }), "search query contains control characters", "control query");
 assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: ["x".repeat(65)] }), "filter field typeAliases item 0 is too long", "long filter");
 assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: ["bad\u0000type"] }), "filter field typeAliases item 0 contains control characters", "control filter");
+assertErrorEnvelope(call(instance, "SEARCH", { yearFrom: 1899 }), "yearFrom is invalid", "invalid year");
+assertErrorEnvelope(call(instance, "SEARCH", { yearFrom: 2025, yearTo: 2024 }), "year range is inverted", "inverted year range");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const malformedHostResponse = call(instance, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });

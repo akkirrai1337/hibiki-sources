@@ -277,6 +277,8 @@ for (const [name, path] of modules) {
     assertErrorEnvelope(name, call(module, "SEARCH", { query: "bad\u0000query", limit: 20, offset: 0 }), "search query contains control characters");
     assertErrorEnvelope(name, call(module, "SEARCH", { typeAliases: ["x".repeat(65)] }), "filter field typeAliases item 0 is too long");
     assertErrorEnvelope(name, call(module, "SEARCH", { typeAliases: ["bad\u0000type"] }), "filter field typeAliases item 0 contains control characters");
+    assertErrorEnvelope(name, call(module, "SEARCH", { yearFrom: 1899 }), "yearFrom is invalid");
+    assertErrorEnvelope(name, call(module, "SEARCH", { yearFrom: 2025, yearTo: 2024 }), "year range is inverted");
   }
   if (name !== "kotlin") {
     assertRuntimeError(module, JSON.stringify({ operation: "SEARCH", payload: {} }), "requestId");
