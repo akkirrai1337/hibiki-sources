@@ -158,7 +158,14 @@ function assertPlaybackResponse(groups, links) {
 }
 
 function assertErrorEnvelope(response, expectedMessage, context) {
-  if (response.protocolVersion !== 1 || response.payload !== null || response.errorCode !== "SOURCE_FAILURE" || typeof response.errorMessage !== "string" || !response.errorMessage.includes(expectedMessage)) {
+  assertErrorShape(response, context);
+  if (response.errorCode !== "SOURCE_FAILURE" || !response.errorMessage.includes(expectedMessage)) {
+    throw new Error(`${context} returned a malformed error envelope: ${JSON.stringify(response)}`);
+  }
+}
+
+function assertErrorShape(response, context) {
+  if (response.protocolVersion !== 1 || response.payload !== null || typeof response.errorCode !== "string" || typeof response.errorMessage !== "string") {
     throw new Error(`${context} returned a malformed error envelope: ${JSON.stringify(response)}`);
   }
 }
@@ -173,6 +180,8 @@ const invalidRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify
 assertErrorEnvelope(invalidRequest, "requestId", "invalid request");
 const oversizedRequest = callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-oversized", operation: "SEARCH", payload: { blob: "x".repeat(300 * 1024) }, protocolVersion: 1 })));
 assertErrorEnvelope(oversizedRequest, "size limit", "oversized request");
+assertErrorShape(callRaw(instance, new TextEncoder().encode("{")), "malformed JSON");
+assertErrorShape(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-unknown", operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))), "unknown operation");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });

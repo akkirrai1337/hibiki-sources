@@ -170,7 +170,14 @@ function assertRuntimeError(module, input, expectedMessage) {
 }
 
 function assertErrorEnvelope(name, response, expectedMessage) {
-  if (response.protocolVersion !== 1 || response.payload !== null || typeof response.errorCode !== "string" || typeof response.errorMessage !== "string" || !response.errorMessage.includes(expectedMessage)) {
+  assertErrorShape(name, response);
+  if (!response.errorMessage.includes(expectedMessage)) {
+    throw new Error(`${name}: malformed runtime error envelope: ${JSON.stringify(response)}`);
+  }
+}
+
+function assertErrorShape(name, response) {
+  if (response.protocolVersion !== 1 || response.payload !== null || typeof response.errorCode !== "string" || typeof response.errorMessage !== "string") {
     throw new Error(`${name}: malformed runtime error envelope: ${JSON.stringify(response)}`);
   }
 }
@@ -245,6 +252,8 @@ for (const [name, path] of modules) {
   }
   if (name !== "kotlin") {
     assertRuntimeError(module, JSON.stringify({ operation: "SEARCH", payload: {} }), "requestId");
+    assertErrorShape(name, callEncoded(module, new TextEncoder().encode("{")));
+    assertErrorShape(name, callEncoded(module, new TextEncoder().encode(JSON.stringify({ requestId: `${name}-unknown`, operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))));
   }
   const sourceId = name === "yummy" ? "100" : "413";
   const search = call(module, "SEARCH", { query: name === "yummy" ? "fixture" : "naruto", limit: 20, offset: 0 });
