@@ -52,6 +52,7 @@ if ([System.IO.Directory]::Exists($stagingDirectory)) { [System.IO.Directory]::D
 New-Item -ItemType Directory -Force -Path $stagingDirectory | Out-Null
 
 cargo build --manifest-path (Join-Path $projectRoot "Cargo.toml") --target wasm32-wasip1 --release
+if ($LASTEXITCODE -ne 0) { throw "YummyAnime WASM build failed with exit code $LASTEXITCODE" }
 Copy-Item (Join-Path $projectRoot "package\manifest.json") (Join-Path $stagingDirectory "manifest.json")
 Copy-Item $wasmPath (Join-Path $stagingDirectory "source.wasm")
 

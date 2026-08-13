@@ -6,6 +6,10 @@ $names = @("ani-liberty-package-$runId.zip", "yummyanime-package-$runId.zip", "a
 $expectedSourceIds = @("ani-liberty", "yummy-anime", "animego", "animepahe")
 $unpackRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("beakokit-package-smoke-" + $runId)
 
+function Assert-NativeSuccess($description) {
+    if ($LASTEXITCODE -ne 0) { throw "$description failed with exit code $LASTEXITCODE" }
+}
+
 function Assert-ManifestMatchesRepositoryIndex($manifestPaths, $indexPath) {
     $manifests = @{}
     foreach ($manifestPath in $manifestPaths) {
@@ -236,10 +240,15 @@ try {
         [System.Text.UTF8Encoding]::new($false)
     )
     & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0] -PackageUrl ("https://example.invalid/" + $names[0]) -RepositoryIndexPath $indexPath
+    Assert-NativeSuccess "AniLiberty package build"
     & (Join-Path $repositoryRoot "yummyanime-wasm\build.ps1") -OutputName $names[1] -PackageUrl ("https://example.invalid/" + $names[1]) -RepositoryIndexPath $indexPath
+    Assert-NativeSuccess "YummyAnime package build"
     & (Join-Path $repositoryRoot "animego-wasm\build.ps1") -OutputName $names[2] -PackageUrl ("https://example.invalid/" + $names[2]) -RepositoryIndexPath $indexPath
+    Assert-NativeSuccess "AnimeGo package build"
     & (Join-Path $repositoryRoot "animepahe-wasm\build.ps1") -OutputName $names[3] -PackageUrl ("https://example.invalid/" + $names[3]) -RepositoryIndexPath $indexPath
+    Assert-NativeSuccess "AnimePahe package build"
     & (Join-Path $repositoryRoot "aniliberty-wasm\build.ps1") -OutputName $names[0] -PackageUrl ("https://example.invalid/" + $names[0]) -RepositoryIndexPath $indexPath
+    Assert-NativeSuccess "AniLiberty package rebuild"
 
     $index = Get-Content -LiteralPath $indexPath -Raw | ConvertFrom-Json
     $indexSourceIds = @($index.sources | ForEach-Object sourceId)
@@ -258,6 +267,7 @@ try {
             -OutputName $names[0] `
             -PackageUrl ("https://example.invalid/" + $names[0]) `
             -RepositoryIndexPath $invalidIndexPath
+        Assert-NativeSuccess "invalid repository index build"
         throw "Publishing accepted an invalid repository index"
     } catch {
         if ($_.Exception.Message -eq "Publishing accepted an invalid repository index") { throw }
@@ -305,9 +315,13 @@ try {
     $env:ANIMEGO_WASM_PATH = $paths[2]
     $env:ANIMEPAHE_WASM_PATH = $paths[3]
     node (Join-Path $repositoryRoot "interop-smoke.mjs")
+    Assert-NativeSuccess "generic WASM smoke"
     node (Join-Path $repositoryRoot "animego-wasm\interop-smoke.mjs")
+    Assert-NativeSuccess "AnimeGo WASM smoke"
     node (Join-Path $repositoryRoot "animepahe-wasm\interop-smoke.mjs")
+    Assert-NativeSuccess "AnimePahe WASM smoke"
     cargo test --manifest-path (Join-Path $repositoryRoot "animepahe-wasm\Cargo.toml")
+    Assert-NativeSuccess "AnimePahe Rust tests"
 } finally {
     Remove-Item -LiteralPath $unpackRoot -Recurse -Force -ErrorAction SilentlyContinue
     foreach ($name in $names) {
