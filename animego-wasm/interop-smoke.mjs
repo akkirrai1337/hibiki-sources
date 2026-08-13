@@ -222,6 +222,9 @@ assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ 
 assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-bad-version", operation: "SEARCH", payload: {}, protocolVersion: 99 }))), "unsupported runtime protocol version", "unsupported protocol");
 assertErrorShape(callRaw(instance, new TextEncoder().encode("{")), "malformed JSON");
 assertErrorShape(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animego-unknown", operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))), "unknown operation");
+assertErrorEnvelope(call(instance, "DETAILS", {}), "missing", "missing details id");
+assertErrorEnvelope(call(instance, "PLAYBACK_GROUPS", {}), "missing", "missing playback title id");
+assertErrorEnvelope(call(instance, "PLAYER_LINKS", {}), "missing", "missing player fields");
 assertErrorEnvelope(call(instance, "DETAILS", { id: "../invalid-title" }), "invalid", "invalid details id");
 assertErrorEnvelope(call(instance, "PLAYER_LINKS", { titleId: "fixture-556", episodeId: "../invalid-episode" }), "invalid", "invalid episode id");
 assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: "tv" }), "must be an array", "scalar filter");

@@ -273,6 +273,9 @@ for (const [name, path] of modules) {
     assertRuntimeError(module, JSON.stringify({ requestId: `${name}-bad-version`, operation: "SEARCH", payload: {}, protocolVersion: 99 }), "unsupported runtime protocol version");
     assertErrorShape(name, callEncoded(module, new TextEncoder().encode("{")));
     assertErrorShape(name, callEncoded(module, new TextEncoder().encode(JSON.stringify({ requestId: `${name}-unknown`, operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))));
+    assertErrorEnvelope(name, call(module, "DETAILS", {}), "missing");
+    assertErrorEnvelope(name, call(module, "PLAYBACK_GROUPS", {}), "missing");
+    assertErrorEnvelope(name, call(module, "PLAYER_LINKS", {}), "missing");
     assertErrorEnvelope(name, call(module, "DETAILS", { id: "../invalid-title" }), "invalid");
   }
   const sourceId = name === "yummy" ? "100" : "413";

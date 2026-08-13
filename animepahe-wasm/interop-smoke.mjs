@@ -168,6 +168,9 @@ assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ 
 assertErrorEnvelope(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-bad-version", operation: "SEARCH", payload: {}, protocolVersion: 99 }))), "unsupported runtime protocol version", "unsupported protocol");
 assertErrorShape(callRaw(instance, new TextEncoder().encode("{")), "malformed JSON");
 assertErrorShape(callRaw(instance, new TextEncoder().encode(JSON.stringify({ requestId: "animepahe-unknown", operation: "UNKNOWN", payload: {}, protocolVersion: 1 }))), "unknown operation");
+assertErrorEnvelope(call(instance, "DETAILS", {}), "missing", "missing details id");
+assertErrorEnvelope(call(instance, "PLAYBACK_GROUPS", {}), "missing", "missing playback title id");
+assertErrorEnvelope(call(instance, "PLAYER_LINKS", {}), "missing", "missing player episode id");
 assertErrorEnvelope(call(instance, "DETAILS", { id: "../invalid-title" }), "invalid", "invalid details id");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
