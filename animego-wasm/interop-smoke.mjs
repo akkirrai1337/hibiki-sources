@@ -184,7 +184,7 @@ function assertPlaybackResponse(groups, links) {
   for (const group of playbackGroups) {
     if (!Array.isArray(group.episodes) || group.episodes.length === 0) throw new Error(`PLAYBACK_GROUPS returned an empty group: ${JSON.stringify(groups)}`);
     const ids = group.episodes.map((episode) => episode?.id);
-    if (ids.some((id) => typeof id !== "string" || !id.trim()) || new Set(ids).size !== ids.length || group.episodes.some((episode) => typeof episode.number !== "number" || !Number.isFinite(episode.number) || episode.number <= 0)) throw new Error(`PLAYBACK_GROUPS returned invalid episodes: ${JSON.stringify(groups)}`);
+    if (ids.some((id) => typeof id !== "string" || !id.trim() || id.split("/").some((segment) => !/^[A-Za-z0-9._~-]+$/.test(segment) || segment === "." || segment === "..")) || new Set(ids).size !== ids.length || group.episodes.some((episode) => typeof episode.number !== "number" || !Number.isFinite(episode.number) || episode.number <= 0)) throw new Error(`PLAYBACK_GROUPS returned invalid episodes: ${JSON.stringify(groups)}`);
   }
   const playerLinks = links.payload?.links;
   if (!Array.isArray(playerLinks) || playerLinks.length === 0 || playerLinks.some((link) => !/^https?:\/\//.test(link?.url || "")) || new Set(playerLinks.map((link) => link.url)).size !== playerLinks.length) throw new Error(`PLAYER_LINKS returned invalid links: ${JSON.stringify(links)}`);
