@@ -33,7 +33,7 @@ function Assert-ManifestMatchesRepositoryIndex($manifestPaths, $indexPath) {
         $sourceId = [string]$entry.sourceId
         if (-not $manifests.ContainsKey($sourceId)) { throw "Repository index source $sourceId has no local manifest" }
         $manifest = $manifests[$sourceId]
-        foreach ($field in @("sourceId", "packageVersion", "entrypoint")) {
+        foreach ($field in @("sourceId", "packageVersion", "entrypoint", "packageUrl", "minClientVersion")) {
             if ([string]$manifest.$field -ne [string]$entry.$field) {
                 throw "Repository index $sourceId field $field differs from local manifest"
             }
