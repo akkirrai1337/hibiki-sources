@@ -65,6 +65,7 @@ function hostBody(url, sourceName) {
   if (expectedHost && (new URL(url).protocol !== "https:" || new URL(url).hostname !== expectedHost)) {
     throw new Error(`${sourceName}: request escaped the package host allowlist: ${url}`);
   }
+  if (url.includes("http-malformed")) return "{";
   if (url.startsWith("https://api.yani.tv")) {
     if (url.includes("/anime/100/videos")) return JSON.stringify({ response: [yummyInvalidVideo, yummyVideo] });
     if (url.includes("/anime/100")) return JSON.stringify({ response: yummyTitle });
@@ -261,6 +262,8 @@ for (const [name, path] of modules) {
     );
     const hostFailure = call(module, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
     assertErrorEnvelope(name, hostFailure, "503");
+    const malformedHostResponse = call(module, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });
+    assertErrorEnvelope(name, malformedHostResponse, "JSON");
   }
   if (name !== "kotlin") {
     assertRuntimeError(module, JSON.stringify({ operation: "SEARCH", payload: {} }), "requestId");

@@ -34,6 +34,7 @@ const requestedUrls = [];
 
 function responseFor(url) {
   requestedUrls.push(url);
+  if (url.includes("http-malformed")) return "{";
   let body;
   if (url.includes("/search/all") || url.includes("/anime/filter") || /^https:\/\/animego\.me\/anime(?:\/\d+)?(?:\?.*)?$/.test(url)) {
     body = JSON.stringify({ status: "success", data: { content: catalogRatingFixture + interopFilterFixture } });
@@ -227,6 +228,8 @@ assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: "tv" }), "must be an
 assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: ["tv", 1] }), "must be a string", "non-string filter");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
+const malformedHostResponse = call(instance, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });
+assertErrorEnvelope(malformedHostResponse, "returned no cards", "malformed host response");
 const search = call(instance, "SEARCH", { query: "onizuka", limit: 20, offset: 0 });
 assertResponseIdentity(search, "SEARCH");
 assertCatalogResponse(search, 20, "SEARCH");
