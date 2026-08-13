@@ -240,6 +240,9 @@ assertErrorEnvelope(call(instance, "DETAILS", { id: "../invalid-title" }), "inva
 assertErrorEnvelope(call(instance, "PLAYER_LINKS", { titleId: "fixture-556", episodeId: "../invalid-episode" }), "invalid", "invalid episode id");
 assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: "tv" }), "must be an array", "scalar filter");
 assertErrorEnvelope(call(instance, "SEARCH", { typeAliases: ["tv", 1] }), "must be a string", "non-string filter");
+assertErrorEnvelope(call(instance, "SEARCH", { limit: 0, offset: 0 }), "pagination limit is out of range", "zero limit");
+assertErrorEnvelope(call(instance, "SEARCH", { limit: 20, offset: -1 }), "pagination offset is out of range", "negative offset");
+assertErrorEnvelope(call(instance, "SEARCH", { limit: 51, offset: 0 }), "pagination limit is out of range", "oversized limit");
 const hostFailure = call(instance, "SEARCH", { query: "http-500", limit: 20, offset: 0 });
 assertErrorEnvelope(hostFailure, "503", "HTTP failure");
 const malformedHostResponse = call(instance, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });

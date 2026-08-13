@@ -301,6 +301,22 @@ pub fn bounded_pagination(payload: &Value) -> (i64, i64) {
     (offset, limit)
 }
 
+pub fn validate_pagination(payload: &Value, source: &str) -> Result<(), String> {
+    if let Some(value) = payload.get("offset") {
+        let offset = value.as_i64().ok_or_else(|| format!("{source} pagination offset must be an integer"))?;
+        if !(0..=MAX_PAGINATION_OFFSET).contains(&offset) {
+            return Err(format!("{source} pagination offset is out of range"));
+        }
+    }
+    if let Some(value) = payload.get("limit") {
+        let limit = value.as_i64().ok_or_else(|| format!("{source} pagination limit must be an integer"))?;
+        if !(1..=50).contains(&limit) {
+            return Err(format!("{source} pagination limit is out of range"));
+        }
+    }
+    Ok(())
+}
+
 /// Accept only a single conservative URL path segment from source data.
 pub fn safe_path_segment(value: &str) -> Option<&str> {
     let value = value.trim();

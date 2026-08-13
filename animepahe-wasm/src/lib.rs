@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use beakokit_html_sdk::{bounded_pagination, clean_element_text, first_attribute, host_get_request, is_http_url, normalize_status, normalize_type, parse_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, HtmlDocument, JsonDocument, Selector, MAX_RUNTIME_RESPONSE_BYTES, DEFAULT_MAX_DOCUMENT_BYTES};
+use beakokit_html_sdk::{bounded_pagination, clean_element_text, first_attribute, host_get_request, is_http_url, normalize_status, normalize_type, parse_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_pagination, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, HtmlDocument, JsonDocument, Selector, MAX_RUNTIME_RESPONSE_BYTES, DEFAULT_MAX_DOCUMENT_BYTES};
 
 const BASE_URL: &str = "https://animepahetv.to";
 const PROTOCOL: u32 = 1;
@@ -208,6 +208,7 @@ fn player_links(request_id: &str, episode_id: &str) -> Result<Value, String> {
 }
 
 fn execute(request: Request) -> Result<Value, String> {
+    if matches!(&request.operation, Operation::Search | Operation::Latest) { validate_pagination(&request.payload, "AnimePahe")?; }
     match request.operation {
         Operation::FilterCatalog => Ok(json!({"sortOptions":[{"id":"relevance","title":"Relevance"}],"typeOptions":[],"statusOptions":[],"genreOptions":[],"capabilities":{"supportedSorts":["RELEVANCE"],"supportedFilters":[],"features":["LATEST_RELEASES"]}})),
         Operation::Latest => { let (_, limit) = bounded_pagination(&request.payload); let items = card_items(&page(&request.request_id, "/latest-updated")?)?; Ok(json!({"items":items.into_iter().take(limit as usize).collect::<Vec<_>>() })) }

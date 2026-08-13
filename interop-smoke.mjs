@@ -269,6 +269,9 @@ for (const [name, path] of modules) {
     assertErrorEnvelope(name, hostFailure, "503");
     const malformedHostResponse = call(module, "SEARCH", { query: "http-malformed", limit: 20, offset: 0 });
     assertErrorEnvelope(name, malformedHostResponse, "JSON");
+    assertErrorEnvelope(name, call(module, "SEARCH", { query: "fixture", limit: 0, offset: 0 }), "pagination limit is out of range");
+    assertErrorEnvelope(name, call(module, "SEARCH", { query: "fixture", limit: 20, offset: -1 }), "pagination offset is out of range");
+    assertErrorEnvelope(name, call(module, "SEARCH", { query: "fixture", limit: 51, offset: 0 }), "pagination limit is out of range");
   }
   if (name !== "kotlin") {
     assertRuntimeError(module, JSON.stringify({ operation: "SEARCH", payload: {} }), "requestId");

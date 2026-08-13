@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_pagination, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_title_metadata, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -259,6 +259,7 @@ fn string_filter_values(payload: &Value, field: &str) -> Result<Option<Vec<Strin
 }
 
 fn execute(request: RuntimeRequest) -> Result<Value, String> {
+    if matches!(&request.operation, RuntimeOperation::Search | RuntimeOperation::Latest) { validate_pagination(&request.payload, "YummyAnime")?; }
     match request.operation {
         RuntimeOperation::FilterCatalog => Ok(filters()),
         RuntimeOperation::Latest => {
