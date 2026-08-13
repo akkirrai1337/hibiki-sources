@@ -181,6 +181,8 @@ function assertResponseIdentity(response, operation) {
 function assertPlaybackResponse(groups, links, episodeCount) {
   const playbackGroups = groups.payload?.groups;
   if (!Array.isArray(playbackGroups) || playbackGroups.length === 0) throw new Error(`PLAYBACK_GROUPS returned no groups: ${JSON.stringify(groups)}`);
+  const groupIds = playbackGroups.map((group) => group?.id);
+  if (groupIds.some((id) => typeof id !== "string" || !id.trim()) || new Set(groupIds).size !== groupIds.length || playbackGroups.some((group) => typeof group.title !== "string" || !group.title.trim())) throw new Error(`PLAYBACK_GROUPS returned invalid groups: ${JSON.stringify(groups)}`);
   for (const group of playbackGroups) {
     if (!Array.isArray(group.episodes) || group.episodes.length === 0) throw new Error(`PLAYBACK_GROUPS returned an empty group: ${JSON.stringify(groups)}`);
     const ids = group.episodes.map((episode) => episode?.id);

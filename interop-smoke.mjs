@@ -233,7 +233,7 @@ function assertPlaybackResponse(name, groups, links, episodeCount) {
   const playbackGroups = groups.payload?.groups;
   if (!Array.isArray(playbackGroups) || playbackGroups.length === 0) throw new Error(`${name}: playback returned no groups`);
   const groupIds = playbackGroups.map((group) => group?.id);
-  if (groupIds.some((id) => typeof id !== "string" || !id.trim()) || new Set(groupIds).size !== groupIds.length) throw new Error(`${name}: playback groups have blank or duplicate ids`);
+  if (groupIds.some((id) => typeof id !== "string" || !id.trim()) || new Set(groupIds).size !== groupIds.length || playbackGroups.some((group) => typeof group.title !== "string" || !group.title.trim())) throw new Error(`${name}: playback groups have invalid ids or titles`);
   for (const group of playbackGroups) {
     if (!Array.isArray(group.episodes) || group.episodes.length === 0) throw new Error(`${name}: playback group ${group.id} has no episodes`);
     const episodeIds = group.episodes.map((episode) => episode?.id);
