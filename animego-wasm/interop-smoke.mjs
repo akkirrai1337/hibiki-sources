@@ -213,6 +213,8 @@ if (searchPageTwo.errorCode || !requestedUrls.at(-1)?.includes("page=2")) {
 
 const latestPageTwo = call(instance, "LATEST", { limit: 20, offset: 20 });
 assertResponseIdentity(latestPageTwo, "LATEST");
+assertCatalogResponse(latestPageTwo, 20, "LATEST pagination");
+assertCatalogMetadata(latestPageTwo, "LATEST pagination");
 if (latestPageTwo.errorCode || !requestedUrls.at(-1)?.endsWith("/anime/2")) {
   throw new Error(`LATEST pagination failed: url=${requestedUrls.at(-1)} response=${JSON.stringify(latestPageTwo)}`);
 }
