@@ -225,7 +225,7 @@ extern "C" { #[link_name = "call"] fn host_call(pointer: *const u8, length: i32)
 extern "C" fn call(_pointer: *const u8, _length: i32) -> i64 { -1 }
 
 #[cfg(test)]
-fn host_call(pointer: *const u8, length: i32) -> i64 { call(pointer, length) }
+unsafe extern "C" fn host_call(pointer: *const u8, length: i32) -> i64 { call(pointer, length) }
 
 #[cfg(test)]
 mod tests {
