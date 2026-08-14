@@ -149,6 +149,9 @@ pub fn is_http_url(value: &str) -> bool {
 /// Sources should fail the operation instead of returning a partially empty title.
 pub fn validate_title_metadata(value: &Value, source: &str, context: &str) -> Result<(), String> {
     let object = value.as_object().ok_or_else(|| format!("{source} {context} is not an object"))?;
+    if object.get("id").and_then(Value::as_str).map(str::trim).filter(|id| safe_path_segment(id).is_some()).is_none() {
+        return Err(format!("{source} {context} has an unsafe or missing ID"));
+    }
     let display_name = ["russianName", "originalName", "englishName"]
         .iter()
         .find_map(|key| object.get(*key).and_then(non_empty_text));
