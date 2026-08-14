@@ -464,7 +464,9 @@ impl HostResponse {
         if value.get("requestId").and_then(Value::as_str).map(str::trim).filter(|id| !id.is_empty()).is_none() {
             return Err(HttpSdkError::InvalidEnvelope { source: source.clone(), message: "missing request ID".to_owned() });
         }
-        if let Some(message) = value.get("errorMessage").and_then(Value::as_str) {
+        if let Some(error_message) = value.get("errorMessage").filter(|message| !message.is_null()) {
+            let message = error_message.as_str().map(str::trim).filter(|message| !message.is_empty())
+                .ok_or_else(|| HttpSdkError::InvalidEnvelope { source: source.clone(), message: "error message is missing or invalid".to_owned() })?;
             return Err(HttpSdkError::Remote { source, message: message.to_owned() });
         }
         if value.get("errorCode").is_some_and(|code| !code.is_null()) {
@@ -1431,6 +1433,8 @@ mod tests {
         assert_eq!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "payload": { "statusCode": 503 } }), "fixture"), Err(HttpSdkError::Status { source: "fixture".to_owned(), status: 503 }));
         assert_eq!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "payload": { "body": "{}" } }), "fixture"), Err(HttpSdkError::MissingStatus { source: "fixture".to_owned() }));
         assert_eq!(HostResponse::from_value_limited(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "payload": { "statusCode": 200, "body": "12345" } }), "fixture", 4), Err(HttpSdkError::BodyTooLarge { source: "fixture".to_owned(), actual: 5, maximum: 4 }));
+        assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": "REMOTE", "errorMessage": "" }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
+        assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": "REMOTE", "errorMessage": 42 }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
     }
 
     #[test]
