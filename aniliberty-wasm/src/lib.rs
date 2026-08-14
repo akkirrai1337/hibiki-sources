@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_type, normalize_year, positive_finite_value, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_pagination, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_search_query, validate_string_filters, validate_title_metadata, validate_year_range, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_type, normalize_year, positive_finite_value, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_pagination, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_search_query, validate_string_filters, validate_title_identity, validate_title_metadata, validate_year_range, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -446,6 +446,7 @@ fn execute(request: RuntimeRequest) -> Vec<u8> {
                 release(&request.request_id, id).and_then(|value| {
                     let parsed = title(&value).ok_or_else(|| "AniLiberty returned an invalid release".to_owned())?;
                     validate_title_metadata(&parsed, "AniLiberty", "release")?;
+                    validate_title_identity(&parsed, id, "AniLiberty")?;
                     Ok(parsed)
                 })
             })

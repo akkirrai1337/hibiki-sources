@@ -180,6 +180,14 @@ pub fn validate_title_metadata(value: &Value, source: &str, context: &str) -> Re
     Ok(())
 }
 
+pub fn validate_title_identity(value: &Value, expected_id: &str, source: &str) -> Result<(), String> {
+    let actual_id = value.get("id").and_then(Value::as_str).map(str::trim).unwrap_or("");
+    if actual_id != expected_id {
+        return Err(format!("{source} details returned ID '{actual_id}' instead of '{expected_id}'"));
+    }
+    Ok(())
+}
+
 pub fn validate_playback_payload(value: &Value, source: &str) -> Result<(), String> {
     let groups = value.get("groups").and_then(Value::as_array).filter(|groups| !groups.is_empty())
         .ok_or_else(|| format!("{source} playback returned no groups"))?;

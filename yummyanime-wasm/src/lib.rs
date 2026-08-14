@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_pagination, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_search_query, validate_string_filters, validate_title_metadata, validate_year_range, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
+use beakokit_html_sdk::{bounded_pagination, host_get_request, is_http_url, non_empty_scalar, non_empty_text, non_negative_i64, normalize_status, normalize_type, normalize_year, positive_finite, safe_path_segment, sanitize_runtime_error, unpack_host_response, validate_pagination, validate_playback_payload, validate_player_links_payload, validate_runtime_input, validate_runtime_request, validate_search_query, validate_string_filters, validate_title_identity, validate_title_metadata, validate_year_range, HostResponse, JsonDocument, DEFAULT_MAX_DOCUMENT_BYTES, MAX_RUNTIME_RESPONSE_BYTES};
 use serde_json::{json, Value};
 
 const RUNTIME_PROTOCOL_VERSION: u32 = 1;
@@ -282,7 +282,7 @@ fn execute(request: RuntimeRequest) -> Result<Value, String> {
             let items = array(&http(&request.request_id, "/anime", &q)?)?;
             Ok(json!({ "items": catalog_titles(&items)? }))
         }
-        RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; let id = safe_path_segment(id).ok_or("YummyAnime anime id is invalid")?; let body = http(&request.request_id, &format!("/anime/{id}"), "")?; let value = envelope(&body)?; let parsed = title(&value).ok_or_else(|| "YummyAnime returned an invalid title".to_owned())?; validate_title_metadata(&parsed, "YummyAnime", "title")?; Ok(parsed) }
+        RuntimeOperation::Details => { let id = request.payload.get("id").and_then(Value::as_str).ok_or("details id is missing")?; let id = safe_path_segment(id).ok_or("YummyAnime anime id is invalid")?; let body = http(&request.request_id, &format!("/anime/{id}"), "")?; let value = envelope(&body)?; let parsed = title(&value).ok_or_else(|| "YummyAnime returned an invalid title".to_owned())?; validate_title_metadata(&parsed, "YummyAnime", "title")?; validate_title_identity(&parsed, id, "YummyAnime")?; Ok(parsed) }
         RuntimeOperation::PlaybackGroups => { let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("playback titleId is missing")?; playback_groups(&request.request_id, id) }
         RuntimeOperation::PlayerLinks => { let id = request.payload.get("titleId").and_then(Value::as_str).ok_or("player links titleId is missing")?; let episode = request.payload.get("episodeId").and_then(Value::as_str).ok_or("player links episodeId is missing")?; player_links(&request.request_id, id, episode) }
     }
