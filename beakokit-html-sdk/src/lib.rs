@@ -467,7 +467,7 @@ impl HostResponse {
         if let Some(error_message) = value.get("errorMessage").filter(|message| !message.is_null()) {
             let message = error_message.as_str().map(str::trim).filter(|message| !message.is_empty())
                 .ok_or_else(|| HttpSdkError::InvalidEnvelope { source: source.clone(), message: "error message is missing or invalid".to_owned() })?;
-            if value.get("errorCode").map(Value::is_null).unwrap_or(true) {
+            if value.get("errorCode").and_then(Value::as_str).map(str::trim).filter(|code| !code.is_empty()).is_none() {
                 return Err(HttpSdkError::InvalidEnvelope { source, message: "error message has no error code".to_owned() });
             }
             return Err(HttpSdkError::Remote { source, message: message.to_owned() });
@@ -1439,6 +1439,8 @@ mod tests {
         assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": "REMOTE", "errorMessage": "" }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
         assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": "REMOTE", "errorMessage": 42 }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
         assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": null, "errorMessage": "remote failure" }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
+        assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": 7, "errorMessage": "remote failure" }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
+        assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": "", "errorMessage": "remote failure" }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
     }
 
     #[test]
