@@ -461,8 +461,10 @@ impl HostResponse {
         if protocol != HOST_PROTOCOL_VERSION as u64 {
             return Err(HttpSdkError::InvalidEnvelope { source: source.clone(), message: format!("unsupported protocol version {protocol}") });
         }
-        if value.get("requestId").and_then(Value::as_str).map(str::trim).filter(|id| !id.is_empty()).is_none() {
-            return Err(HttpSdkError::InvalidEnvelope { source: source.clone(), message: "missing request ID".to_owned() });
+        let request_id = value.get("requestId").and_then(Value::as_str).map(str::trim).filter(|id| !id.is_empty())
+            .ok_or_else(|| HttpSdkError::InvalidEnvelope { source: source.clone(), message: "missing request ID".to_owned() })?;
+        if request_id.chars().count() > 256 || request_id.chars().any(|character| character.is_control()) {
+            return Err(HttpSdkError::InvalidEnvelope { source: source.clone(), message: "invalid request ID".to_owned() });
         }
         if let Some(error_message) = value.get("errorMessage").filter(|message| !message.is_null()) {
             let message = error_message.as_str().map(str::trim).filter(|message| !message.is_empty())
@@ -1441,6 +1443,8 @@ mod tests {
         assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": null, "errorMessage": "remote failure" }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
         assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": 7, "errorMessage": "remote failure" }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
         assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "fixture-http", "protocolVersion": 1, "errorCode": "", "errorMessage": "remote failure" }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
+        assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "bad\u{0000}id", "protocolVersion": 1, "payload": { "statusCode": 200, "body": "{}" } }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
+        assert!(matches!(HostResponse::from_value(&serde_json::json!({ "requestId": "x".repeat(257), "protocolVersion": 1, "payload": { "statusCode": 200, "body": "{}" } }), "fixture"), Err(HttpSdkError::InvalidEnvelope { .. })));
     }
 
     #[test]
