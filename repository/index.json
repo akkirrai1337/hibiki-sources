@@ -22,6 +22,17 @@
       "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummy-anime-1.1.apk",
       "sha256": "d7564fb5040be9bc726e5ae98c9f16003a1378539c09097d6b59ec9ce3591967",
       "sizeBytes": 3155689
+    },
+    {
+      "id": "animego",
+      "name": "AnimeGo",
+      "packageName": "org.akkirrai.hibiki.source.animego",
+      "version": "1.0",
+      "versionCode": 1,
+      "contractVersion": 1,
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-1.0.apk",
+      "sha256": "04b24992d09d4abaa27b5960803072d6b462c7e4ba4a7cfaf4853a2ccaadd885",
+      "sizeBytes": 4176713
     }
   ]
 }
