@@ -5,12 +5,12 @@
       "id": "ani-liberty",
       "name": "AniLiberty",
       "packageName": "org.akkirrai.hibiki.source.aniliberty",
-      "version": "1.0",
-      "versionCode": 1,
+      "version": "1.2",
+      "versionCode": 3,
       "contractVersion": 1,
-      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/aniliberty-1.0.apk",
-      "sha256": "3570175704babaafd721f0cd4afe99cfe3402b687c6eb5bcffce63c3c6225c1c",
-      "sizeBytes": 4132643
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-1.2.apk",
+      "sha256": "4a2b7d245667299b8b30079df5627022c0675c9a022e825ad31d92294226d42c",
+      "sizeBytes": 3062159
     },
     {
       "id": "yummy-anime",
