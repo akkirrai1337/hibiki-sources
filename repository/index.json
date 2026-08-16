@@ -5,23 +5,23 @@
       "id": "ani-liberty",
       "name": "AniLiberty",
       "packageName": "org.akkirrai.hibiki.source.aniliberty",
-      "version": "1.2",
-      "versionCode": 3,
+      "version": "1.3",
+      "versionCode": 4,
       "contractVersion": 1,
-      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-1.2.apk",
-      "sha256": "4a2b7d245667299b8b30079df5627022c0675c9a022e825ad31d92294226d42c",
-      "sizeBytes": 3062159
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-1.3.apk",
+      "sha256": "65083e8c17abb6ac36e340a225ae762db8be9f18332b3c30b99d24cbd7c78233",
+      "sizeBytes": 3116261
     },
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
       "packageName": "org.akkirrai.hibiki.source.yummy",
-      "version": "1.0",
-      "versionCode": 1,
+      "version": "1.1",
+      "versionCode": 2,
       "contractVersion": 1,
-      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummy-1.0.apk",
-      "sha256": "d66442520d693ec7942c5d6d8d33c3cf43dec07e132c61ccb507a1ab14ad02c6",
-      "sizeBytes": 4195621
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummy-anime-1.1.apk",
+      "sha256": "d7564fb5040be9bc726e5ae98c9f16003a1378539c09097d6b59ec9ce3591967",
+      "sizeBytes": 3155689
     }
   ]
 }
