@@ -96,8 +96,8 @@ internal class AniLibertyCatalogClient(
     suspend fun getSearchFilterCatalog(): AnimeSearchFilterCatalog = AnimeSearchFilterCatalog(
         sortOptions = SUPPORTED_SORTS.map { SearchFilterOption(it.name.lowercase(), it.name.lowercase()) },
         typeOptions = references("types").map(::referenceOption),
-        statusOptions = (FALLBACK_STATUS_OPTIONS + references("publish-statuses").map(::referenceOption))
-            .distinctBy(SearchFilterOption::id),
+        statusOptions = runCatching { references("publish-statuses").map(::referenceOption) }
+            .getOrElse { FALLBACK_STATUS_OPTIONS },
         genreOptions = references("genres").map(::referenceOption),
         capabilities = capabilities,
     )
