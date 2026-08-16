@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
 
 concurrency:
   group: build-and-publish
@@ -71,6 +72,10 @@ jobs:
           HIBIKI_SOURCES_STORE_PASSWORD: ${{ secrets.HIBIKI_SOURCES_STORE_PASSWORD }}
           HIBIKI_SOURCES_KEY_ALIAS: ${{ secrets.HIBIKI_SOURCES_KEY_ALIAS }}
           HIBIKI_SOURCES_KEY_PASSWORD: ${{ secrets.HIBIKI_SOURCES_KEY_PASSWORD }}
+          # settings.gradle.kts resolves org.akkirrai.hibiki:parsers from the hibiki repo's
+          # GitHub Packages when there is no local mavenLocal() cache -- needs a token to
+          # authenticate, since GitHub Packages rejects anonymous Maven requests outright.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           tasks=()
