@@ -5,7 +5,8 @@
     <application
         android:allowBackup="false"
         android:label="Hibiki Source: AniLiberty"
-        android:icon="@android:drawable/sym_def_app_icon">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
 
         <!-- Discovery anchor only. Exists so the host can find this package via
              PackageManager.queryIntentActivities; finishes immediately if ever launched. -->
