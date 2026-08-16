@@ -33,6 +33,17 @@
       "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-1.0.apk",
       "sha256": "96a06a84940b652dce8274397c5b06c1d6c2b551f9de978ac0ed91e2d6d0ae19",
       "sizeBytes": 3105469
+    },
+    {
+      "id": "animepahe",
+      "name": "AnimePahe",
+      "packageName": "org.akkirrai.hibiki.source.animepahe",
+      "version": "1.0",
+      "versionCode": 1,
+      "contractVersion": 1,
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-1.0.apk",
+      "sha256": "02b2e186d8ca4dd0be19c08106cfaf0ac928520c25fe783a13f59c46e48198f0",
+      "sizeBytes": 4166977
     }
   ]
 }
