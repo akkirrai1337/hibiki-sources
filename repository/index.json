@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "ani-liberty",
+      "name": "AniLiberty",
+      "packageName": "org.akkirrai.hibiki.source.aniliberty",
+      "version": "1.0",
+      "versionCode": 1,
+      "contractVersion": 1,
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/aniliberty-1.0.apk",
+      "sha256": "3570175704babaafd721f0cd4afe99cfe3402b687c6eb5bcffce63c3c6225c1c",
+      "sizeBytes": 4132643
+    },
+    {
+      "id": "yummy-anime",
+      "name": "YummyAnime",
+      "packageName": "org.akkirrai.hibiki.source.yummy",
+      "version": "1.0",
+      "versionCode": 1,
+      "contractVersion": 1,
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummy-1.0.apk",
+      "sha256": "d66442520d693ec7942c5d6d8d33c3cf43dec07e132c61ccb507a1ab14ad02c6",
+      "sizeBytes": 4195621
+    }
+  ]
+}
