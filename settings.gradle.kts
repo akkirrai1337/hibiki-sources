@@ -37,3 +37,4 @@ rootProject.name = "hibiki-sources"
 include(":aniliberty")
 include(":yummy")
 include(":animego")
+include(":animepahe")
