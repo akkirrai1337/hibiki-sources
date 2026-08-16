@@ -1,15 +1,6 @@
-# Rust compiler output
-**/target/
-
-# Kotlin/Gradle compiler output
-**/build/
+# Kotlin/Gradle build output
 .gradle/
-
-# Temporary package staging
-**/.package-staging/
-
-# Local/reproducibility variants are never repository inputs.
-artifacts/*-current.zip
-artifacts/*-local.zip
-artifacts/*-playback*.zip
-artifacts/*-reproducible.zip
+**/build/
+local.properties
+*.iml
+.idea/
