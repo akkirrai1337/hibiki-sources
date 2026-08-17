@@ -12,10 +12,10 @@ plugins {
 fun signingValue(name: String): String? =
     System.getenv(name) ?: providers.gradleProperty(name).orNull
 
-val releaseStoreFile = signingValue("HIBIKI_SOURCES_STORE_FILE")
-val releaseStorePassword = signingValue("HIBIKI_SOURCES_STORE_PASSWORD")
-val releaseKeyAlias = signingValue("HIBIKI_SOURCES_KEY_ALIAS")
-val releaseKeyPassword = signingValue("HIBIKI_SOURCES_KEY_PASSWORD")
+val releaseStoreFile = signingValue("HIBIKI_SOURCE_RELEASE_STORE_FILE")
+val releaseStorePassword = signingValue("HIBIKI_SOURCE_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = signingValue("HIBIKI_SOURCE_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = signingValue("HIBIKI_SOURCE_RELEASE_KEY_PASSWORD")
 val hasReleaseSigning = listOf(
     releaseStoreFile,
     releaseStorePassword,

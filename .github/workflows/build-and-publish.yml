@@ -68,10 +68,10 @@ jobs:
       - name: Build changed modules
         if: steps.changed.outputs.modules != ''
         env:
-          HIBIKI_SOURCES_STORE_FILE: ${{ runner.temp }}/sources-release.keystore
-          HIBIKI_SOURCES_STORE_PASSWORD: ${{ secrets.HIBIKI_SOURCES_STORE_PASSWORD }}
-          HIBIKI_SOURCES_KEY_ALIAS: ${{ secrets.HIBIKI_SOURCES_KEY_ALIAS }}
-          HIBIKI_SOURCES_KEY_PASSWORD: ${{ secrets.HIBIKI_SOURCES_KEY_PASSWORD }}
+          HIBIKI_SOURCE_RELEASE_STORE_FILE: ${{ runner.temp }}/sources-release.keystore
+          HIBIKI_SOURCE_RELEASE_STORE_PASSWORD: ${{ secrets.HIBIKI_SOURCES_STORE_PASSWORD }}
+          HIBIKI_SOURCE_RELEASE_KEY_ALIAS: ${{ secrets.HIBIKI_SOURCES_KEY_ALIAS }}
+          HIBIKI_SOURCE_RELEASE_KEY_PASSWORD: ${{ secrets.HIBIKI_SOURCES_KEY_PASSWORD }}
           # settings.gradle.kts resolves org.akkirrai.hibiki:parsers from the hibiki repo's
           # GitHub Packages when there is no local mavenLocal() cache -- needs a token to
           # authenticate, since GitHub Packages rejects anonymous Maven requests outright.
