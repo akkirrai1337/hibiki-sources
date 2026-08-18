@@ -243,26 +243,40 @@ internal class YummyCatalogClient(
         return AnimeSearchFilterCatalog(
             sortOptions = (listOf("relevance") + sortAliases.ifEmpty { fallbackSortAliases })
                 .distinct()
-                .map(::aliasOption),
-            typeOptions = fallbackTypeAliases.map(::aliasOption),
-            statusOptions = statusAliases.ifEmpty { fallbackStatusAliases }.map(::aliasOption),
-            genreOptions = genreAliases.ifEmpty { fallbackGenreAliases }.map(::aliasOption),
+                .map(::sortOption),
+            typeOptions = fallbackTypeAliases.map(::typeOption),
+            statusOptions = statusAliases.ifEmpty { fallbackStatusAliases }.map(::statusOption),
+            genreOptions = genreAliases.ifEmpty { fallbackGenreAliases }.map(::genreOption),
             capabilities = capabilities,
         )
     }
 
     private fun fallbackFilterCatalog(): AnimeSearchFilterCatalog {
         return AnimeSearchFilterCatalog(
-            sortOptions = (listOf("relevance") + fallbackSortAliases).distinct().map(::aliasOption),
-            typeOptions = fallbackTypeAliases.map(::aliasOption),
-            statusOptions = fallbackStatusAliases.map(::aliasOption),
-            genreOptions = fallbackGenreAliases.map(::aliasOption),
+            sortOptions = (listOf("relevance") + fallbackSortAliases).distinct().map(::sortOption),
+            typeOptions = fallbackTypeAliases.map(::typeOption),
+            statusOptions = fallbackStatusAliases.map(::statusOption),
+            genreOptions = fallbackGenreAliases.map(::genreOption),
             capabilities = capabilities,
         )
     }
 
-    private fun aliasOption(alias: String): SearchFilterOption {
-        return SearchFilterOption(id = alias, title = alias)
+    private fun sortOption(alias: String): SearchFilterOption {
+        val preferEnglish = requestLanguage() == "en"
+        return SearchFilterOption(id = alias, title = localizeYummySortFilterLabel(alias, preferEnglish))
+    }
+
+    private fun typeOption(alias: String): SearchFilterOption {
+        val preferEnglish = requestLanguage() == "en"
+        return SearchFilterOption(id = alias, title = localizeYummyTypeFilterLabel(alias, preferEnglish))
+    }
+
+    private fun statusOption(alias: String): SearchFilterOption {
+        return SearchFilterOption(id = alias, title = localizeYummyStatusFilterLabel(alias))
+    }
+
+    private fun genreOption(alias: String): SearchFilterOption {
+        return SearchFilterOption(id = alias, title = localizeYummyGenreFilterLabel(alias))
     }
 
     private fun io.ktor.client.request.HttpRequestBuilder.addHeaders(language: String) {
