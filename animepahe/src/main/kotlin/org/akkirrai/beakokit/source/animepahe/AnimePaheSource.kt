@@ -84,7 +84,7 @@ class AnimePaheSource(
             languages = setOf(SourceLanguage.ENGLISH),
             primaryLanguage = SourceLanguage.ENGLISH,
             website = DEFAULT_BASE_URL,
-            iconUrl = "$DEFAULT_BASE_URL/favicon.ico",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=animepahetv.to",
             capabilities = setOf(
                 SourceCapability.LATEST_RELEASES,
                 SourceCapability.PLAYBACK,

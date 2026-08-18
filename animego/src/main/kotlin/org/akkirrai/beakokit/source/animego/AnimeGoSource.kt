@@ -83,7 +83,7 @@ class AnimeGoSource(
             languages = setOf(SourceLanguage.RUSSIAN),
             primaryLanguage = SourceLanguage.RUSSIAN,
             website = DEFAULT_BASE_URL,
-            iconUrl = "$DEFAULT_BASE_URL/favicon.ico",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=animego.me",
             capabilities = setOf(
                 SourceCapability.LATEST_RELEASES,
                 SourceCapability.PLAYBACK,

@@ -131,6 +131,8 @@ class YummyAnimeSource(
             name = "YummyAnime",
             languages = setOf(SourceLanguage.RUSSIAN),
             primaryLanguage = SourceLanguage.RUSSIAN,
+            website = "https://yummyani.me",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=yummyani.me",
             capabilities = setOf(
                 SourceCapability.LATEST_RELEASES,
                 SourceCapability.PLAYBACK,

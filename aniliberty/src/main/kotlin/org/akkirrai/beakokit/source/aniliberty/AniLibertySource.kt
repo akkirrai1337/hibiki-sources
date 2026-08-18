@@ -123,6 +123,7 @@ class AniLibertySource(
             languages = setOf(SourceLanguage.RUSSIAN),
             primaryLanguage = SourceLanguage.RUSSIAN,
             website = "https://anilibria.top",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=anilibria.top",
             capabilities = setOf(
                 SourceCapability.LATEST_RELEASES,
                 SourceCapability.PLAYBACK,
