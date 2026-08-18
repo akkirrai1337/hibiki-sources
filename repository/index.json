@@ -9,8 +9,8 @@
       "versionCode": 4,
       "contractVersion": 1,
       "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-1.3.apk",
-      "sha256": "65083e8c17abb6ac36e340a225ae762db8be9f18332b3c30b99d24cbd7c78233",
-      "sizeBytes": 3116261
+      "sha256": "852161f584e57d479a8ea5cd876463e4246d7c38972658dfc6ed2141fd3388fd",
+      "sizeBytes": 3116201
     },
     {
       "id": "yummy-anime",
@@ -20,8 +20,8 @@
       "versionCode": 2,
       "contractVersion": 1,
       "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/yummy-anime-1.1.apk",
-      "sha256": "45cbbcca024bff8ec611dd0e5a5266cedb408d38223b00cbeec0f96213b273d9",
-      "sizeBytes": 3159633
+      "sha256": "5f92f9c8374b3fd21e9cd8dd3aec9149309c61aff90cbc6d8db13367a65c1e98",
+      "sizeBytes": 3159601
     },
     {
       "id": "animego",
@@ -31,8 +31,8 @@
       "versionCode": 1,
       "contractVersion": 1,
       "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-1.0.apk",
-      "sha256": "96a06a84940b652dce8274397c5b06c1d6c2b551f9de978ac0ed91e2d6d0ae19",
-      "sizeBytes": 3105469
+      "sha256": "2d6d870ee04d2cba036720bddf2921c750f5d2711f764b596a7ec43b5c833fec",
+      "sizeBytes": 3105473
     },
     {
       "id": "animepahe",
@@ -42,8 +42,8 @@
       "versionCode": 1,
       "contractVersion": 1,
       "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-1.0.apk",
-      "sha256": "d00bfcdce3df9539596ba770871b071352c32d8c705ce25e96c94df40295d03e",
-      "sizeBytes": 3100445
+      "sha256": "ddf7895afce487795655c11d727b4a20c9cf62fee8aa74eced1c72eaa048de9d",
+      "sizeBytes": 3100433
     }
   ]
 }
