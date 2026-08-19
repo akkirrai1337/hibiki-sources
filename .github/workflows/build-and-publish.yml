@@ -81,7 +81,7 @@ jobs:
           tasks=()
           while IFS= read -r module; do
             [ -z "$module" ] && continue
-            tasks+=(":${module}:assembleRelease")
+            tasks+=(":${module//\//:}:assembleRelease")
           done <<< "${{ steps.changed.outputs.modules }}"
           if [ "${#tasks[@]}" -eq 0 ]; then
             echo "No source modules changed."
