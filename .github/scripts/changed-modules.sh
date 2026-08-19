@@ -16,5 +16,7 @@ git diff --name-only "$base" HEAD \
       while [ "$dir" != "." ] && [ ! -f "$dir/build.gradle.kts" ]; do
         dir=$(dirname "$dir")
       done
-      [ "$dir" != "." ] && [ -f "$dir/build.gradle.kts" ] && echo "$dir"
+      if [ "$dir" != "." ] && [ -f "$dir/build.gradle.kts" ]; then
+        echo "$dir"
+      fi
     done | sort -u
