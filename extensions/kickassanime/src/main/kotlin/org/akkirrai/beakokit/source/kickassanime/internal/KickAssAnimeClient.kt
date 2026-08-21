@@ -7,6 +7,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -138,7 +139,20 @@ internal class KickAssAnimeClient(
             ?: throw SourceException("KickAssAnime slug is blank")
         val root = requestJson("$apiUrl/$id").asObject()
             ?: throw SourceException("KickAssAnime returned an invalid title: $id", kind = SourceErrorKind.PARSE)
-        return toTitle(root) ?: throw SourceException("KickAssAnime returned an invalid title: $id", kind = SourceErrorKind.PARSE)
+        val title = toTitle(root) ?: throw SourceException("KickAssAnime returned an invalid title: $id", kind = SourceErrorKind.PARSE)
+        if (title.availableEpisodeCount != null) return title
+        // The catalog/details responses never carry an episode count -- only /episodes does,
+        // and that's paginated per-language, so it's only worth fetching for a single opened
+        // title (not for every catalog card, which would mean one request per item).
+        val episodeCount = try {
+            val language = getLanguages(id).firstOrNull()
+            language?.let { getEpisodes(id, it).size.takeIf { count -> count > 0 } }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            null
+        }
+        return if (episodeCount != null) title.copy(availableEpisodeCount = episodeCount) else title
     }
 
     /** Available dub/sub audio languages for a title, e.g. "ja-JP", "en-US". */
