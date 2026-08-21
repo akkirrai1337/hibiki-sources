@@ -49,12 +49,12 @@
       "id": "kickassanime",
       "name": "KickAssAnime",
       "packageName": "org.akkirrai.hibiki.source.kickassanime",
-      "version": "1.1",
-      "versionCode": 3,
+      "version": "1.2",
+      "versionCode": 4,
       "contractVersion": 1,
-      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/kickassanime-1.1.apk",
-      "sha256": "e384653c228007c05f7cc1cc8fb30b316a43d3b8ec19599e855c36f4bd7389ae",
-      "sizeBytes": 3100457
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/kickassanime-1.2.apk",
+      "sha256": "42ef7b73fd62b12d540e8c8b25864983b7f7fd01c7fb18dcc65f15ea95cac7e8",
+      "sizeBytes": 3099053
     }
   ]
 }
