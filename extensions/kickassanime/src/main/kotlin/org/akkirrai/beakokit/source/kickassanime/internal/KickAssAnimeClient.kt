@@ -1,0 +1,219 @@
+package org.akkirrai.beakokit.source.kickassanime.internal
+
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import org.akkirrai.beakokit.api.SourceErrorKind
+import org.akkirrai.beakokit.api.SourceException
+import org.akkirrai.beakokit.api.SourceLogLevel
+import org.akkirrai.beakokit.api.SourceLogger
+import org.akkirrai.beakokit.http.bodyOrThrow
+import org.akkirrai.beakokit.model.AnimeSearchRequest
+import org.akkirrai.beakokit.model.AnimeSearchSort
+import org.akkirrai.beakokit.model.AnimeTitle
+import org.akkirrai.beakokit.model.CatalogCapabilities
+import org.akkirrai.beakokit.model.CatalogFeature
+import org.akkirrai.beakokit.model.Episode
+import org.akkirrai.beakokit.model.PlayerLink
+import org.akkirrai.beakokit.model.PlayerType
+
+/**
+ * KickAssAnime's public JSON API. All catalog and episode-listing calls go through the
+ * configurable [baseUrl] mirror; search is always served from the primary [SEARCH_BASE_URL]
+ * because the other domains are plain redirects with no search index of their own.
+ */
+internal class KickAssAnimeClient(
+    private val client: HttpClient,
+    private val baseUrl: String = DEFAULT_BASE_URL,
+    private val preferredLanguage: String = DEFAULT_LANGUAGE,
+    logger: SourceLogger = SourceLogger.NONE,
+) {
+    private val apiUrl = "${baseUrl.trimEnd('/')}/api/show"
+
+    val name: String = "KickAssAnime"
+    val capabilities = CatalogCapabilities(
+        supportedSorts = setOf(AnimeSearchSort.RELEVANCE),
+        supportedFilters = emptySet(),
+        features = setOf(CatalogFeature.LATEST_RELEASES),
+    )
+
+    init {
+        logger.log(SourceLogLevel.DEBUG, "$name configured with base URL $baseUrl", null)
+    }
+
+    suspend fun trending(page: Int): List<AnimeTitle> = requestJson(
+        "$apiUrl/trending",
+        listOf("page" to page),
+    ).let { root ->
+        root.asObject()?.array("result").orEmpty().mapNotNull { it.asObject()?.let(::toTitle) }
+    }
+
+    suspend fun latest(page: Int): List<AnimeTitle> = requestJson(
+        "$apiUrl/recent",
+        listOf("type" to "all", "page" to page),
+    ).let { root ->
+        root.asObject()?.array("result").orEmpty().mapNotNull { it.asObject()?.let(::toTitle) }
+    }
+
+    suspend fun search(request: AnimeSearchRequest): List<AnimeTitle> {
+        val adapted = capabilities.adapt(request)
+        val page = (adapted.offset.coerceAtLeast(0) / adapted.limit.coerceAtLeast(1)) + 1
+        val query = adapted.query.trim()
+        val root = if (query.isBlank()) {
+            requestJson("$SEARCH_BASE_URL/api/anime", listOf("page" to page))
+        } else {
+            requestJsonPost(
+                "$SEARCH_BASE_URL/api/fsearch",
+                buildJsonObject {
+                    put("page", page)
+                    put("query", query)
+                },
+            )
+        }
+        return root.asObject()?.array("result").orEmpty().mapNotNull { it.asObject()?.let(::toTitle) }
+    }
+
+    suspend fun getById(slug: String): AnimeTitle {
+        val id = slug.trim().trim('/').takeIf(String::isNotBlank)
+            ?: throw SourceException("KickAssAnime slug is blank")
+        val root = requestJson("$apiUrl/$id").asObject()
+            ?: throw SourceException("KickAssAnime returned an invalid title: $id", kind = SourceErrorKind.PARSE)
+        return toTitle(root) ?: throw SourceException("KickAssAnime returned an invalid title: $id", kind = SourceErrorKind.PARSE)
+    }
+
+    /** Available dub/sub audio languages for a title, e.g. "ja-JP", "en-US". */
+    suspend fun getLanguages(slug: String): List<String> = requestJson("$apiUrl/$slug/language")
+        .asObject()
+        ?.array("result")
+        .orEmpty()
+        .mapNotNull { it.jsonPrimitive.contentOrNull }
+        .ifEmpty { listOf(preferredLanguage) }
+
+    suspend fun getEpisodes(slug: String, language: String): List<Episode> {
+        val firstPage = requestJson("$apiUrl/$slug/episodes", listOf("page" to 1, "lang" to language)).asObject()
+            ?: return emptyList()
+        val pageCount = firstPage.array("pages").orEmpty().size.coerceAtLeast(1)
+        val episodes = mutableListOf<JsonObject>()
+        firstPage.array("result").orEmpty().mapNotNullTo(episodes) { it.asObject() }
+        for (page in 2..pageCount) {
+            val nextPage = requestJson("$apiUrl/$slug/episodes", listOf("page" to page, "lang" to language)).asObject()
+                ?: continue
+            nextPage.array("result").orEmpty().mapNotNullTo(episodes) { it.asObject() }
+        }
+        return episodes.mapIndexedNotNull { index, item ->
+            val episodeSlug = item.string("slug") ?: return@mapIndexedNotNull null
+            val episodeString = item.string("episode_string") ?: return@mapIndexedNotNull null
+            val number = episodeString.toDoubleOrNull() ?: (index + 1).toDouble()
+            Episode(
+                id = "ep-$episodeString-$episodeSlug",
+                number = number,
+                title = item.string("title"),
+            )
+        }.distinctBy(Episode::id).sortedBy(Episode::number)
+    }
+
+    suspend fun getPlayerLinks(slug: String, episodeId: String): List<PlayerLink> {
+        val endpoint = "$apiUrl/$slug/episode/$episodeId"
+        val root = requestJson(endpoint).asObject() ?: return emptyList()
+        return root.array("servers").orEmpty().mapNotNull { element ->
+            val server = element.asObject() ?: return@mapNotNull null
+            val serverName = server.string("name") ?: return@mapNotNull null
+            val src = server.string("src") ?: return@mapNotNull null
+            PlayerLink(
+                url = resolveServerUrl(src),
+                type = PlayerType.EMBED,
+                quality = null,
+                headers = mapOf("Referer" to "$baseUrl/"),
+                playerName = serverName,
+            )
+        }.distinctBy(PlayerLink::url)
+    }
+
+    private fun resolveServerUrl(src: String): String = when {
+        src.startsWith("http://") || src.startsWith("https://") -> src
+        src.startsWith("//") -> "https:$src"
+        src.startsWith("/") -> "$baseUrl$src"
+        else -> "$baseUrl/$src"
+    }
+
+    private fun toTitle(value: JsonObject): AnimeTitle? {
+        val slug = value.string("slug") ?: return null
+        val title = value.string("title") ?: value.string("title_en") ?: return null
+        val posterSlug = value["poster"].asObject()?.string("hq")
+        val status = value.string("status")
+        return AnimeTitle(
+            id = slug,
+            russianName = null,
+            englishName = value.string("title_en"),
+            originalName = title,
+            japaneseName = null,
+            synonyms = emptyList(),
+            year = value.int("year"),
+            type = value.string("type"),
+            episodeCount = null,
+            posterUrl = posterSlug?.let { "$baseUrl/image/poster/$it.webp" },
+            status = when (status) {
+                "finished_airing" -> "released"
+                "currently_airing" -> "ongoing"
+                else -> null
+            },
+            description = value.string("synopsis"),
+            genres = value["genres"].asArray().mapNotNull { it.jsonPrimitive.contentOrNull },
+            season = value.string("season").toSeason(),
+        )
+    }
+
+    private suspend fun requestJson(
+        url: String,
+        parameters: List<Pair<String, Any>> = emptyList(),
+    ): JsonElement = client.get(url) {
+        parameters.forEach { (key, value) -> parameter(key, value) }
+    }.bodyOrThrow(name)
+
+    private suspend fun requestJsonPost(url: String, body: JsonObject): JsonElement = client.post(url) {
+        contentType(ContentType.Application.Json)
+        setBody(JSON.encodeToString(JsonObject.serializer(), body))
+    }.bodyOrThrow(name)
+
+    private fun JsonElement?.asObject(): JsonObject? = this as? JsonObject
+
+    private fun JsonElement?.asArray(): List<JsonElement> = (this as? JsonArray).orEmpty()
+
+    private fun JsonObject.array(key: String): List<JsonElement>? = (get(key) as? JsonArray)
+
+    private fun JsonObject.string(key: String): String? = get(key)
+        ?.jsonPrimitive
+        ?.contentOrNull
+        ?.trim()
+        ?.takeIf(String::isNotBlank)
+
+    private fun JsonObject.int(key: String): Int? = get(key)?.jsonPrimitive?.intOrNull
+
+    private fun String?.toSeason(): Int? = when (this?.lowercase()) {
+        "winter" -> 1
+        "spring" -> 2
+        "summer" -> 3
+        "fall", "autumn" -> 4
+        else -> null
+    }
+
+    private companion object {
+        const val DEFAULT_BASE_URL = "https://kaa.lt"
+        const val SEARCH_BASE_URL = "https://kaa.lt"
+        const val DEFAULT_LANGUAGE = "ja-JP"
+        val JSON = Json { ignoreUnknownKeys = true }
+    }
+}
