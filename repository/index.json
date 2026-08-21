@@ -44,6 +44,17 @@
       "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-1.0.apk",
       "sha256": "ddf7895afce487795655c11d727b4a20c9cf62fee8aa74eced1c72eaa048de9d",
       "sizeBytes": 3100433
+    },
+    {
+      "id": "kickassanime",
+      "name": "KickAssAnime",
+      "packageName": "org.akkirrai.hibiki.source.kickassanime",
+      "version": "1.0",
+      "versionCode": 1,
+      "contractVersion": 1,
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/kickassanime-1.0.apk",
+      "sha256": "",
+      "sizeBytes": 0
     }
   ]
 }
