@@ -2,11 +2,14 @@ package org.akkirrai.beakokit.source.kickassanime.internal
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -175,19 +178,62 @@ internal class KickAssAnimeClient(
     suspend fun getPlayerLinks(slug: String, episodeId: String): List<PlayerLink> {
         val endpoint = "$apiUrl/$slug/episode/$episodeId"
         val root = requestJson(endpoint).asObject() ?: return emptyList()
-        return root.array("servers").orEmpty().mapNotNull { element ->
+        val servers = root.array("servers").orEmpty().mapNotNull { element ->
             val server = element.asObject() ?: return@mapNotNull null
             val serverName = server.string("name") ?: return@mapNotNull null
             val src = server.string("src") ?: return@mapNotNull null
-            PlayerLink(
-                url = resolveServerUrl(src),
-                type = PlayerType.EMBED,
-                quality = null,
-                headers = mapOf("Referer" to "$baseUrl/"),
-                playerName = serverName,
-            )
+            serverName to resolveServerUrl(src)
+        }
+        return servers.map { (serverName, playerUrl) ->
+            // The server's src is a JS-driven embed page (cat-player); its manifest URL is
+            // also serialized straight into the page's initial HTML (an Astro island's props
+            // attribute), so it's cheaper and more reliable to scrape that directly than to
+            // run the page in a WebView and sniff the network request it eventually makes.
+            val manifestUrl = try {
+                fetchManifestUrl(playerUrl)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                null
+            }
+            if (manifestUrl != null && manifestUrl.contains(".m3u8", ignoreCase = true)) {
+                PlayerLink(
+                    url = manifestUrl,
+                    type = PlayerType.DIRECT_HLS,
+                    quality = null,
+                    headers = mapOf("Referer" to playerUrl),
+                    playerName = serverName,
+                )
+            } else {
+                // Manifest wasn't HLS (e.g. DASH) or couldn't be scraped -- fall back to the
+                // raw embed so a host-side extractor (WebView, etc.) still has a shot at it.
+                PlayerLink(
+                    url = playerUrl,
+                    type = PlayerType.EMBED,
+                    quality = null,
+                    headers = mapOf("Referer" to "$baseUrl/"),
+                    playerName = serverName,
+                )
+            }
         }.distinctBy(PlayerLink::url)
     }
+
+    private suspend fun fetchManifestUrl(playerUrl: String): String? {
+        val html = client.get(playerUrl) {
+            header("Referer", "$baseUrl/")
+        }.bodyAsText()
+        val raw = MANIFEST_PATTERN.find(html)?.groupValues?.get(1) ?: return null
+        return normalizeManifestUrl(raw.unescapeHtml())
+    }
+
+    private fun normalizeManifestUrl(raw: String): String {
+        val collapsed = raw.trim().replace(Regex("^(https?:)/{2,}"), "$1//")
+        return if (collapsed.startsWith("//")) "https:$collapsed" else collapsed
+    }
+
+    private fun String.unescapeHtml(): String = replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
 
     private fun resolveServerUrl(src: String): String = when {
         src.startsWith("http://") || src.startsWith("https://") -> src
@@ -266,5 +312,6 @@ internal class KickAssAnimeClient(
             SearchFilterOption("finished", "Finished Airing"),
             SearchFilterOption("airing", "Currently Airing"),
         )
+        val MANIFEST_PATTERN = Regex("""manifest&quot;:\[0,&quot;(.*?)&quot;""")
     }
 }
