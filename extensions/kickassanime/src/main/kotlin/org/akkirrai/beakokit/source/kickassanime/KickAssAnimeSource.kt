@@ -22,7 +22,6 @@ import org.akkirrai.beakokit.model.AnimeTitle
 import org.akkirrai.beakokit.model.CatalogCapabilities
 import org.akkirrai.beakokit.model.Episode
 import org.akkirrai.beakokit.model.PlayerLink
-import org.akkirrai.beakokit.model.SearchFilterOption
 import org.akkirrai.beakokit.source.kickassanime.internal.KickAssAnimeClient
 
 /** Standalone source-extension entry point, loaded via [org.akkirrai.beakokit.api.SourceExtensionContract]. */
@@ -53,10 +52,8 @@ class KickAssAnimeSource(
     override suspend fun search(request: AnimeSearchRequest): List<AnimeTitle> =
         execution.execute(INFO.id, SourceOperation.SEARCH, "request:$request", SourceCacheTtl.SEARCH_MILLIS) { client.search(request) }
 
-    override suspend fun getSearchFilterCatalog(): AnimeSearchFilterCatalog = AnimeSearchFilterCatalog(
-        sortOptions = listOf(SearchFilterOption("relevance", "Relevance")),
-        capabilities = client.capabilities,
-    )
+    override suspend fun getSearchFilterCatalog(): AnimeSearchFilterCatalog =
+        execution.execute(INFO.id, SourceOperation.FILTER_CATALOG, "default", SourceCacheTtl.FILTER_CATALOG_MILLIS) { client.getSearchFilterCatalog() }
 
     override suspend fun latest(limit: Int): List<AnimeTitle> = execution.execute(INFO.id, SourceOperation.LATEST, "limit:$limit", SourceCacheTtl.LATEST_MILLIS) {
         client.latest(page = 1).take(limit)

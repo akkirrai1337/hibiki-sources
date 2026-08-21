@@ -11,9 +11,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.akkirrai.beakokit.api.SourceErrorKind
@@ -21,6 +23,8 @@ import org.akkirrai.beakokit.api.SourceException
 import org.akkirrai.beakokit.api.SourceLogLevel
 import org.akkirrai.beakokit.api.SourceLogger
 import org.akkirrai.beakokit.http.bodyOrThrow
+import org.akkirrai.beakokit.model.AnimeSearchFilter
+import org.akkirrai.beakokit.model.AnimeSearchFilterCatalog
 import org.akkirrai.beakokit.model.AnimeSearchRequest
 import org.akkirrai.beakokit.model.AnimeSearchSort
 import org.akkirrai.beakokit.model.AnimeTitle
@@ -29,6 +33,8 @@ import org.akkirrai.beakokit.model.CatalogFeature
 import org.akkirrai.beakokit.model.Episode
 import org.akkirrai.beakokit.model.PlayerLink
 import org.akkirrai.beakokit.model.PlayerType
+import org.akkirrai.beakokit.model.SearchFilterOption
+import java.util.Base64
 
 /**
  * KickAssAnime's public JSON API. All catalog and episode-listing calls go through the
@@ -46,7 +52,12 @@ internal class KickAssAnimeClient(
     val name: String = "KickAssAnime"
     val capabilities = CatalogCapabilities(
         supportedSorts = setOf(AnimeSearchSort.RELEVANCE),
-        supportedFilters = emptySet(),
+        supportedFilters = setOf(
+            AnimeSearchFilter.TYPE,
+            AnimeSearchFilter.STATUS,
+            AnimeSearchFilter.INCLUDED_GENRES,
+            AnimeSearchFilter.YEAR_RANGE,
+        ),
         features = setOf(CatalogFeature.LATEST_RELEASES),
     )
 
@@ -72,18 +83,54 @@ internal class KickAssAnimeClient(
         val adapted = capabilities.adapt(request)
         val page = (adapted.offset.coerceAtLeast(0) / adapted.limit.coerceAtLeast(1)) + 1
         val query = adapted.query.trim()
+        val encodedFilters = encodeFilters(adapted)
         val root = if (query.isBlank()) {
-            requestJson("$SEARCH_BASE_URL/api/anime", listOf("page" to page))
+            requestJson(
+                "$SEARCH_BASE_URL/api/anime",
+                buildList {
+                    add("page" to page)
+                    encodedFilters?.let { add("filters" to it) }
+                },
+            )
         } else {
             requestJsonPost(
                 "$SEARCH_BASE_URL/api/fsearch",
                 buildJsonObject {
                     put("page", page)
                     put("query", query)
+                    encodedFilters?.let { put("filters", it) }
                 },
             )
         }
         return root.asObject()?.array("result").orEmpty().mapNotNull { it.asObject()?.let(::toTitle) }
+    }
+
+    /** Reference option lists (genres/types/years) served by KickAssAnime for building search filters. */
+    suspend fun getSearchFilterCatalog(): AnimeSearchFilterCatalog {
+        val root = requestJson("$apiUrl/filters").asObject()
+        val genres = root?.array("genres").orEmpty().mapNotNull { it.jsonPrimitive.contentOrNull }
+        val types = root?.array("types").orEmpty().mapNotNull { it.jsonPrimitive.contentOrNull }
+        return AnimeSearchFilterCatalog(
+            sortOptions = listOf(SearchFilterOption("relevance", "Relevance")),
+            typeOptions = types.map { SearchFilterOption(it, it.replace('_', ' ').uppercase()) },
+            statusOptions = STATUS_OPTIONS,
+            genreOptions = genres.map { SearchFilterOption(it, it) },
+            capabilities = capabilities,
+        )
+    }
+
+    /** KickAssAnime only accepts a single type/status/year value; the first of each is used. */
+    private fun encodeFilters(request: AnimeSearchRequest): String? {
+        val body = buildJsonObject {
+            request.includedGenreAliases.filter(String::isNotBlank).takeIf(List<String>::isNotEmpty)?.let { genres ->
+                put("genres", buildJsonArray { genres.forEach { genre -> add(JsonPrimitive(genre)) } })
+            }
+            request.typeAliases.firstOrNull(String::isNotBlank)?.let { put("type", it) }
+            request.statusAliases.firstOrNull(String::isNotBlank)?.let { put("status", it) }
+            request.yearFrom?.let { put("year", it) }
+        }
+        if (body.isEmpty()) return null
+        return Base64.getEncoder().encodeToString(JSON.encodeToString(JsonObject.serializer(), body).encodeToByteArray())
     }
 
     suspend fun getById(slug: String): AnimeTitle {
@@ -215,5 +262,9 @@ internal class KickAssAnimeClient(
         const val SEARCH_BASE_URL = "https://kaa.lt"
         const val DEFAULT_LANGUAGE = "ja-JP"
         val JSON = Json { ignoreUnknownKeys = true }
+        val STATUS_OPTIONS = listOf(
+            SearchFilterOption("finished", "Finished Airing"),
+            SearchFilterOption("airing", "Currently Airing"),
+        )
     }
 }
