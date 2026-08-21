@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Updates repository/index.json for one just-built module and moves its
-release APK into artifacts/. The module must already have a matching entry
-in repository/index.json (keyed by packageName) -- this script updates an
-existing source, it does not register a brand-new one."""
+release APK into artifacts/. If no entry exists yet for the module's
+packageName (a brand-new source), one is auto-registered with a best-guess
+id/name derived from the module path -- review/fix the "name" field in a
+follow-up commit if the guess reads awkwardly."""
 
 import hashlib
 import json
@@ -58,13 +59,26 @@ def main() -> None:
         None,
     )
     if entry is None:
+        guessed_id = os.path.basename(module.rstrip("/"))
+        entry = {
+            "id": guessed_id,
+            "name": guessed_id.replace("-", " ").replace("_", " ").title().replace(" ", ""),
+            "packageName": application_id,
+            "version": version_name,
+            "versionCode": version_code,
+            "contractVersion": 1,
+            "apkUrl": "",
+            "sha256": "",
+            "sizeBytes": 0,
+        }
+        index["sources"].append(entry)
         print(
-            f"No repository/index.json entry for packageName '{application_id}'. "
-            "Add one manually the first time a source is published, then rebuilds "
-            "will update it automatically.",
+            f"No repository/index.json entry for packageName '{application_id}' -- "
+            f"auto-registered as id='{guessed_id}', name='{entry['name']}', "
+            "contractVersion=1. Double-check those (especially \"name\") in a follow-up "
+            "commit if the guess looks wrong.",
             file=sys.stderr,
         )
-        sys.exit(1)
 
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
     artifact_name = f"{entry['id']}-{version_name}.apk"

@@ -93,14 +93,24 @@ jobs:
         if: steps.changed.outputs.modules != ''
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          failed=()
           while IFS= read -r module; do
             [ -z "$module" ] && continue
-            python3 .github/scripts/update-index.py "$module"
+            if ! python3 .github/scripts/update-index.py "$module"; then
+              failed+=("$module")
+            fi
           done <<< "${{ steps.changed.outputs.modules }}"
+          # One module failing to update (e.g. its build didn't produce an APK) must not
+          # discard index/artifact updates already written for other modules in this run --
+          # report failures but let the commit step below publish whatever did succeed.
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "Failed to update index for: ${failed[*]}" >&2
+            exit 1
+          fi
 
       - name: Commit updated artifacts and index
-        if: steps.changed.outputs.modules != ''
+        if: always() && steps.changed.outputs.modules != ''
         shell: bash
         run: |
           set -euo pipefail
