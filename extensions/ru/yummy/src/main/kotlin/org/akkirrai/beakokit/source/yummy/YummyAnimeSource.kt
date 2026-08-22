@@ -46,9 +46,10 @@ class YummyAnimeSource(
         debugLogger = { message ->
             context.logger.log(SourceLogLevel.DEBUG, message, null)
         },
-        languageProvider = {
-            context.preferredLanguages.firstOrNull()?.tag ?: SourceLanguage.RUSSIAN.tag
-        },
+        // YummyAnime is a Russian-only source (see INFO below) -- always request Russian from
+        // its API regardless of the app's own display language, instead of following
+        // context.preferredLanguages and silently switching title text to English.
+        languageProvider = { SourceLanguage.RUSSIAN.tag },
     )
     private val playbackProvider = YummyPlaybackClient(
         client = context.httpClient,
