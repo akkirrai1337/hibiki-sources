@@ -5,12 +5,12 @@
       "id": "ani-liberty",
       "name": "AniLiberty",
       "packageName": "org.akkirrai.hibiki.source.aniliberty",
-      "version": "1.3",
-      "versionCode": 4,
+      "version": "1.4",
+      "versionCode": 5,
       "contractVersion": 1,
-      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-1.3.apk",
-      "sha256": "ff66725efba39faf4ca475442c5f9dc0bb4b4990100fa9d755f1459ed0ddbc68",
-      "sizeBytes": 3116201
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/ani-liberty-1.4.apk",
+      "sha256": "6cdbd463c91d006497dabc49e5b9484daeff19dac427aa93bdc88ad97a24b7af",
+      "sizeBytes": 3049321
     },
     {
       "id": "yummy-anime",
@@ -27,34 +27,34 @@
       "id": "animego",
       "name": "AnimeGo",
       "packageName": "org.akkirrai.hibiki.source.animego",
-      "version": "1.0",
-      "versionCode": 1,
+      "version": "1.1",
+      "versionCode": 2,
       "contractVersion": 1,
-      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-1.0.apk",
-      "sha256": "e3a2a0afcecc77cf553becaf8223c38d0c31602eea2905231e79dae5048656c6",
-      "sizeBytes": 3105473
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animego-1.1.apk",
+      "sha256": "e93ede92db309216d7583fd27853fcf483b454c714bc0ed2091b9be11358f6fa",
+      "sizeBytes": 3038693
     },
     {
       "id": "animepahe",
       "name": "AnimePahe",
       "packageName": "org.akkirrai.hibiki.source.animepahe",
-      "version": "1.0",
-      "versionCode": 1,
+      "version": "1.1",
+      "versionCode": 2,
       "contractVersion": 1,
-      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-1.0.apk",
-      "sha256": "f63d5fabe935dc297800c299664acc5a321086185b1f86d2796eef2ac08a277d",
-      "sizeBytes": 3100433
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/animepahe-1.1.apk",
+      "sha256": "83f7740786dbbf121d322f9801072a25e872a36fca9d0116daccd1079b0cef5d",
+      "sizeBytes": 3033697
     },
     {
       "id": "kickassanime",
       "name": "KickAssAnime",
       "packageName": "org.akkirrai.hibiki.source.kickassanime",
-      "version": "1.4",
-      "versionCode": 6,
+      "version": "1.5",
+      "versionCode": 7,
       "contractVersion": 1,
-      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/kickassanime-1.4.apk",
-      "sha256": "1dd23998ed462589546052a3863ab2410e689244dec974e10792025ab6049a01",
-      "sizeBytes": 3099317
+      "apkUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/artifacts/kickassanime-1.5.apk",
+      "sha256": "c650a41d79180271b3f1d4b5c0d459e36b7db6efd89814dca31bd9ce2e7ff5ef",
+      "sizeBytes": 3031993
     }
   ]
 }
