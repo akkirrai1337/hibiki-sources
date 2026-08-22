@@ -10,7 +10,7 @@ ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref =
 ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-hibiki-parsers = { group = "org.akkirrai.hibiki", name = "parsers", version = "0.1.0" }
+hibiki-parsers = { group = "org.akkirrai.hibiki", name = "parsers", version = "0.2.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

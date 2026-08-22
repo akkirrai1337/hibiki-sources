@@ -9,21 +9,23 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.akkirrai.beakokit.api.SourceErrorKind
 import org.akkirrai.beakokit.api.SourceException
 import org.akkirrai.beakokit.api.SourceLogLevel
 import org.akkirrai.beakokit.api.SourceLogger
 import org.akkirrai.beakokit.http.bodyOrThrow
+import org.akkirrai.beakokit.json.array
+import org.akkirrai.beakokit.json.asObject
+import org.akkirrai.beakokit.json.int
+import org.akkirrai.beakokit.json.obj
+import org.akkirrai.beakokit.json.string
+import org.akkirrai.beakokit.json.strings
 import org.akkirrai.beakokit.model.AnimeSearchFilter
 import org.akkirrai.beakokit.model.AnimeSearchFilterCatalog
 import org.akkirrai.beakokit.model.AnimeSearchRequest
@@ -109,8 +111,8 @@ internal class KickAssAnimeClient(
     /** Reference option lists (genres/types/years) served by KickAssAnime for building search filters. */
     suspend fun getSearchFilterCatalog(): AnimeSearchFilterCatalog {
         val root = requestJson("$apiUrl/filters").asObject()
-        val genres = root?.array("genres").orEmpty().mapNotNull { it.jsonPrimitive.contentOrNull }
-        val types = root?.array("types").orEmpty().mapNotNull { it.jsonPrimitive.contentOrNull }
+        val genres = root?.strings("genres").orEmpty()
+        val types = root?.strings("types").orEmpty()
         return AnimeSearchFilterCatalog(
             sortOptions = listOf(SearchFilterOption("relevance", "Relevance")),
             typeOptions = types.map { SearchFilterOption(it, it.replace('_', ' ').uppercase()) },
@@ -158,9 +160,8 @@ internal class KickAssAnimeClient(
     /** Available dub/sub audio languages for a title, e.g. "ja-JP", "en-US". */
     suspend fun getLanguages(slug: String): List<String> = requestJson("$apiUrl/$slug/language")
         .asObject()
-        ?.array("result")
+        ?.strings("result")
         .orEmpty()
-        .mapNotNull { it.jsonPrimitive.contentOrNull }
         .ifEmpty { listOf(preferredLanguage) }
 
     suspend fun getEpisodes(slug: String, language: String): List<Episode> {
@@ -219,7 +220,7 @@ internal class KickAssAnimeClient(
     private fun toTitle(value: JsonObject): AnimeTitle? {
         val slug = value.string("slug") ?: return null
         val title = value.string("title") ?: value.string("title_en") ?: return null
-        val posterSlug = value["poster"].asObject()?.string("hq")
+        val posterSlug = value.obj("poster")?.string("hq")
         val status = value.string("status")
         return AnimeTitle(
             id = slug,
@@ -238,7 +239,7 @@ internal class KickAssAnimeClient(
                 else -> null
             },
             description = value.string("synopsis"),
-            genres = value["genres"].asArray().mapNotNull { it.jsonPrimitive.contentOrNull },
+            genres = value.strings("genres"),
             season = value.string("season").toSeason(),
         )
     }
@@ -254,20 +255,6 @@ internal class KickAssAnimeClient(
         contentType(ContentType.Application.Json)
         setBody(JSON.encodeToString(JsonObject.serializer(), body))
     }.bodyOrThrow(name)
-
-    private fun JsonElement?.asObject(): JsonObject? = this as? JsonObject
-
-    private fun JsonElement?.asArray(): List<JsonElement> = (this as? JsonArray).orEmpty()
-
-    private fun JsonObject.array(key: String): List<JsonElement>? = (get(key) as? JsonArray)
-
-    private fun JsonObject.string(key: String): String? = get(key)
-        ?.jsonPrimitive
-        ?.contentOrNull
-        ?.trim()
-        ?.takeIf(String::isNotBlank)
-
-    private fun JsonObject.int(key: String): Int? = get(key)?.jsonPrimitive?.intOrNull
 
     private fun String?.toSeason(): Int? = when (this?.lowercase()) {
         "winter" -> 1

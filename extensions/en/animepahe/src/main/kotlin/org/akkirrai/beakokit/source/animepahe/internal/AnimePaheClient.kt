@@ -8,14 +8,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import org.akkirrai.beakokit.api.ChallengeSessionProvider
 import org.akkirrai.beakokit.api.SourceErrorKind
 import org.akkirrai.beakokit.api.SourceException
+import org.akkirrai.beakokit.json.array
+import org.akkirrai.beakokit.json.bool
+import org.akkirrai.beakokit.json.double
+import org.akkirrai.beakokit.json.int
+import org.akkirrai.beakokit.json.string
 import org.akkirrai.beakokit.model.AnimeSearchRequest
 import org.akkirrai.beakokit.model.AnimeSearchSort
 import org.akkirrai.beakokit.model.AnimeReleaseStatus
@@ -239,9 +239,9 @@ internal class AnimePaheClient(
         val array = runCatching { JSON.parseToJsonElement(arrayText) as? JsonArray }.getOrNull() ?: return emptyList()
         return array.mapNotNull { element ->
             val item = element as? JsonObject ?: return@mapNotNull null
-            if (item.boolean("is_dub") != true && !item.hasDubMainServer()) return@mapNotNull null
+            if (item.bool("is_dub") != true && !item.hasDubMainServer()) return@mapNotNull null
             val session = item.string("md5_id") ?: return@mapNotNull null
-            val number = item.number("chapter_number") ?: return@mapNotNull null
+            val number = item.double("chapter_number") ?: return@mapNotNull null
             item.string("s_id")?.let { dubPlayerIds[session] = it }
             Episode(
                 id = "$titleSession/$session",
@@ -277,7 +277,7 @@ internal class AnimePaheClient(
 
     private fun episodeFromRelease(item: JsonObject, titleSession: String): Episode? {
         val session = item.string("session") ?: return null
-        val number = item.number("episode") ?: return null
+        val number = item.double("episode") ?: return null
         return Episode(id = "$titleSession/$session", number = number, title = item.string("title"))
     }
 
@@ -319,17 +319,11 @@ internal class AnimePaheClient(
         runCatching { JSON.parseToJsonElement(text) as? JsonObject }.getOrNull()
             ?: throw SourceException("AnimePahe returned invalid JSON", kind = SourceErrorKind.PARSE)
 
-    private fun JsonObject.string(name: String): String? = get(name)
-        ?.jsonPrimitive?.contentOrNull?.trim()?.takeIf(String::isNotBlank)
-    private fun JsonObject.int(name: String): Int? = get(name)?.jsonPrimitive?.intOrNull
-    private fun JsonObject.number(name: String): Double? = get(name)?.jsonPrimitive?.doubleOrNull
-    private fun JsonObject.boolean(name: String): Boolean? = get(name)?.jsonPrimitive?.booleanOrNull
     private fun JsonObject.hasDubMainServer(): Boolean {
         val servers = string("main_servers") ?: return false
         val root = runCatching { JSON.parseToJsonElement(servers) as? JsonObject }.getOrNull() ?: return false
         return root.array("dub").orEmpty().isNotEmpty()
     }
-    private fun JsonObject.array(name: String): JsonArray? = get(name) as? JsonArray
 
     private fun sessionId(id: String): String = id.trim().trim('/').substringBefore('/')
         .takeIf(SESSION_ID::matches)

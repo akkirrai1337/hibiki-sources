@@ -16,12 +16,15 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import org.akkirrai.beakokit.api.SourceErrorKind
 import org.akkirrai.beakokit.api.SourceException
 import org.akkirrai.beakokit.http.pathOf
+import org.akkirrai.beakokit.json.double
+import org.akkirrai.beakokit.json.int
+import org.akkirrai.beakokit.json.obj
+import org.akkirrai.beakokit.json.string
+import org.akkirrai.beakokit.json.strings
 import org.akkirrai.beakokit.model.AnimeSearchFilterCatalog
 import org.akkirrai.beakokit.model.AnimeSearchFilter
 import org.akkirrai.beakokit.model.AnimeSearchRequest
@@ -252,21 +255,6 @@ internal class AnimeGoCatalogClient(
         return labelElement.nextElementSibling()?.text()?.trim()?.takeIf(String::isNotBlank)
     }
 
-    private fun JsonObject.string(name: String): String? = get(name)
-        ?.jsonPrimitive
-        ?.contentOrNull
-        ?.trim()
-        ?.takeIf(String::isNotBlank)
-
-    private fun JsonObject.int(name: String): Int? = get(name)?.jsonPrimitive?.intOrNull
-
-    private fun JsonObject.double(name: String): Double? = get(name)?.jsonPrimitive?.doubleOrNull
-
-    private fun JsonObject.obj(name: String): JsonObject? = get(name) as? JsonObject
-
-    private fun JsonObject.strings(name: String): List<String> = (get(name) as? JsonArray)
-        ?.mapNotNull { it.jsonPrimitive.contentOrNull?.trim()?.takeIf(String::isNotBlank) }
-        .orEmpty()
 
     private fun Document.filterOptions(namePrefix: String): List<SearchFilterOption> =
         select("input[name^=$namePrefix][value]")

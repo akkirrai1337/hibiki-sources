@@ -6,10 +6,11 @@ import io.ktor.client.request.parameter
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
+import org.akkirrai.beakokit.json.asArray
+import org.akkirrai.beakokit.json.asObject
+import org.akkirrai.beakokit.json.bool
+import org.akkirrai.beakokit.json.int
+import org.akkirrai.beakokit.json.string
 import org.akkirrai.beakokit.api.SourceException
 import org.akkirrai.beakokit.model.AnimeSearchFilterCatalog
 import org.akkirrai.beakokit.model.AnimeSearchFilter
@@ -181,20 +182,6 @@ internal class AniLibertyCatalogClient(
         is JsonObject -> this["data"].asObject() ?: this
         else -> null
     }
-
-    private fun JsonElement?.asArray(): List<JsonElement> = (this as? JsonArray).orEmpty()
-
-    private fun JsonElement?.asObject(): JsonObject? = this as? JsonObject
-
-    private fun JsonObject.string(key: String): String? = get(key)
-        ?.jsonPrimitive
-        ?.contentOrNull
-        ?.trim()
-        ?.takeIf(String::isNotBlank)
-
-    private fun JsonObject.int(key: String): Int? = get(key)?.jsonPrimitive?.intOrNull
-
-    private fun JsonObject.bool(key: String): Boolean? = get(key)?.jsonPrimitive?.booleanOrNull
 
     private fun String?.toAlternativeNames(): List<String> = orEmpty()
         .split(',', ';', '\n')
