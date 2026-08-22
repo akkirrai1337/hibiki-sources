@@ -34,8 +34,8 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "hibiki-sources"
-include(":extensions:aniliberty")
-include(":extensions:yummy")
-include(":extensions:animego")
-include(":extensions:animepahe")
-include(":extensions:kickassanime")
+include(":extensions:ru:aniliberty")
+include(":extensions:ru:yummy")
+include(":extensions:ru:animego")
+include(":extensions:en:animepahe")
+include(":extensions:en:kickassanime")

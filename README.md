@@ -16,14 +16,17 @@ tooling) has been removed.
 ## Layout
 
 ```text
-extensions/<name>/   one Gradle module per source extension (e.g. extensions/aniliberty)
-repository/          hand-authored repository/index.json served to the app
-artifacts/           built, CI-published release APKs referenced by the index
+extensions/<lang>/<name>/   one Gradle module per source extension, grouped by the
+                             source's primary language (e.g. extensions/ru/aniliberty,
+                             extensions/en/kickassanime)
+repository/                 hand-authored repository/index.json served to the app
+artifacts/                  built, CI-published release APKs referenced by the index
 ```
 
-Adding a new source: create `extensions/<name>/` with its own
+Adding a new source: create `extensions/<lang>/<name>/` with its own
 `build.gradle.kts` (copy an existing module as a template), add
-`include(":extensions:<name>")` to `settings.gradle.kts`, and add its entry
-to `repository/index.json`. CI discovers changed modules by walking each
-changed file's path up to its nearest `build.gradle.kts` -- no workflow
-changes needed per source.
+`include(":extensions:<lang>:<name>")` to `settings.gradle.kts`, and add its
+entry to `repository/index.json`. CI discovers changed modules by walking
+each changed file's path up to its nearest `build.gradle.kts` regardless of
+nesting depth -- no workflow changes needed per source or per language
+group.
