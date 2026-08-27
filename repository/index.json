@@ -14,7 +14,7 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/ani-liberty.json"
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/ani-liberty.manifest.json"
     },
     {
       "id": "animego",
@@ -29,7 +29,7 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animego.json"
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animego.manifest.json"
     },
     {
       "id": "animepahe",
@@ -44,7 +44,7 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animepahe.json"
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animepahe.manifest.json"
     },
     {
       "id": "animevost",
@@ -59,7 +59,7 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animevost.json"
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animevost.manifest.json"
     },
     {
       "id": "yummy-anime",
@@ -76,7 +76,7 @@
         "RELATED_TITLES",
         "SIMILAR_TITLES"
       ],
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/yummy-anime.json"
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/yummy-anime.manifest.json"
     }
   ]
 }

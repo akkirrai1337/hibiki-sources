@@ -1,0 +1,32 @@
+{
+    "id": "yummy-anime",
+    "name": "YummyAnime",
+    "version": "1.0.0",
+    "description": "Russian-language catalog from api.yani.tv with embed-based playback across multiple dubbing studios.",
+    "author": "Hibiki",
+    "website": "https://ru.yummyani.me",
+    "lang": "ru",
+    "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK",
+        "RELATED_TITLES",
+        "SIMILAR_TITLES"
+    ],
+    "supportedSorts": [
+        "RELEVANCE",
+        "RATING",
+        "TITLE",
+        "YEAR",
+        "VOTES",
+        "VIEWS",
+        "COMMENTS"
+    ],
+    "supportedFilters": [
+        "TYPE",
+        "STATUS",
+        "INCLUDED_GENRES",
+        "EXCLUDED_GENRES",
+        "YEAR_RANGE"
+    ],
+    "fallbackSort": "RELEVANCE"
+}

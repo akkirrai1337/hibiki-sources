@@ -1,0 +1,25 @@
+{
+    "id": "ani-liberty",
+    "name": "AniLiberty",
+    "version": "1.0.0",
+    "description": "Russian-language catalog from anilibria.top with direct HLS playback.",
+    "author": "Hibiki",
+    "website": "https://anilibria.top",
+    "lang": "ru",
+    "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+    ],
+    "supportedSorts": [
+        "RELEVANCE",
+        "RATING",
+        "YEAR"
+    ],
+    "supportedFilters": [
+        "TYPE",
+        "STATUS",
+        "INCLUDED_GENRES",
+        "YEAR_RANGE"
+    ],
+    "fallbackSort": "RELEVANCE"
+}

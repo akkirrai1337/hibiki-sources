@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
-"""Regenerates repository/index.json from extensions/*.json.
+"""Regenerates repository/index.json from extensions/*.manifest.json + extensions/*.js pairs.
 
-Every field in the index is derived entirely from the extension manifests, so there is no manual
-seed step - a brand-new extensions/<id>.json is picked up automatically the next time this runs.
-The index deliberately omits `payload` (Hibiki fetches the full extensions/<id>.json for that);
-it only carries what a marketplace listing UI needs plus a `manifestUrl` pointing at the real file.
+Each extension is two files, not one: `<id>.manifest.json` (metadata only - no JS) and `<id>.js`
+(the actual payload, plain readable JavaScript). They're kept separate specifically so the JS is
+never embedded as an escaped one-line JSON string - a manifest with the payload inlined is
+unreadable/undiffable in a text editor or on GitHub. Hibiki fetches both when installing: the
+manifest, then `<id>.js` (same URL with `.manifest.json` swapped for `.js` - see
+ExtensionMarketplaceClient's `payloadUrlFor` on the app side), and merges them into one on-device
+file at install time. That merge point is the only place a full single-file manifest+payload ever
+exists.
+
+Every field in the index is derived entirely from the manifests, so there is no manual seed step -
+a brand-new extensions/<id>.manifest.json + <id>.js pair is picked up automatically next run.
 
 Usage: python scripts/build_index.py [--check]
-  --check   validate every extensions/*.json manifest and exit non-zero on the first problem,
-            without writing repository/index.json. Used by CI on pull requests, where the index
-            file isn't expected to be regenerated yet (that happens on push to main instead).
+  --check   validate every extensions/*.manifest.json (and its sibling .js) and exit non-zero on
+            the first problem, without writing repository/index.json. Used by CI on pull requests,
+            where the index file isn't expected to be regenerated yet (that happens on push to
+            main instead).
 """
 from __future__ import annotations
 
@@ -25,8 +33,9 @@ RAW_BASE_URL = "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/ma
 
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
-REQUIRED_FIELDS = ["id", "name", "version", "lang", "payload", "capabilities"]
+REQUIRED_FIELDS = ["id", "name", "version", "lang", "capabilities"]
 REQUIRED_CAPABILITIES = {"LATEST_RELEASES", "PLAYBACK"}
+MANIFEST_SUFFIX = ".manifest.json"
 
 
 class ManifestError(ValueError):
@@ -34,17 +43,22 @@ class ManifestError(ValueError):
 
 
 def load_manifest(path: Path) -> dict:
+    stem = path.name.removesuffix(MANIFEST_SUFFIX)
     try:
         manifest = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         raise ManifestError(f"{path.name}: invalid JSON ({error})") from error
 
+    if manifest.get("payload"):
+        raise ManifestError(
+            f"{path.name}: must not embed an inline 'payload' - put the JS in the sibling {stem}.js instead"
+        )
     for field in REQUIRED_FIELDS:
         if not manifest.get(field):
             raise ManifestError(f"{path.name}: missing required field '{field}'")
 
-    if manifest["id"] != path.stem:
-        raise ManifestError(f"{path.name}: manifest id '{manifest['id']}' must match the filename")
+    if manifest["id"] != stem:
+        raise ManifestError(f"{path.name}: manifest id '{manifest['id']}' must match the filename ({stem})")
     if not ID_PATTERN.match(manifest["id"]):
         raise ManifestError(f"{path.name}: id must be a lowercase slug")
     if not SEMVER_PATTERN.match(manifest["version"]):
@@ -55,13 +69,20 @@ def load_manifest(path: Path) -> dict:
             f"{path.name}: capabilities must include {sorted(REQUIRED_CAPABILITIES)} "
             "(current ScriptedAnimeSource requires both on every extension)"
         )
+
+    payload_path = path.with_name(f"{stem}.js")
+    if not payload_path.is_file():
+        raise ManifestError(f"{path.name}: missing sibling payload file {payload_path.name}")
+    if not payload_path.read_text(encoding="utf-8").strip():
+        raise ManifestError(f"{payload_path.name}: payload must not be blank")
+
     return manifest
 
 
 def build_index() -> dict:
     entries = []
     errors: list[str] = []
-    for path in sorted(EXTENSIONS_DIR.glob("*.json")):
+    for path in sorted(EXTENSIONS_DIR.glob(f"*{MANIFEST_SUFFIX}")):
         try:
             manifest = load_manifest(path)
         except ManifestError as error:

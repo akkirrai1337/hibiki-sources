@@ -1,0 +1,16 @@
+{
+    "id": "animevost",
+    "name": "AnimeVost",
+    "version": "1.0.0",
+    "description": "AnimeVost HTML catalog with its public playlist endpoint for direct MP4 playback.",
+    "author": "Hibiki",
+    "website": "https://animevost.org",
+    "lang": "ru",
+    "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+    ],
+    "cleartextPlaybackHosts": [
+        "video.animetop.info"
+    ]
+}
