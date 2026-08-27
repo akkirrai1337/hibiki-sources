@@ -68,7 +68,7 @@
       "description": "Russian-language catalog from api.yani.tv with embed-based playback across multiple dubbing studios.",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
-      "iconUrl": "https://ru.yummyani.me/favicon.ico",
+      "iconUrl": "https://yummyani.me/favicon.ico",
       "lang": "ru",
       "capabilities": [
         "LATEST_RELEASES",
