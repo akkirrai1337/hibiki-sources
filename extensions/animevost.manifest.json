@@ -5,6 +5,7 @@
     "description": "AnimeVost HTML catalog with its public playlist endpoint for direct MP4 playback.",
     "author": "Hibiki",
     "website": "https://animevost.org",
+    "iconUrl": "https://animevost.org/favicon.ico",
     "lang": "ru",
     "capabilities": [
         "LATEST_RELEASES",
