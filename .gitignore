@@ -1,8 +1,0 @@
-# Kotlin/Gradle build output
-.gradle/
-**/build/
-local.properties
-*.iml
-.idea/
-
-.github/scripts/__pycache__
