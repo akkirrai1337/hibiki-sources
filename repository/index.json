@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "extensions": [
+    {
+      "id": "animevost",
+      "name": "AnimeVost",
+      "version": "1.0.0",
+      "description": "AnimeVost HTML catalog with its public playlist endpoint for direct MP4 playback.",
+      "author": "Hibiki",
+      "website": "https://animevost.org",
+      "iconUrl": null,
+      "lang": "ru",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animevost.json"
+    }
+  ]
+}
