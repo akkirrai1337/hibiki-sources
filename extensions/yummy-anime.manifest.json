@@ -1,7 +1,7 @@
 {
     "id": "yummy-anime",
     "name": "YummyAnime",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Russian-language catalog from api.yani.tv with embed-based playback across multiple dubbing studios.",
     "author": "Hibiki",
     "website": "https://ru.yummyani.me",

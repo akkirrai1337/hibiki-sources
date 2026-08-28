@@ -4,7 +4,7 @@
     {
       "id": "ani-liberty",
       "name": "AniLiberty",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "description": "Russian-language catalog from anilibria.top with direct HLS playback.",
       "author": "Hibiki",
       "website": "https://anilibria.top",
@@ -49,7 +49,7 @@
     {
       "id": "animevost",
       "name": "AnimeVost",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "description": "AnimeVost HTML catalog with its public playlist endpoint for direct MP4 playback.",
       "author": "Hibiki",
       "website": "https://animevost.org",
@@ -64,7 +64,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "description": "Russian-language catalog from api.yani.tv with embed-based playback across multiple dubbing studios.",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
