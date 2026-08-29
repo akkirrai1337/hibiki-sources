@@ -1,8 +1,7 @@
 {
     "id": "animevost",
     "name": "AnimeVost",
-    "version": "1.0.1",
-    "description": "AnimeVost HTML catalog with its public playlist endpoint for direct MP4 playback.",
+    "version": "1.0.2",
     "author": "Hibiki",
     "website": "https://animevost.org",
     "iconUrl": "https://animevost.org/favicon.ico",

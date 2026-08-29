@@ -2,7 +2,6 @@
     "id": "ani-liberty",
     "name": "AniLiberty",
     "version": "1.0.1",
-    "description": "Russian-language catalog from anilibria.top with direct HLS playback.",
     "author": "Hibiki",
     "website": "https://anilibria.top",
     "iconUrl": "https://anilibria.top/favicon.ico",

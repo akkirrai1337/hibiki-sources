@@ -93,7 +93,6 @@ def build_index() -> dict:
                 "id": manifest["id"],
                 "name": manifest["name"],
                 "version": manifest["version"],
-                "description": manifest.get("description"),
                 "author": manifest.get("author"),
                 "website": manifest.get("website"),
                 "iconUrl": manifest.get("iconUrl"),

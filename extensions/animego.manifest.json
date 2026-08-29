@@ -2,7 +2,6 @@
     "id": "animego",
     "name": "AnimeGo",
     "version": "1.0.0",
-    "description": "Russian-language HTML catalog from animego.me with embed-based playback.",
     "author": "Hibiki",
     "website": "https://animego.me",
     "iconUrl": "https://animego.me/favicon.ico",

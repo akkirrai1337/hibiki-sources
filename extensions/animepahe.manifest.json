@@ -2,7 +2,6 @@
     "id": "animepahe",
     "name": "AnimePahe",
     "version": "1.0.0",
-    "description": "English-language catalog from animepahetv.to. Requires the host to provide a Cloudflare-challenge browser session.",
     "author": "Hibiki",
     "website": "https://animepahetv.to",
     "iconUrl": "https://animepahetv.to/favicon.ico",

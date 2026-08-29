@@ -31,7 +31,6 @@ for a source extension anymore.
   "id": "example-source",
   "name": "Example Source",
   "version": "1.0.0",
-  "description": "One-line description of the site this scrapes.",
   "author": "Your name",
   "website": "https://example.com",
   "iconUrl": null,
