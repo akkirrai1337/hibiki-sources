@@ -170,6 +170,14 @@ function parseCards(html) {
             year: isNaN(year) ? null : year,
             type: typeEl !== null ? S(typeEl.text()).trim() : null,
             episodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
+            // AnimePahe's "Episode" field is the announced total, published upfront and stable
+            // even while airing - not a running "aired so far" tally the way some other sources
+            // report it. There's no cheap "aired so far" count on this page (only the separate,
+            // per-episode release-list endpoint has that), so this is reused as-is for
+            // availableEpisodeCount too. Without it, the host only trusts episodeCount once
+            // releaseStatus is RELEASED, so every ongoing AnimePahe title showed "episodes
+            // unknown" even when the total was right there on the page.
+            availableEpisodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
             posterUrl: imageUrl(item.selectFirst(".anime-poster img")),
             status: statusEl !== null ? S(statusEl.text()).trim() : null,
             ratings: isNaN(score) ? [] : [{ source: "AnimePahe", value: score, votes: null }],
@@ -245,6 +253,7 @@ function parseDetails(id, html) {
         year: yearMatch !== null ? parseInt(yearMatch[0], 10) : null,
         type: fieldValue(info, "Type"),
         episodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
+        availableEpisodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
         posterUrl: posterUrl,
         status: fieldValue(info, "Status"),
         description: description,
