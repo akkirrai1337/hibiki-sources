@@ -4,6 +4,12 @@
 // response is 403 or carries a `cf-mitigated: challenge` header, ask the host for a session via
 // the `challenge()` global and retry with its cookies/User-Agent; if still challenged, force a
 // fresh session and retry once more. Ported from the compiled-in AnimePaheClient/AnimePaheHttpClient.
+//
+// The session earned this way is cached in `cachedSession` (module scope survives across calls
+// for the life of this Provider instance - same trick `summaries` below uses). Without it, every
+// single fetch - including every per-card description lookup as the catalog scrolls - would
+// replay the doomed-to-fail bare attempt before falling back to the cookie it already knows
+// about, paying for one guaranteed wasted round trip on every request instead of just the first.
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
@@ -15,6 +21,7 @@ var BROWSER_USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KH
 
 var summaries = {};
 var dubPlayerIds = {};
+var cachedSession = null;
 
 function isBrowserChallenge(response) {
     return response.status === 403 || String((response.headers && response.headers["cf-mitigated"]) || "").toLowerCase() === "challenge";
@@ -31,14 +38,24 @@ function sendChallenged(url, options, session) {
 }
 
 function fetchChallenged(url, options) {
+    if (cachedSession !== null) {
+        var cached = sendChallenged(url, options, cachedSession);
+        if (!isBrowserChallenge(cached)) return cached;
+        cachedSession = null;
+    }
+
     var first = sendChallenged(url, options, null);
     if (!isBrowserChallenge(first)) return first;
 
     var session = challenge(url, [CLOUDFLARE_COOKIE], false);
     var second = sendChallenged(url, options, session);
-    if (!isBrowserChallenge(second)) return second;
+    if (!isBrowserChallenge(second)) {
+        cachedSession = session;
+        return second;
+    }
 
     var refreshed = challenge(url, [CLOUDFLARE_COOKIE], true);
+    cachedSession = refreshed;
     return sendChallenged(url, options, refreshed);
 }
 
