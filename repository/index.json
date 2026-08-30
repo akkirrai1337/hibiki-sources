@@ -163,6 +163,19 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/sibnet.manifest.json"
     },
     {
+      "id": "vk",
+      "name": "VK player resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/vk.manifest.json"
+    },
+    {
       "id": "kickassanime",
       "name": "KickAssAnime",
       "version": "1.0.3",
