@@ -1,7 +1,7 @@
 {
     "id": "kickassanime",
     "name": "KickAssAnime",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "description": "English-language catalog from kaa.lt with per-locale dub/sub playback groups.",
     "author": "Hibiki",
     "website": "https://kaa.lt",
