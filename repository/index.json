@@ -58,6 +58,20 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animevost.manifest.json"
     },
     {
+      "id": "kickassanime",
+      "name": "KickAssAnime",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://kaa.lt",
+      "iconUrl": "https://kaa.lt/favicon.ico",
+      "lang": "en",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/kickassanime.manifest.json"
+    },
+    {
       "id": "yummy-anime",
       "name": "YummyAnime",
       "version": "1.0.2",
