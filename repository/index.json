@@ -138,6 +138,19 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/cvh.manifest.json"
     },
     {
+      "id": "kickassanime-player",
+      "name": "KickAssAnime browser resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/kickassanime-player.manifest.json"
+    },
+    {
       "id": "kodik",
       "name": "Kodik player resolver",
       "version": "1.0.0",
@@ -179,7 +192,7 @@
     {
       "id": "kickassanime",
       "name": "KickAssAnime",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Hibiki",
       "website": "https://kaa.lt",
       "iconUrl": "https://kaa.lt/favicon.ico",
@@ -188,7 +201,9 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
-      "resolverDependencies": [],
+      "resolverDependencies": [
+        "kickassanime-player"
+      ],
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/kickassanime.manifest.json"
     },
