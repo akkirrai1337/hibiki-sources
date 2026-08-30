@@ -35,6 +35,11 @@ function statusOf(value) {
     }
 }
 
+function hostOf(url) {
+    var match = /^https?:\/\/([^\/]+)/.exec(url);
+    return match !== null ? match[1] : null;
+}
+
 function posterUrl(image) {
     if (!image || !image.hq) return null;
     return BASE_URL + "/image/poster/" + image.hq + ".jpg";
@@ -60,7 +65,11 @@ function toAnimeTitle(obj) {
         id: obj.slug,
         englishName: englishName,
         originalName: originalName,
-        japaneseName: obj.title_original || null,
+        // title_original is dropped: kaa.lt's own API serves it mojibake-corrupted (verified via a
+        // plain curl against the live API, not something this extension introduces) - unpaired
+        // UTF-16 surrogates in the JSON make it unrecoverable without knowing their original
+        // encoding pipeline, so showing it garbled would be worse than not showing it at all.
+        japaneseName: null,
         year: obj.year !== undefined ? obj.year : null,
         type: obj.type || null,
         episodeCount: obj.episode_count || null,
@@ -150,7 +159,9 @@ var Provider = {
                 return {
                     id: "ep-" + item.episode_string + "-" + item.slug,
                     number: parseFloat(item.episode_string) || 0,
-                    title: item.title || null,
+                    // Same mojibake-corruption problem as japaneseName above, but for per-episode
+                    // native-language titles - dropped rather than shown garbled.
+                    title: null,
                 };
             });
             episodes.sort(function (a, b) { return a.number - b.number; });
@@ -180,9 +191,16 @@ var Provider = {
             var manifestUrl = match[1].replace(/^(https?:)\/+/, "$1//");
             if (manifestUrl.indexOf(".m3u8") < 0) continue; // DASH-only servers aren't playable (no DASH PlayerType)
 
+            // The manifest/segment CDN (hls.krussdomi.com) is a different host than kaa.lt and
+            // hotlink-protects by Origin, not Referer - matches the original Kotlin extractor's
+            // getVideoHeaders, which explicitly strips Referer and sets only Origin to the video
+            // host. Sending kaa.lt as Referer here (as an earlier version of this port did) made
+            // segment requests get silently rejected, so playback loaded a duration but never
+            // advanced past 00:00.
+            var manifestHost = hostOf(manifestUrl);
             links.push({
                 url: manifestUrl, type: "DIRECT_HLS", quality: null,
-                headers: { "Referer": BASE_URL + "/" },
+                headers: manifestHost !== null ? { "Origin": "https://" + manifestHost } : {},
                 playerName: server.name || null, translation: null, segments: [], videoId: null,
             });
         }
