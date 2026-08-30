@@ -1,12 +1,12 @@
 {
     "id": "yummy-anime",
     "name": "YummyAnime",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "author": "Hibiki",
     "website": "https://ru.yummyani.me",
     "iconUrl": "https://yummyani.me/favicon.ico",
     "lang": "ru",
-    "resolverDependencies": ["aniboom", "alloha", "sibnet", "aksor", "cvh"],
+    "resolverDependencies": ["aniboom", "alloha", "sibnet", "aksor", "cvh", "kodik", "vk"],
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK",

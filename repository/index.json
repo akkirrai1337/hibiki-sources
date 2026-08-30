@@ -20,7 +20,7 @@
     {
       "id": "animego",
       "name": "AnimeGo",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Hibiki",
       "website": "https://animego.me",
       "iconUrl": "https://animego.me/favicon.ico",
@@ -32,7 +32,8 @@
       "resolverDependencies": [
         "aniboom",
         "sibnet",
-        "aksor"
+        "aksor",
+        "kodik"
       ],
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animego.manifest.json"
@@ -194,7 +195,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",
@@ -210,7 +211,9 @@
         "alloha",
         "sibnet",
         "aksor",
-        "cvh"
+        "cvh",
+        "kodik",
+        "vk"
       ],
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/yummy-anime.manifest.json"
