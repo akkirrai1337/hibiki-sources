@@ -140,7 +140,7 @@
     {
       "id": "kickassanime-player",
       "name": "KickAssAnime browser resolver",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": null,
       "website": null,
       "iconUrl": null,
@@ -192,7 +192,7 @@
     {
       "id": "kickassanime",
       "name": "KickAssAnime",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "author": "Hibiki",
       "website": "https://kaa.lt",
       "iconUrl": "https://kaa.lt/favicon.ico",
