@@ -223,6 +223,16 @@ function parseDetails(id, html) {
     var episodeField = fieldValue(info, "Episode");
     var episodeMatch = episodeField ? /\d+/.exec(episodeField) : null;
 
+    // "Episode" above is the announced total - published upfront but left blank by AnimePahe
+    // for titles that haven't had a total confirmed yet (freshly-airing shows in particular).
+    // The details page separately renders a "Episodes (N)" counter next to the episode list
+    // itself, reflecting how many episodes have actually been released so far - always present,
+    // even when the announced total isn't. Prefer it for availableEpisodeCount so those titles
+    // show a real count instead of "episodes unknown", while episodeCount (the announced total)
+    // is left untouched.
+    var episodeCountEl = document.selectFirst(".episode-count");
+    var availableMatch = episodeCountEl !== null ? /\((\d+)\)/.exec(S(episodeCountEl.text())) : null;
+
     var japaneseHeading = document.selectFirst("h2.japanese");
     var genreLinks = document.select(".anime-genre a");
     var genres = [];
@@ -253,7 +263,9 @@ function parseDetails(id, html) {
         year: yearMatch !== null ? parseInt(yearMatch[0], 10) : null,
         type: fieldValue(info, "Type"),
         episodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
-        availableEpisodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
+        availableEpisodeCount: availableMatch !== null
+            ? parseInt(availableMatch[1], 10)
+            : (episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null),
         posterUrl: posterUrl,
         status: fieldValue(info, "Status"),
         description: description,
