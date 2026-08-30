@@ -1,11 +1,12 @@
 {
     "id": "animego",
     "name": "AnimeGo",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "author": "Hibiki",
     "website": "https://animego.me",
     "iconUrl": "https://animego.me/favicon.ico",
     "lang": "ru",
+    "resolverDependencies": ["aniboom", "sibnet", "aksor"],
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK"

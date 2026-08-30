@@ -13,12 +13,14 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
+      "resolverDependencies": [],
+      "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/ani-liberty.manifest.json"
     },
     {
       "id": "animego",
       "name": "AnimeGo",
-      "version": "1.0.0",
+      "version": "1.0.3",
       "author": "Hibiki",
       "website": "https://animego.me",
       "iconUrl": "https://animego.me/favicon.ico",
@@ -27,12 +29,18 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
+      "resolverDependencies": [
+        "aniboom",
+        "sibnet",
+        "aksor"
+      ],
+      "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animego.manifest.json"
     },
     {
       "id": "animepahe",
       "name": "AnimePahe",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "Hibiki",
       "website": "https://animepahetv.to",
       "iconUrl": "https://animepahetv.to/favicon.ico",
@@ -41,6 +49,10 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
+      "resolverDependencies": [
+        "animepahe-player"
+      ],
+      "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animepahe.manifest.json"
     },
     {
@@ -55,7 +67,100 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
+      "resolverDependencies": [],
+      "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animevost.manifest.json"
+    },
+    {
+      "id": "aksor",
+      "name": "Aksor player resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/aksor.manifest.json"
+    },
+    {
+      "id": "alloha",
+      "name": "Alloha browser resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/alloha.manifest.json"
+    },
+    {
+      "id": "aniboom",
+      "name": "AniBoom player resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/aniboom.manifest.json"
+    },
+    {
+      "id": "animepahe-player",
+      "name": "AnimePahe browser resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/animepahe-player.manifest.json"
+    },
+    {
+      "id": "cvh",
+      "name": "CVH player resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/cvh.manifest.json"
+    },
+    {
+      "id": "kodik",
+      "name": "Kodik player resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/kodik.manifest.json"
+    },
+    {
+      "id": "sibnet",
+      "name": "Sibnet player resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/sibnet.manifest.json"
     },
     {
       "id": "kickassanime",
@@ -69,12 +174,14 @@
         "LATEST_RELEASES",
         "PLAYBACK"
       ],
+      "resolverDependencies": [],
+      "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/kickassanime.manifest.json"
     },
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.0.2",
+      "version": "1.0.6",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",
@@ -85,6 +192,14 @@
         "RELATED_TITLES",
         "SIMILAR_TITLES"
       ],
+      "resolverDependencies": [
+        "aniboom",
+        "alloha",
+        "sibnet",
+        "aksor",
+        "cvh"
+      ],
+      "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/yummy-anime.manifest.json"
     }
   ]

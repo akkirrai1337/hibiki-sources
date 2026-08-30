@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerates repository/index.json from extensions/*.manifest.json + extensions/*.js pairs.
+"""Regenerates repository/index.json from extension source and resolver manifests.
 
 Each extension is two files, not one: `<id>.manifest.json` (metadata only - no JS) and `<id>.js`
 (the actual payload, plain readable JavaScript). They're kept separate specifically so the JS is
@@ -33,7 +33,7 @@ RAW_BASE_URL = "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/ma
 
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
-REQUIRED_FIELDS = ["id", "name", "version", "lang", "capabilities"]
+REQUIRED_FIELDS = ["id", "name", "version"]
 REQUIRED_CAPABILITIES = {"LATEST_RELEASES", "PLAYBACK"}
 MANIFEST_SUFFIX = ".manifest.json"
 
@@ -63,12 +63,19 @@ def load_manifest(path: Path) -> dict:
         raise ManifestError(f"{path.name}: id must be a lowercase slug")
     if not SEMVER_PATTERN.match(manifest["version"]):
         raise ManifestError(f"{path.name}: version must be basic semver (x.y.z)")
-    capabilities = set(manifest["capabilities"])
-    if not REQUIRED_CAPABILITIES.issubset(capabilities):
-        raise ManifestError(
-            f"{path.name}: capabilities must include {sorted(REQUIRED_CAPABILITIES)} "
-            "(current ScriptedAnimeSource requires both on every extension)"
-        )
+    extension_type = manifest.get("type", "source")
+    if extension_type == "source":
+        for field in ("lang", "capabilities"):
+            if not manifest.get(field):
+                raise ManifestError(f"{path.name}: source is missing required field '{field}'")
+        capabilities = set(manifest["capabilities"])
+        if not REQUIRED_CAPABILITIES.issubset(capabilities):
+            raise ManifestError(f"{path.name}: source capabilities must include {sorted(REQUIRED_CAPABILITIES)}")
+    elif extension_type == "player-resolver":
+        if not manifest.get("hosts"):
+            raise ManifestError(f"{path.name}: resolver must declare hosts")
+    else:
+        raise ManifestError(f"{path.name}: unsupported extension type '{extension_type}'")
 
     payload_path = path.with_name(f"{stem}.js")
     if not payload_path.is_file():
@@ -82,7 +89,7 @@ def load_manifest(path: Path) -> dict:
 def build_index() -> dict:
     entries = []
     errors: list[str] = []
-    for path in sorted(EXTENSIONS_DIR.glob(f"*{MANIFEST_SUFFIX}")):
+    for path in sorted(EXTENSIONS_DIR.rglob(f"*{MANIFEST_SUFFIX}")):
         try:
             manifest = load_manifest(path)
         except ManifestError as error:
@@ -96,9 +103,11 @@ def build_index() -> dict:
                 "author": manifest.get("author"),
                 "website": manifest.get("website"),
                 "iconUrl": manifest.get("iconUrl"),
-                "lang": manifest["lang"],
-                "capabilities": manifest["capabilities"],
-                "manifestUrl": f"{RAW_BASE_URL}/{path.name}",
+                "lang": manifest.get("lang", ""),
+                "capabilities": manifest.get("capabilities", []),
+                "resolverDependencies": manifest.get("resolverDependencies", []),
+                "type": manifest.get("type", "source"),
+                "manifestUrl": f"{RAW_BASE_URL}/{path.relative_to(EXTENSIONS_DIR).as_posix()}",
             }
         )
 

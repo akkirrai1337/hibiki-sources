@@ -1,0 +1,7 @@
+{
+  "id": "aniboom",
+  "name": "AniBoom player resolver",
+  "version": "1.0.0",
+  "type": "player-resolver",
+  "hosts": ["aniboom.one"]
+}

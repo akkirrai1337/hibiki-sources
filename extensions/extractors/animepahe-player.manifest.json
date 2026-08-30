@@ -1,0 +1,8 @@
+{
+  "id": "animepahe-player",
+  "name": "AnimePahe browser resolver",
+  "version": "1.0.0",
+  "type": "player-resolver",
+  "runtime": "BROWSER",
+  "hosts": ["megaplay.buzz", "vidwish.live"]
+}

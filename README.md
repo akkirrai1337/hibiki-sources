@@ -15,6 +15,9 @@ for a source extension anymore.
   newline (unreadable, undiffable) or physically flattening the whole file onto one line. Hibiki
   fetches both when installing and merges them into a single manifest+payload file on-device; that
   merge point is the only place a "full" single-file manifest exists.
+- `extensions/extractors/<id>.manifest.json` + `extensions/extractors/<id>.js` — reusable player
+  resolvers. A source declares them through `resolverDependencies`; Hibiki installs those hidden
+  dependencies with the source and asks them to turn matching embed pages into HLS/MP4 streams.
 - `repository/index.json` — the marketplace catalog Hibiki fetches to list what's installable.
   **Generated file — do not hand-edit.** CI regenerates it from `extensions/*.manifest.json` on
   every push that touches that directory (see [.github/workflows/update-index.yml](.github/workflows/update-index.yml)).
@@ -72,6 +75,20 @@ Field notes:
   network/parse HTML/read host state. See `extensions/animevost.js` for a complete, real example,
   and the `hibiki` repo's `RhinoExtensionRuntime`/`ScriptedAnimeSource` for exactly how each
   method is invoked.
+
+## Player resolvers
+
+A player resolver is not a catalog source and is therefore not shown in the source picker. Its
+manifest has `"type": "player-resolver"` and a `hosts` list. Its JS exposes
+`Provider.resolve(linkJson)`, receives a JSON `PlayerLink`, and returns an array of `{ url, type,
+quality, headers, segments }` objects. Resolver code must use only the portable `fetch`, `Jsoup`,
+and `console` APIs, so the same payload can be reused by a future desktop host.
+
+For interactive players, use `"runtime": "BROWSER"` and expose
+`Provider.browserScript(linkJson)`. The host runs that returned page script in its browser engine;
+the script may call `HibikiResolver.quality(label)` before changing quality and
+`HibikiResolver.done()` when probing is complete. The host owns the browser lifecycle and stream
+capture, which keeps this contract portable to desktop.
 
 **Gotcha when writing a payload:** any string returned from a `Jsoup`/Java call (`.text()`,
 `.attr()`, `.absUrl()`) comes back as a boxed Java object inside Rhino, not a JS string primitive —
