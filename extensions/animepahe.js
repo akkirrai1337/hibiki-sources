@@ -223,6 +223,23 @@ function parseDetails(id, html) {
     var episodeField = fieldValue(info, "Episode");
     var episodeMatch = episodeField ? /\d+/.exec(episodeField) : null;
 
+    // "Episode" above is the announced total - published upfront but left blank by AnimePahe
+    // for titles that haven't had a total confirmed yet (freshly-airing shows in particular).
+    // For exactly those titles, ask the release-list API (the same one getEpisodesInternal uses
+    // for playback) for a real released-so-far count instead of leaving it unknown - its first
+    // page carries a genuine server-side "total" field. (The ".episode-count" div rendered
+    // elsewhere on this same page looks like a free way to get this without another request, but
+    // isn't - AnimePahe always serves it as a static "Episodes (0)" placeholder in the raw HTML
+    // and only fills in the real number client-side via JS, so it can't be used here.) Only paid
+    // for titles that actually need it - everything else already has episodeMatch.
+    var availableCount = null;
+    if (episodeMatch === null) {
+        try {
+            var releaseTotal = releasePage(id, 1).total;
+            if (typeof releaseTotal === "number" && releaseTotal > 0) availableCount = releaseTotal;
+        } catch (ignored) {}
+    }
+
     var japaneseHeading = document.selectFirst("h2.japanese");
     var genreLinks = document.select(".anime-genre a");
     var genres = [];
@@ -252,17 +269,8 @@ function parseDetails(id, html) {
         synonyms: synonyms,
         year: yearMatch !== null ? parseInt(yearMatch[0], 10) : null,
         type: fieldValue(info, "Type"),
-        // Note: the details page also renders a ".episode-count" counter ("Episodes (N)") next
-        // to the episode list, which looked like a cheap way to get a real released-so-far count
-        // for titles where the "Episode" total below is still blank. It isn't - AnimePahe always
-        // serves that element as a static "Episodes (0)" placeholder that only gets the real
-        // number filled in client-side by JS after the page loads in an actual browser; this
-        // extension only ever sees the server HTML, so it reads back a bogus 0 every time
-        // (verified against both a freshly-airing and a long-finished title). Do not resurrect
-        // this without a way to get the real count server-side (e.g. the same /viewApi release
-        // endpoint getEpisodesInternal uses, at the cost of an extra request per details fetch).
         episodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
-        availableEpisodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
+        availableEpisodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : availableCount,
         posterUrl: posterUrl,
         status: fieldValue(info, "Status"),
         description: description,
