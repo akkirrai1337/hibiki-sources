@@ -1,18 +1,17 @@
-// KickAssAnime scripted extension for Hibiki. Pure JSON API (kaa.lt), Jsoup only needed to strip
-// HTML-entity-encoded JSON out of the player pages. Ported from the compiled-in
-// KickAssAnime/KickAssAnimeExtractor.
+// KickAssAnime scripted extension for Hibiki. Pure JSON API (kaa.lt) for the catalog. Ported from
+// the compiled-in KickAssAnime/KickAssAnimeExtractor.
 //
-// The upstream Kotlin extractor still carries an old AES+SHA1 signed-URL scheme for its
-// VidStreaming/DuckStream/BirdStream servers (per-server hardcoded keys, HMAC-style signature over
-// IP/UA/route/timestamp). Checking the live site (2026-08) shows every server now renders through a
-// single unified Astro player component that inlines the real manifest URL directly into the HTML
-// as an HTML-entity-encoded JSON blob (`{&quot;manifest&quot;:[0,&quot;https://...m3u8&quot;],...}`)
-// - the old crypto path is dead on the current site, so this port skips it entirely and just
-// regexes the manifest out. Rhino has no AES/SHA1 available anyway (java/Packages are stripped from
-// scope), so this simplification also avoids needing a pure-JS crypto implementation.
-//
-// Only HLS manifests are usable: the host's PlayerType has no DASH variant, so DASH-only servers
-// (BirdStream, seen as "type=dash" in its server url) are silently skipped.
+// Playback is returned as a raw EMBED link to the server's own page (krussdomi.com), not a
+// resolved video URL, and deliberately so: krussdomi.com's video CDN sits behind bot protection
+// that rejects any plain HTTP client (ExoPlayer's included) even with a full browser-shaped header
+// set - confirmed directly against the CDN, a real browser passes and curl/OkHttp-shaped requests
+// get a 403 from Cloudflare regardless of Referer/Origin/User-Agent. The manifest URL itself was
+// trivially extractable from the page's inlined `{&quot;manifest&quot;:[0,&quot;...&quot;]}` JSON
+// (the upstream Kotlin extractor's old AES+SHA1 signed-URL scheme is dead on the live site now),
+// but that doesn't help - the block is on the video *segments*, not on discovering the manifest.
+// So Hibiki's app-side krussdomi.com handling (see isWebViewOnlyLink/WebViewPlaybackScreen) skips
+// ExoPlayer entirely and renders this page inside a real WebView instead, letting the site's own
+// player and Chromium's network stack handle it end to end.
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
@@ -167,36 +166,12 @@ var Provider = {
 
     getPlayerLinks: function (titleId, groupId, episodeId) {
         var servers = apiGet("/" + titleId + "/episode/" + episodeId).servers || [];
-        var links = [];
-        for (var i = 0; i < servers.length; i++) {
-            var server = servers[i];
-            var response = fetch(server.src, {
-                headers: {
-                    "Accept": "text/html",
-                    "Referer": BASE_URL + "/",
-                    "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36",
-                },
-            });
-            if (!response.ok) continue;
-
-            var html = S(response.body).split("&quot;").join("\"");
-            var match = /manifest":\s*\[0,\s*"([^"]+)"]/.exec(html);
-            if (match === null) continue;
-
-            var manifestUrl = match[1].replace(/^(https?:)\/+/, "$1//");
-            if (manifestUrl.indexOf(".m3u8") < 0) continue; // DASH-only servers aren't playable (no DASH PlayerType)
-
-            // The manifest/segment CDN (hls.krussdomi.com) hotlink-protects by an allowlist of
-            // *embedding page* origins (kaa.lt, krussdomi.com) - confirmed directly against the
-            // live CDN: Referer/Origin set to kaa.lt or krussdomi.com gets 200, anything else
-            // (including the CDN's own host, or no header at all) gets 403. So the header must
-            // name the SITE that plays the video, never the manifest's own host.
-            links.push({
-                url: manifestUrl, type: "DIRECT_HLS", quality: null,
+        return servers.map(function (server) {
+            return {
+                url: server.src, type: "EMBED", quality: null,
                 headers: { "Referer": BASE_URL + "/" },
                 playerName: server.name || null, translation: null, segments: [], videoId: null,
-            });
-        }
-        return links;
+            };
+        });
     },
 };
