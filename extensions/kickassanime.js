@@ -35,11 +35,6 @@ function statusOf(value) {
     }
 }
 
-function hostOf(url) {
-    var match = /^https?:\/\/([^\/]+)/.exec(url);
-    return match !== null ? match[1] : null;
-}
-
 function posterUrl(image) {
     if (!image || !image.hq) return null;
     return BASE_URL + "/image/poster/" + image.hq + ".jpg";
@@ -191,16 +186,14 @@ var Provider = {
             var manifestUrl = match[1].replace(/^(https?:)\/+/, "$1//");
             if (manifestUrl.indexOf(".m3u8") < 0) continue; // DASH-only servers aren't playable (no DASH PlayerType)
 
-            // The manifest/segment CDN (hls.krussdomi.com) is a different host than kaa.lt and
-            // hotlink-protects by Origin, not Referer - matches the original Kotlin extractor's
-            // getVideoHeaders, which explicitly strips Referer and sets only Origin to the video
-            // host. Sending kaa.lt as Referer here (as an earlier version of this port did) made
-            // segment requests get silently rejected, so playback loaded a duration but never
-            // advanced past 00:00.
-            var manifestHost = hostOf(manifestUrl);
+            // The manifest/segment CDN (hls.krussdomi.com) hotlink-protects by an allowlist of
+            // *embedding page* origins (kaa.lt, krussdomi.com) - confirmed directly against the
+            // live CDN: Referer/Origin set to kaa.lt or krussdomi.com gets 200, anything else
+            // (including the CDN's own host, or no header at all) gets 403. So the header must
+            // name the SITE that plays the video, never the manifest's own host.
             links.push({
                 url: manifestUrl, type: "DIRECT_HLS", quality: null,
-                headers: manifestHost !== null ? { "Origin": "https://" + manifestHost } : {},
+                headers: { "Referer": BASE_URL + "/" },
                 playerName: server.name || null, translation: null, segments: [], videoId: null,
             });
         }
