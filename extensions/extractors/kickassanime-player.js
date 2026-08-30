@@ -1,4 +1,5 @@
-// Portable browser-side start action for KickAssAnime's krussdomi.com player. The host wraps the
+// Portable browser-side start action for KickAssAnime's krussdomi.com player. It reports video
+// and audio HLS requests separately so the host can merge them in ExoPlayer. The host wraps the
 // embed page in its own iframe and runs this inside a real WebView (same Chromium engine a browser
 // uses, unlike the app's own plain HTTP client) - the host itself captures the resulting .m3u8
 // request and supplies playback headers, so this payload only needs to get the page's own player

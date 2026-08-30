@@ -1,5 +1,5 @@
-// Portable browser-side start action. The host captures the resulting HLS request and supplies
-// the playback headers; this payload only knows how to start the site's player.
+// Portable browser-side start action. This resolver reports the HLS request selected by the
+// page; the host supplies browser-session headers to ExoPlayer.
 var Provider = {
     browserScript: function (linkJson) {
         return "" +
