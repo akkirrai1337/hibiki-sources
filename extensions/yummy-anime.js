@@ -257,11 +257,17 @@ function loadSettingsFromSwagger() {
     var genreAliases = enumPath(root, ["components", "schemas", "GetAnimeGenresIdResponse", "properties", "response", "properties", "alias", "enum"]);
     var statusAliases = enumPath(root, ["components", "schemas", "GetAnimeCatalogResponse", "properties", "response", "properties", "data", "items", "properties", "anime_status", "properties", "alias", "enum"]);
     var sortAliases = pathParameterEnum(root, "/anime", "sort");
+    var genreOptions;
+    try {
+        genreOptions = loadGenreOptions();
+    } catch (ignored) {
+        genreOptions = genreAliases.length > 0 ? genreAliases : FALLBACK_GENRE_ALIASES;
+    }
     return buildSettings(
         sortAliases.length > 0 ? sortAliases : FALLBACK_SORT_ALIASES,
         FALLBACK_TYPE_ALIASES,
         statusAliases.length > 0 ? statusAliases : FALLBACK_STATUS_ALIASES,
-        FALLBACK_GENRE_ALIASES,
+        genreOptions,
     );
 }
 
@@ -287,13 +293,29 @@ function pathParameterEnum(root, pathKey, parameterName) {
 
 function aliasOption(alias) { return { id: alias, title: alias }; }
 
-function buildSettings(sortAliases, typeAliases, statusAliases, genreAliases) {
+function loadGenreOptions() {
+    var response = get("/anime/genres", null);
+    var genres = response && Array.isArray(response.genres) ? response.genres : [];
+    var options = [];
+    var seen = {};
+    for (var i = 0; i < genres.length; i++) {
+        var alias = normalize(genres[i].href);
+        if (alias === null || seen[alias]) continue;
+        seen[alias] = true;
+        options.push({ id: alias, title: normalize(genres[i].title) || alias });
+    }
+    return options;
+}
+
+function buildSettings(sortAliases, typeAliases, statusAliases, genreOptions) {
     var sortOptions = distinct(["relevance"].concat(sortAliases)).map(aliasOption);
     return {
         sortOptions: sortOptions,
         typeOptions: typeAliases.map(aliasOption),
         statusOptions: statusAliases.map(aliasOption),
-        genreOptions: genreAliases.map(aliasOption),
+        genreOptions: genreOptions.map(function (option) {
+            return typeof option === "string" ? aliasOption(option) : option;
+        }),
     };
 }
 
