@@ -202,7 +202,7 @@
     {
       "id": "kodik",
       "name": "Kodik player resolver",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": null,
       "website": null,
       "iconUrl": null,
@@ -215,7 +215,7 @@
     {
       "id": "sibnet",
       "name": "Sibnet player resolver",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": null,
       "website": null,
       "iconUrl": null,
@@ -228,7 +228,7 @@
     {
       "id": "vk",
       "name": "VK player resolver",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": null,
       "website": null,
       "iconUrl": null,
