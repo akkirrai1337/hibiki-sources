@@ -1,7 +1,7 @@
 {
     "id": "animevost",
     "name": "AnimeVost",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "author": "Hibiki",
     "website": "https://animevost.org",
     "iconUrl": "https://animevost.org/favicon.ico",
@@ -10,6 +10,13 @@
         "LATEST_RELEASES",
         "PLAYBACK"
     ],
+    "supportedSorts": [
+        "RELEVANCE",
+        "RATING",
+        "TITLE"
+    ],
+    "supportedFilters": [],
+    "fallbackSort": "RELEVANCE",
     "cleartextPlaybackHosts": [
         "video.animetop.info"
     ]

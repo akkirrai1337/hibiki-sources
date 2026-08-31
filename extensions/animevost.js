@@ -44,12 +44,15 @@ var RUSSIAN_MONTHS = {
 /** Fills in every AnimeTitle field so the Kotlin-side JSON decode always sees a complete object. */
 function title(fields) { return AnimeTitle(fields); }
 
-function getHtml(path) {
+function getHtml(path, options) {
+    options = options || {};
     var response = fetch(BASE_URL.replace(/\/$/, "") + path, {
+        method: options.method || "GET",
         headers: {
             "User-Agent": BROWSER_USER_AGENT,
             "Referer": BASE_URL.replace(/\/$/, "") + "/",
         },
+        form: options.form,
     });
     if (!response.ok) throw new Error("AnimeVost returned HTTP " + response.status);
     return S(response.body);
@@ -263,14 +266,34 @@ function fetchLatestPage(page) {
     return parseCards(getHtml(page === 1 ? "/" : "/page/" + page + "/"));
 }
 
-function latestInternal(offset, limit) {
+function sortForm(sort) {
+    var field = "date";
+    var direction = "desc";
+    switch (String(sort || "RELEVANCE").trim().toUpperCase()) {
+        case "TITLE": field = "title"; direction = "asc"; break;
+        case "RATING": field = "rating"; break;
+        case "VIEWS": field = "news_read"; break;
+        case "COMMENTS": field = "comm_num"; break;
+    }
+    return {
+        dlenewssortby: field,
+        dledirection: direction,
+        set_new_sort: "dle_sort_main",
+        set_direction_sort: "dle_direction_main",
+    };
+}
+
+function latestInternal(offset, limit, sort) {
     var requestedLimit = Math.min(Math.max(limit, 1), MAX_RESULTS);
     var page = Math.floor(Math.max(offset, 0) / LISTING_PAGE_SIZE) + 1;
     var skip = Math.max(offset, 0) % LISTING_PAGE_SIZE;
     var result = [];
     var seen = {};
+    // AnimeVost stores the selected ordering in the PHP session. The shared HTTP client retains
+    // that cookie, so configure the sort once before reading any requested catalog page.
+    var sortedFirstPage = parseCards(getHtml("/", { method: "POST", form: sortForm(sort) }));
     while (result.length < requestedLimit) {
-        var cards = fetchLatestPage(page);
+        var cards = page === 1 ? sortedFirstPage : fetchLatestPage(page);
         if (cards.length === 0) break;
         for (var i = skip; i < cards.length && result.length < requestedLimit; i++) {
             if (seen[cards[i].id]) continue;
@@ -315,7 +338,9 @@ var Provider = {
     search: function (requestJson) {
         var request = JSON.parse(requestJson);
         var trimmed = (request.query || "").trim();
-        if (trimmed.length === 0) return latestInternal(request.offset || 0, request.limit || 20);
+        if (trimmed.length === 0) return latestInternal(request.offset || 0, request.limit || 20, request.sort);
+        // Keep full-text results in the same order selected by the catalog controls.
+        getHtml("/", { method: "POST", form: sortForm(request.sort) });
         var results = parseCards(getHtml("/xfsearch/" + encodeURIComponent(trimmed) + "/"));
         var start = Math.max(request.offset || 0, 0);
         var end = start + Math.min(Math.max(request.limit || 20, 1), MAX_RESULTS);
@@ -323,11 +348,17 @@ var Provider = {
     },
 
     latest: function (limit) {
-        return latestInternal(0, limit || 20);
+        return latestInternal(0, limit || 20, "RELEVANCE");
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }] };
+        return {
+            sortOptions: [
+                { id: "relevance", title: "По дате" },
+                { id: "rating", title: "По популярности" },
+                { id: "title", title: "По алфавиту" }
+            ]
+        };
     },
 
     getById: function (id) {
