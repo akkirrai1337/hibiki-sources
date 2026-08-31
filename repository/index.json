@@ -81,7 +81,7 @@
     {
       "id": "animevost",
       "name": "AnimeVost",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Hibiki",
       "website": "https://animevost.org",
       "iconUrl": "https://animevost.org/favicon.ico",
@@ -98,7 +98,7 @@
     {
       "id": "anitube",
       "name": "AniTube",
-      "version": "1.0.3",
+      "version": "1.0.5",
       "author": "Hibiki",
       "website": "https://anitube.in.ua",
       "iconUrl": "https://anitube.in.ua/favicon.ico",
@@ -249,7 +249,7 @@
     {
       "id": "kickassanime-player",
       "name": "KickAssAnime browser resolver",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "author": null,
       "website": null,
       "iconUrl": null,
