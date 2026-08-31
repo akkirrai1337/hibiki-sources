@@ -39,6 +39,24 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animego.manifest.json"
     },
     {
+      "id": "animekhor",
+      "name": "AnimeKhor",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://animekhor.org",
+      "iconUrl": "https://animekhor.org/favicon.ico",
+      "lang": "en",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [
+        "dailymotion"
+      ],
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animekhor.manifest.json"
+    },
+    {
       "id": "animepahe",
       "name": "AnimePahe",
       "version": "1.0.9",
@@ -136,6 +154,19 @@
       "resolverDependencies": [],
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/cvh.manifest.json"
+    },
+    {
+      "id": "dailymotion",
+      "name": "Dailymotion player resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/dailymotion.manifest.json"
     },
     {
       "id": "kickassanime-player",
