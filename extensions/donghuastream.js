@@ -1,17 +1,11 @@
-// AnimeKhor scripted extension for Hibiki. HTML scraping (no public JSON API) against the WP
-// theme AnimeKhor runs on - the same `.bsx`/`.eplister`/`.spe` markup family shared by a lot of
-// donghua/anime aggregator sites, so this structure is a reasonable template for similar sources.
-//
-// Each episode page exposes its player mirrors as a <select class="mirror"> whose <option value>
-// is base64-encoded HTML containing a single <iframe src="...">, one per server (Dailymotion,
-// ok.ru, various generic iframe hosts, ...). Only Dailymotion has a resolver today
-// (extractors/dailymotion.js) - it happens to be the site's own default/first server, so playback
-// works out of the box; the other EMBED links are still returned (a future resolver, e.g. an ok.ru
-// one, just needs to declare its host and get added to resolverDependencies, nothing here changes).
+// DonghuaStream scripted extension for Hibiki. Same WP theme family as animekhor.js (`.bsx`,
+// `.eplister`, `.spe`, base64-encoded `<select class="mirror">` options) - see that file's header
+// for the shared markup notes. The one real difference here: poster images are lazy-loaded behind
+// a placeholder SVG `src`, with the actual URL in `data-src`, so posters read that first.
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
-var BASE_URL = "https://animekhor.org";
+var BASE_URL = "https://donghuastream.org";
 var MAX_RESULTS = 50;
 var LISTING_PAGE_SIZE = 20;
 
@@ -53,7 +47,7 @@ function getHtml(path) {
     var response = fetch(BASE_URL + path, {
         headers: { "Accept": "text/html,application/xhtml+xml", "Referer": BASE_URL + "/" },
     });
-    if (!response.ok) throw new Error("AnimeKhor returned HTTP " + response.status + " for " + path);
+    if (!response.ok) throw new Error("DonghuaStream returned HTTP " + response.status + " for " + path);
     return S(response.body);
 }
 
@@ -64,7 +58,7 @@ function idFromHref(href) {
     return match !== null ? match[1] : null;
 }
 
-/** Some pages on this theme lazy-load images behind a placeholder SVG `src`, with the real URL in
+/** Lazy-loaded cards/poster images serve a placeholder SVG as `src` and the real URL in
  * `data-src` - prefer the latter whenever it's present. */
 function imageUrl(img) {
     if (img === null) return null;
@@ -85,7 +79,7 @@ function toStatus(raw) {
     return normalized;
 }
 
-/** Mirrors a `<span><b>Label:</b> value</span>` row inside `.spe` (AnimeKhor's info-table format). */
+/** Mirrors a `<span><b>Label:</b> value</span>` row inside `.spe` (this theme's info-table format). */
 function speField(document, label) {
     var spans = document.select(".spe span");
     for (var i = 0; i < spans.size(); i++) {
@@ -111,7 +105,7 @@ function parseCard(article) {
     if (id === null) return null;
 
     var heading = article.selectFirst(".tt h2");
-    var name = heading !== null ? S(heading.text()).trim() : S(link.attr("title")).trim();
+    var name = heading !== null ? S(heading.text()).trim() : S(link.attr("oldtitle") || link.attr("title")).trim();
     if (name.length === 0) return null;
 
     var posterUrl = imageUrl(article.selectFirst("img"));
@@ -172,7 +166,7 @@ function parseDetails(id, html) {
     var ratings = [];
     if (ratingMeta !== null) {
         var ratingValue = parseFloat(S(ratingMeta.attr("content")));
-        if (!isNaN(ratingValue)) ratings.push({ source: "AnimeKhor", value: ratingValue, votes: null });
+        if (!isNaN(ratingValue)) ratings.push({ source: "DonghuaStream", value: ratingValue, votes: null });
     }
 
     var episodeCountField = speField(document, "Episodes");
@@ -219,7 +213,7 @@ function collectResults(fetchPage, wanted) {
     var page = 1;
     var seen = {};
     while (results.length < wanted && page <= 50) {
-        var items = fetchPage(page === 1 ? 1 : page);
+        var items = fetchPage(page);
         if (items.length === 0) break;
         for (var i = 0; i < items.length; i++) {
             if (seen[items[i].id]) continue;
@@ -287,7 +281,7 @@ var Provider = {
     getById: function (id) {
         var path = String(id).trim();
         var details = parseDetails(path, getHtml("/anime/" + path + "/"));
-        if (details === null) throw new Error("AnimeKhor title was not found: " + id);
+        if (details === null) throw new Error("DonghuaStream title was not found: " + id);
         return details;
     },
 
