@@ -1,0 +1,17 @@
+{
+    "id": "anichi",
+    "name": "Anichi",
+    "version": "1.0.0",
+    "author": "Hibiki",
+    "website": "https://anichi.to",
+    "iconUrl": "https://anichi.to/favicon.ico",
+    "lang": "en",
+    "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+    ],
+    "resolverDependencies": [
+        "animepahe-player"
+    ],
+    "cleartextPlaybackHosts": []
+}
