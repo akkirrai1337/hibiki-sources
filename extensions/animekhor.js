@@ -219,7 +219,12 @@ function collectResults(fetchPage, wanted) {
     var page = 1;
     var seen = {};
     while (results.length < wanted && page <= 50) {
-        var items = fetchPage(page === 1 ? 1 : page);
+        // A page past the site's real last page 404s here instead of returning an empty listing
+        // (unlike a page that exists but is simply short) - either way, there's nothing more to
+        // collect, so stop cleanly instead of surfacing a fetch error for what is really just "no
+        // more results".
+        var items;
+        try { items = fetchPage(page === 1 ? 1 : page); } catch (e) { break; }
         if (items.length === 0) break;
         for (var i = 0; i < items.length; i++) {
             if (seen[items[i].id]) continue;
