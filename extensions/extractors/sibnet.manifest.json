@@ -1,7 +1,7 @@
 {
   "id": "sibnet",
   "name": "Sibnet player resolver",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "player-resolver",
   "hosts": ["sibnet.ru"]
 }

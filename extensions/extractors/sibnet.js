@@ -2,8 +2,8 @@
 var Provider = {
     resolve: function (linkJson) {
         var link = JSON.parse(String(linkJson));
-        var pageUrl = normalizeUrl(link.url);
-        var pageOrigin = originOf(pageUrl);
+        var pageUrl = Url.normalize(link.url);
+        var pageOrigin = Url.origin(pageUrl);
         var requestHeaders = copy(link.headers || {});
         requestHeaders.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
         var response = fetch(pageUrl, { headers: requestHeaders });
@@ -29,8 +29,6 @@ var Provider = {
     }
 };
 
-function normalizeUrl(url) { return String(url).indexOf("//") === 0 ? "https:" + url : String(url); }
-function originOf(url) { var match = /^(https?:\/\/[^\/]+)/i.exec(url); return match ? match[1] : ""; }
 function absoluteUrl(origin, url) { return url.indexOf("//") === 0 ? "https:" + url : url.charAt(0) === "/" ? origin + url : url; }
 function streamType(contentType, url) {
     var lower = String(contentType).toLowerCase(), path = String(url).split("?")[0].toLowerCase();
@@ -40,7 +38,7 @@ function streamType(contentType, url) {
 }
 function extractReferer(html) {
     var patterns = [ /<link\s+rel="canonical"\s+href="([^"]+)/i, /<meta\s+property="og:url"\s+content="([^"]+)/i, /sharesibnet\(\{\s*"url":"([^"]+)/i ];
-    for (var i = 0; i < patterns.length; i++) { var match = patterns[i].exec(html); if (match) return normalizeUrl(match[1]); }
+    for (var i = 0; i < patterns.length; i++) { var match = patterns[i].exec(html); if (match) return Url.normalize(match[1]); }
     return null;
 }
 function copy(map) { var result = {}; for (var key in map) if (Object.prototype.hasOwnProperty.call(map, key)) result[key] = map[key]; return result; }
