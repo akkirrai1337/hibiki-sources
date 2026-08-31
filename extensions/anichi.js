@@ -42,18 +42,13 @@ var ANIME_PATH = /^anime\/([^/]+)\/?$/;
 /** Fills in every AnimeTitle field so the Kotlin-side JSON decode always sees a complete object. */
 function title(fields) { return AnimeTitle(fields); }
 
-/** true for a status worth a single immediate retry - a transient server hiccup or rate limit,
- * not a genuine "this doesn't exist" (404) or "you're not allowed" (401/403). */
-function isTransientStatus(status) {
-    return status === 429 || (status >= 500 && status < 600);
-}
+// Transient statuses (429/5xx) don't need handling here - the host's fetch() already retries
+// those automatically (with backoff and Retry-After support) before returning, so a non-ok
+// response here is already past that.
 
 function getHtml(path) {
     var headers = { "Referer": BASE_URL + "/", "User-Agent": BROWSER_USER_AGENT };
     var response = fetch(BASE_URL + path, { headers: headers });
-    if (!response.ok && isTransientStatus(response.status)) {
-        response = fetch(BASE_URL + path, { headers: headers });
-    }
     if (!response.ok) throw new Error("Anichi returned HTTP " + response.status + " for " + path);
     return S(response.body);
 }
@@ -62,9 +57,6 @@ function fetchAjax(path, referer) {
     var headers = { "Referer": referer || (BASE_URL + "/") };
     for (var key in XHR_HEADERS) headers[key] = XHR_HEADERS[key];
     var response = fetch(BASE_URL + path, { headers: headers });
-    if (!response.ok && isTransientStatus(response.status)) {
-        response = fetch(BASE_URL + path, { headers: headers });
-    }
     if (!response.ok) throw new Error("Anichi ajax returned HTTP " + response.status + " for " + path);
     var data = JSON.parse(S(response.body));
     if (data.status !== 200) throw new Error("Anichi ajax reported status " + data.status + " for " + path);
