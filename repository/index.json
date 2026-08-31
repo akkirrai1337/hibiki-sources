@@ -4,7 +4,7 @@
     {
       "id": "ani-liberty",
       "name": "AniLiberty",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "Hibiki",
       "website": "https://anilibria.top",
       "iconUrl": "https://anilibria.top/favicon.ico",
@@ -20,7 +20,7 @@
     {
       "id": "anichi",
       "name": "Anichi",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Hibiki",
       "website": "https://anichi.to",
       "iconUrl": "https://anichi.to/favicon.ico",
@@ -38,7 +38,7 @@
     {
       "id": "animego",
       "name": "AnimeGo",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Hibiki",
       "website": "https://animego.me",
       "iconUrl": "https://animego.me/favicon.ico",
@@ -59,7 +59,7 @@
     {
       "id": "animepahe",
       "name": "AnimePahe",
-      "version": "1.0.9",
+      "version": "1.0.10",
       "author": "Hibiki",
       "website": "https://animepahetv.to",
       "iconUrl": "https://animepahetv.to/favicon.ico",
@@ -77,7 +77,7 @@
     {
       "id": "animevost",
       "name": "AnimeVost",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "Hibiki",
       "website": "https://animevost.org",
       "iconUrl": "https://animevost.org/favicon.ico",
@@ -93,7 +93,7 @@
     {
       "id": "donghuastream",
       "name": "DonghuaStream",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "Hibiki",
       "website": "https://donghuastream.org",
       "iconUrl": "https://donghuastream.org/favicon.ico",
@@ -241,7 +241,7 @@
     {
       "id": "kickassanime",
       "name": "KickAssAnime",
-      "version": "1.0.10",
+      "version": "1.0.11",
       "author": "Hibiki",
       "website": "https://kaa.lt",
       "iconUrl": "https://kaa.lt/favicon.ico",
@@ -259,7 +259,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",
