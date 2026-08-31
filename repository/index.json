@@ -18,6 +18,24 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/ani-liberty.manifest.json"
     },
     {
+      "id": "anichi",
+      "name": "Anichi",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://anichi.to",
+      "iconUrl": "https://anichi.to/favicon.ico",
+      "lang": "en",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [
+        "animepahe-player"
+      ],
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anichi.manifest.json"
+    },
+    {
       "id": "animego",
       "name": "AnimeGo",
       "version": "1.0.4",
