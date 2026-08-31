@@ -159,7 +159,7 @@
     {
       "id": "animepahe-player",
       "name": "AnimePahe browser resolver",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": null,
       "website": null,
       "iconUrl": null,
@@ -253,6 +253,25 @@
       "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/vk.manifest.json"
+    },
+    {
+      "id": "gogoanime",
+      "name": "Gogoanime",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://gogoanime.by",
+      "iconUrl": "https://gogoanime.by/wp-content/uploads/2024/03/logo-gogo.png",
+      "lang": "en",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [
+        "animepahe-player"
+      ],
+      "isNsfw": false,
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/gogoanime.manifest.json"
     },
     {
       "id": "hentaimama",
