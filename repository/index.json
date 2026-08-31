@@ -96,6 +96,25 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animevost.manifest.json"
     },
     {
+      "id": "anitube",
+      "name": "AniTube",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://anitube.in.ua",
+      "iconUrl": "https://anitube.in.ua/favicon.ico",
+      "lang": "uk",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [
+        "anitube-player"
+      ],
+      "isNsfw": false,
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anitube.manifest.json"
+    },
+    {
       "id": "donghuastream",
       "name": "DonghuaStream",
       "version": "1.0.4",
@@ -169,6 +188,20 @@
       "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/animepahe-player.manifest.json"
+    },
+    {
+      "id": "anitube-player",
+      "name": "AniTube browser resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "isNsfw": false,
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/anitube-player.manifest.json"
     },
     {
       "id": "cvh",
