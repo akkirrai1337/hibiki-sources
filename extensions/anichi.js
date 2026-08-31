@@ -13,6 +13,16 @@
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
+/** A definite non-2xx (dead file, gone mirror, ...) means skip it; a network hiccup on this
+ * check alone shouldn't hide an otherwise-good link, so that case fails open (returns true). */
+function isEmbedReachable(url) {
+    try {
+        return fetch(url, { headers: { "Referer": BASE_URL + "/" } }).ok;
+    } catch (e) {
+        return true;
+    }
+}
+
 var BASE_URL = "https://anichi.to";
 var MAX_RESULTS = 50;
 var LISTING_PAGE_SIZE = 30;
@@ -34,32 +44,42 @@ function title(fields) {
     return base;
 }
 
+/** true for a status worth a single immediate retry - a transient server hiccup or rate limit,
+ * not a genuine "this doesn't exist" (404) or "you're not allowed" (401/403). */
+function isTransientStatus(status) {
+    return status === 429 || (status >= 500 && status < 600);
+}
+
 function getHtml(path) {
     var response = fetch(BASE_URL + path, { headers: { "Referer": BASE_URL + "/" } });
+    if (!response.ok && isTransientStatus(response.status)) {
+        response = fetch(BASE_URL + path, { headers: { "Referer": BASE_URL + "/" } });
+    }
     if (!response.ok) throw new Error("Anichi returned HTTP " + response.status + " for " + path);
     return S(response.body);
 }
 
-function getAjaxFragment(path, referer) {
+function fetchAjax(path, referer) {
     var headers = { "Referer": referer || (BASE_URL + "/") };
     for (var key in XHR_HEADERS) headers[key] = XHR_HEADERS[key];
     var response = fetch(BASE_URL + path, { headers: headers });
+    if (!response.ok && isTransientStatus(response.status)) {
+        response = fetch(BASE_URL + path, { headers: headers });
+    }
     if (!response.ok) throw new Error("Anichi ajax returned HTTP " + response.status + " for " + path);
     var data = JSON.parse(S(response.body));
     if (data.status !== 200) throw new Error("Anichi ajax reported status " + data.status + " for " + path);
     return data.result;
 }
 
-/** Same ajax envelope as getAjaxFragment, but `result` is a JSON object (e.g. `/ajax/server?get=`'s
- * `{url, skip_data}`) rather than an HTML fragment string. */
+/** Fragment endpoints (episode/server lists) return an HTML string in `result`. */
+function getAjaxFragment(path, referer) {
+    return fetchAjax(path, referer);
+}
+
+/** `/ajax/server?get=` instead returns a JSON object (`{url, skip_data}`) in `result`. */
 function getAjaxResult(path, referer) {
-    var headers = { "Referer": referer || (BASE_URL + "/") };
-    for (var key in XHR_HEADERS) headers[key] = XHR_HEADERS[key];
-    var response = fetch(BASE_URL + path, { headers: headers });
-    if (!response.ok) throw new Error("Anichi ajax returned HTTP " + response.status + " for " + path);
-    var data = JSON.parse(S(response.body));
-    if (data.status !== 200) throw new Error("Anichi ajax reported status " + data.status + " for " + path);
-    return data.result;
+    return fetchAjax(path, referer);
 }
 
 function idFromHref(href) {
@@ -314,6 +334,14 @@ var Provider = {
                 }
                 if (!embedUrl || seenUrls[embedUrl]) continue;
                 seenUrls[embedUrl] = true;
+
+                // This engine's own server list can point at a genuinely dead file (megaplay.buzz
+                // returns a real, fast HTTP 410 "removed due to copyright violation" for some
+                // titles/servers) - the app's own browser-based resolver has no fast way to tell
+                // that apart from a slow/finicky-but-alive CDN, so it burns its whole per-player
+                // timeout on it. A quick native check here is cheap and lets a truly dead mirror
+                // get skipped instead of stalling playback behind it.
+                if (!isEmbedReachable(embedUrl)) continue;
 
                 links.push({
                     url: embedUrl, type: "EMBED", quality: null, headers: referer,
