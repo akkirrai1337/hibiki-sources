@@ -14,6 +14,7 @@
         "PLAYBACK"
       ],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/ani-liberty.manifest.json"
     },
@@ -32,6 +33,7 @@
       "resolverDependencies": [
         "animepahe-player"
       ],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anichi.manifest.json"
     },
@@ -53,6 +55,7 @@
         "aksor",
         "kodik"
       ],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animego.manifest.json"
     },
@@ -71,6 +74,7 @@
       "resolverDependencies": [
         "animepahe-player"
       ],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animepahe.manifest.json"
     },
@@ -87,6 +91,7 @@
         "PLAYBACK"
       ],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animevost.manifest.json"
     },
@@ -105,6 +110,7 @@
       "resolverDependencies": [
         "dailymotion"
       ],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/donghuastream.manifest.json"
     },
@@ -118,6 +124,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/aksor.manifest.json"
     },
@@ -131,6 +138,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/alloha.manifest.json"
     },
@@ -144,6 +152,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/aniboom.manifest.json"
     },
@@ -157,6 +166,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/animepahe-player.manifest.json"
     },
@@ -170,6 +180,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/cvh.manifest.json"
     },
@@ -183,6 +194,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/dailymotion.manifest.json"
     },
@@ -196,6 +208,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/kickassanime-player.manifest.json"
     },
@@ -209,6 +222,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/kodik.manifest.json"
     },
@@ -222,6 +236,7 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/sibnet.manifest.json"
     },
@@ -235,13 +250,14 @@
       "lang": "",
       "capabilities": [],
       "resolverDependencies": [],
+      "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/vk.manifest.json"
     },
     {
       "id": "hentaimama",
       "name": "HentaiMama",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Hibiki",
       "website": "https://hentaimama.io",
       "iconUrl": "https://hentaimama.io/wp-content/themes/dooplay/assets/img/favicon.png?v=3",
@@ -251,6 +267,7 @@
         "PLAYBACK"
       ],
       "resolverDependencies": [],
+      "isNsfw": true,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/hentaimama.manifest.json"
     },
@@ -269,13 +286,14 @@
       "resolverDependencies": [
         "kickassanime-player"
       ],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/kickassanime.manifest.json"
     },
     {
       "id": "miruro",
       "name": "Miruro",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "Hibiki",
       "website": "https://www.miruro.to",
       "iconUrl": "https://www.miruro.to/assets/logo-Dnw3w3dS.png",
@@ -287,6 +305,7 @@
       "resolverDependencies": [
         "animepahe-player"
       ],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/miruro.manifest.json"
     },
@@ -313,6 +332,7 @@
         "kodik",
         "vk"
       ],
+      "isNsfw": false,
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/yummy-anime.manifest.json"
     }
