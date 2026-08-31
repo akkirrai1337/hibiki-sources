@@ -17,7 +17,7 @@ function S(value) { return value === null || value === undefined ? null : String
  * check alone shouldn't hide an otherwise-good link, so that case fails open (returns true). */
 function isEmbedReachable(url) {
     try {
-        return fetch(url, { headers: { "Referer": BASE_URL + "/" } }).ok;
+        return fetch(url, { headers: { "Referer": BASE_URL + "/", "User-Agent": BROWSER_USER_AGENT } }).ok;
     } catch (e) {
         return true;
     }
@@ -26,7 +26,16 @@ function isEmbedReachable(url) {
 var BASE_URL = "https://anichi.to";
 var MAX_RESULTS = 50;
 var LISTING_PAGE_SIZE = 30;
-var XHR_HEADERS = { "Accept": "application/json, text/javascript, */*; q=0.01", "X-Requested-With": "XMLHttpRequest" };
+// The host's Ktor client otherwise identifies itself as "Hibiki/0.1 Android" by default - an
+// obvious non-browser signature that this site's bot-management can and does 500 on, even though
+// the exact same page loads fine (confirmed directly) from a real Ktor/Node/browser client that
+// sends a normal desktop-Chrome User-Agent instead. Every request here overrides it explicitly.
+var BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+var XHR_HEADERS = {
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "X-Requested-With": "XMLHttpRequest",
+    "User-Agent": BROWSER_USER_AGENT,
+};
 
 var ANIME_PATH = /^anime\/([^/]+)\/?$/;
 
@@ -51,9 +60,10 @@ function isTransientStatus(status) {
 }
 
 function getHtml(path) {
-    var response = fetch(BASE_URL + path, { headers: { "Referer": BASE_URL + "/" } });
+    var headers = { "Referer": BASE_URL + "/", "User-Agent": BROWSER_USER_AGENT };
+    var response = fetch(BASE_URL + path, { headers: headers });
     if (!response.ok && isTransientStatus(response.status)) {
-        response = fetch(BASE_URL + path, { headers: { "Referer": BASE_URL + "/" } });
+        response = fetch(BASE_URL + path, { headers: headers });
     }
     if (!response.ok) throw new Error("Anichi returned HTTP " + response.status + " for " + path);
     return S(response.body);
