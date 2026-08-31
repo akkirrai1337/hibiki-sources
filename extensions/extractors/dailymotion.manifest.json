@@ -1,0 +1,7 @@
+{
+    "id": "dailymotion",
+    "name": "Dailymotion player resolver",
+    "version": "1.0.0",
+    "type": "player-resolver",
+    "hosts": ["dailymotion.com", "www.dailymotion.com", "dai.ly"]
+}

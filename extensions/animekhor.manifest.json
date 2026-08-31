@@ -1,0 +1,17 @@
+{
+    "id": "animekhor",
+    "name": "AnimeKhor",
+    "version": "1.0.0",
+    "author": "Hibiki",
+    "website": "https://animekhor.org",
+    "iconUrl": "https://animekhor.org/favicon.ico",
+    "lang": "en",
+    "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+    ],
+    "resolverDependencies": [
+        "dailymotion"
+    ],
+    "cleartextPlaybackHosts": []
+}
