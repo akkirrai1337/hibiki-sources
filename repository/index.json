@@ -20,7 +20,7 @@
     {
       "id": "anichi",
       "name": "Anichi",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Hibiki",
       "website": "https://anichi.to",
       "iconUrl": "https://anichi.to/favicon.ico",
@@ -59,7 +59,7 @@
     {
       "id": "animekhor",
       "name": "AnimeKhor",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Hibiki",
       "website": "https://animekhor.org",
       "iconUrl": "https://animekhor.org/favicon.ico",
@@ -111,7 +111,7 @@
     {
       "id": "donghuastream",
       "name": "DonghuaStream",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Hibiki",
       "website": "https://donghuastream.org",
       "iconUrl": "https://donghuastream.org/favicon.ico",
