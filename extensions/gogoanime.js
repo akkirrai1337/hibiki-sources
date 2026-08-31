@@ -210,21 +210,13 @@ function parsePlaybackGroups(titleId, html) {
 }
 
 /** `.player-type-link[data-src]` points at this theme's own `/player/?source=embed&url=<token>`
- * indirection page, which itself just iframes the real embed (megaplay.su) - resolving that here
- * keeps the PlayerLink pointed straight at megaplay.su, matching how animepahe.js hands it to the
- * same animepahe-player resolver (which expects to find <video> one iframe below the link's own
- * url, not two levels below it). */
-function resolvePlayerPageUrl(playerPageUrl, headers) {
-    var response = fetch(playerPageUrl, { headers: headers });
-    if (!response.ok) return null;
-    var document = Jsoup.parse(S(response.body), BASE_URL);
-    var iframe = document.selectFirst("iframe");
-    if (iframe === null) return null;
-    var src = S(iframe.attr("src")).trim();
-    if (src.length === 0) return null;
-    return src.indexOf("//") === 0 ? "https:" + src : src;
-}
-
+ * indirection page, which itself just iframes the real embed (megaplay.su). Kept as the PlayerLink
+ * target as-is (not resolved one level further to megaplay.su directly) - megaplay.su appears to
+ * reject/fail when loaded as the WebView's own top-level document (confirmed live: immediate
+ * WebView network error, no video ever found), so it needs to stay inside this real iframe wrapper
+ * the site itself always loads it in. animepahe-player is still the right resolver here since it
+ * only cares about finding <video> one iframe below whatever page it's given - that's this
+ * /player/ page's single iframe (megaplay.su), same shape as megaplay.buzz's own single iframe. */
 function parsePlayerLinks(episodePath, html) {
     var document = Jsoup.parse(html, BASE_URL);
     var options = document.select(".player-type-link[data-src]");
@@ -235,12 +227,9 @@ function parsePlayerLinks(episodePath, html) {
         var src = S(option.attr("data-src")).trim();
         if (src.length === 0) continue;
         var playerPageUrl = S(Jsoup.resolve(BASE_URL, src));
-        var resolvedUrl;
-        try { resolvedUrl = resolvePlayerPageUrl(playerPageUrl, referer); } catch (e) { continue; }
-        if (resolvedUrl === null) continue;
         var label = S(option.text()).trim();
         links.push({
-            url: resolvedUrl, type: "EMBED", quality: null, headers: referer,
+            url: playerPageUrl, type: "EMBED", quality: null, headers: referer,
             playerName: label.length > 0 ? label : null, translation: null, segments: [], videoId: null,
         });
     }
