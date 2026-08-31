@@ -239,6 +239,22 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/vk.manifest.json"
     },
     {
+      "id": "hentaimama",
+      "name": "HentaiMama",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://hentaimama.io",
+      "iconUrl": "https://hentaimama.io/wp-content/themes/dooplay/assets/img/favicon.png?v=3",
+      "lang": "en",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [],
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/hentaimama.manifest.json"
+    },
+    {
       "id": "kickassanime",
       "name": "KickAssAnime",
       "version": "1.0.11",
@@ -255,6 +271,24 @@
       ],
       "type": "source",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/kickassanime.manifest.json"
+    },
+    {
+      "id": "miruro",
+      "name": "Miruro",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://www.miruro.to",
+      "iconUrl": "https://www.miruro.to/assets/logo-Dnw3w3dS.png",
+      "lang": "en",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [
+        "animepahe-player"
+      ],
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/miruro.manifest.json"
     },
     {
       "id": "yummy-anime",
