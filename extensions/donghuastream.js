@@ -12,23 +12,6 @@ var LISTING_PAGE_SIZE = 20;
 var ANIME_PATH = /^anime\/([^/]+)\/?$/;
 var YEAR_IN_TEXT = /(\d{4})/;
 
-var BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-function base64Decode(input) {
-    var cleaned = input.replace(/[^A-Za-z0-9+/]/g, "");
-    var output = "";
-    for (var i = 0; i < cleaned.length; i += 4) {
-        var c0 = BASE64_ALPHABET.indexOf(cleaned.charAt(i));
-        var c1 = BASE64_ALPHABET.indexOf(cleaned.charAt(i + 1));
-        var c2 = i + 2 < cleaned.length ? BASE64_ALPHABET.indexOf(cleaned.charAt(i + 2)) : -1;
-        var c3 = i + 3 < cleaned.length ? BASE64_ALPHABET.indexOf(cleaned.charAt(i + 3)) : -1;
-        output += String.fromCharCode(((c0 << 2) | (c1 >> 4)) & 0xFF);
-        if (c2 >= 0) output += String.fromCharCode((((c1 & 0xF) << 4) | (c2 >> 2)) & 0xFF);
-        if (c3 >= 0) output += String.fromCharCode((((c2 & 0x3) << 6) | c3) & 0xFF);
-    }
-    return output;
-}
-
 /** Fills in every AnimeTitle field so the Kotlin-side JSON decode always sees a complete object. */
 function title(fields) {
     var base = {
@@ -244,7 +227,7 @@ function parsePlayerLinks(html) {
         if (label.length === 0) continue;
 
         var decoded;
-        try { decoded = base64Decode(value); } catch (e) { continue; }
+        try { decoded = Base64.decode(value); } catch (e) { continue; }
         var fragment = Jsoup.parseBodyFragment(decoded, BASE_URL);
         var iframe = fragment.selectFirst("iframe");
         if (iframe === null) continue;
