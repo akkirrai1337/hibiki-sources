@@ -1,0 +1,21 @@
+{
+    "id": "gogoanime",
+    "name": "Gogoanime",
+    "version": "1.0.0",
+    "description": "English-language catalog (gogoanime.by mirror) with an inline full episode list per title.",
+    "author": "Hibiki",
+    "website": "https://gogoanime.by",
+    "iconUrl": "https://gogoanime.by/wp-content/uploads/2024/03/logo-gogo.png",
+    "lang": "en",
+    "resolverDependencies": ["animepahe-player"],
+    "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+    ],
+    "supportedSorts": [
+        "RELEVANCE"
+    ],
+    "supportedFilters": [],
+    "fallbackSort": "RELEVANCE",
+    "cleartextPlaybackHosts": []
+}

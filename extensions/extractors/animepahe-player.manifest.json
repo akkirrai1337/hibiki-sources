@@ -1,9 +1,9 @@
 {
   "id": "animepahe-player",
   "name": "AnimePahe browser resolver",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "player-resolver",
   "runtime": "BROWSER",
   "browserPlaybackMode": "EXTRACT_STREAM",
-  "hosts": ["megaplay.buzz", "vidwish.live"]
+  "hosts": ["megaplay.buzz", "vidwish.live", "megaplay.su"]
 }
