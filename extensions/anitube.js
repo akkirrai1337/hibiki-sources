@@ -82,9 +82,12 @@ function parseCards(html) {
         var card = cards.get(i);
         // The first .short-title wraps a poster and contains labels such as "Озв+Суб 6 з 10".
         // Only the nested h2 is the actual release name.
-        var heading = card.selectFirst("a.short-title h2, .title2 a[href$='.html']");
+        var heading = card.selectFirst("h2, .title2 a[href$='.html']");
         if (heading === null) continue;
-        var href = S(heading.absUrl("href"));
+        // In the mobile template h2 is inside the link; in the desktop template the matched
+        // .title2 element is the link itself.
+        var titleLink = S(heading.tagName()).toLowerCase() === "a" ? heading : heading.parent();
+        var href = S(titleLink.absUrl("href"));
         var id = href.replace(/^https?:\/\/[^/]+\//i, "").split("?")[0];
         if (!TITLE_ID.test(id) || seen[id]) continue;
         var name = S(heading.text()).trim();
