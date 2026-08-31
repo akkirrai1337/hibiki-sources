@@ -1,11 +1,14 @@
 {
   "id": "anitube",
   "name": "AniTube",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "Hibiki",
   "website": "https://anitube.in.ua",
   "iconUrl": "https://anitube.in.ua/favicon.ico",
   "lang": "uk",
   "capabilities": ["LATEST_RELEASES", "PLAYBACK"],
+  "supportedSorts": ["RELEVANCE", "TITLE", "RATING", "YEAR"],
+  "supportedFilters": ["TYPE", "INCLUDED_GENRES", "YEAR_RANGE"],
+  "fallbackSort": "RELEVANCE",
   "resolverDependencies": ["anitube-ashdi", "anitube-player"]
 }

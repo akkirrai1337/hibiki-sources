@@ -8,6 +8,8 @@ var DESKTOP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 var MAX_RESULTS = 50;
 var LISTING_PAGE_SIZE = 8;
 var SEARCH_PAGE_SIZE = 10;
+var FILTER_MIN_YEAR = 1975;
+var FILTER_MAX_YEAR = 2026;
 var TITLE_ID = /^(\d+)-[^/]+\.html$/;
 var EPISODE_NUMBER = /^\s*(\d+(?:[.,]\d+)?)/;
 
@@ -253,6 +255,60 @@ function latestWindow(offset, limit) {
     });
 }
 
+function typeFilterValue(alias) {
+    switch (S(alias).trim().toLowerCase()) {
+        case "tv": return "ТБ";
+        case "movie": return "Повнометражне";
+        case "ova": return "OVA";
+        case "ona": return "ONA";
+        default: return null;
+    }
+}
+
+function sortFilterValue(sort) {
+    switch (S(sort).trim().toUpperCase()) {
+        case "TITLE": return "title";
+        case "YEAR": return "year";
+        case "RATING": return "rating";
+        case "COMMENTS": return "comm_num";
+        case "VIEWS": return "news_read";
+        default: return "date";
+    }
+}
+
+function filteredPath(request, page) {
+    var segments = [];
+    var types = request.typeAliases || [];
+    var type = types.length ? typeFilterValue(types[0]) : null;
+    if (type) segments.push("b.type=" + encodeURIComponent(type));
+
+    var genres = request.includedGenreAliases || [];
+    if (genres.length) {
+        var encodedGenres = [];
+        for (var i = 0; i < genres.length; i++) encodedGenres.push(encodeURIComponent(S(genres[i])));
+        segments.push("cat=" + encodedGenres.join(","));
+    }
+
+    var yearFrom = request.yearFrom || FILTER_MIN_YEAR;
+    var yearTo = request.yearTo || FILTER_MAX_YEAR;
+    if (request.yearFrom || request.yearTo) {
+        segments.push("r.year=" + Math.min(yearFrom, yearTo) + ";" + Math.max(yearFrom, yearTo));
+    }
+
+    var query = S(request.query).trim();
+    if (query) segments.push("l.title=" + encodeURIComponent(query));
+    segments.push("sort=" + sortFilterValue(request.sort));
+    segments.push("order=desc");
+    var path = "/filter/" + segments.join("/") + "/";
+    return page === 1 ? path : path + "page/" + page + "/";
+}
+
+function filteredWindow(request) {
+    return collectListingWindow(LISTING_PAGE_SIZE, request.offset || 0, request.limit || 20, function (page) {
+        return listing(filteredPath(request, page));
+    });
+}
+
 function searchWindow(query, offset, limit) {
     return collectListingWindow(SEARCH_PAGE_SIZE, offset, limit, function (page) {
         return listing("/index.php?do=search", {
@@ -266,17 +322,53 @@ function searchWindow(query, offset, limit) {
     });
 }
 
+function filterOptions(document, selector) {
+    var options = document.select(selector);
+    var result = [];
+    for (var i = 0; i < options.size(); i++) {
+        var option = options.get(i);
+        var id = S(option.attr("value")).trim();
+        var label = S(option.text()).trim();
+        if (id && label) result.push({ id: id, title: label });
+    }
+    return result;
+}
+
 var Provider = {
     search: function (requestJson) {
         var requestJsonObject = JSON.parse(requestJson);
         var query = S(requestJsonObject.query).trim();
         var offset = Math.max(requestJsonObject.offset || 0, 0);
         var limit = requestJsonObject.limit || 20;
+        if ((requestJsonObject.typeAliases || []).length ||
+            (requestJsonObject.includedGenreAliases || []).length ||
+            requestJsonObject.yearFrom || requestJsonObject.yearTo ||
+            S(requestJsonObject.sort).trim().toUpperCase() !== "RELEVANCE") {
+            return filteredWindow(requestJsonObject);
+        }
         if (!query) return latestWindow(offset, limit);
         return searchWindow(query, offset, limit);
     },
     latest: function (limit) { return latestWindow(0, limit); },
-    getSettings: function () { return { sortOptions: [{ id: "relevance", title: "Relevance" }] }; },
+    getSettings: function () {
+        var html = request(BASE_URL + "/anime/", { headers: { "User-Agent": DESKTOP_USER_AGENT } });
+        var document = Jsoup.parse(html, BASE_URL);
+        return {
+            sortOptions: [
+                { id: "relevance", title: "Датою додавання" },
+                { id: "title", title: "Абеткою" },
+                { id: "rating", title: "Рейтингом" },
+                { id: "year", title: "Роком" }
+            ],
+            typeOptions: [
+                { id: "tv", title: "ТБ-серіал" },
+                { id: "movie", title: "Повнометражне" },
+                { id: "ova", title: "OVA" },
+                { id: "ona", title: "ONA" }
+            ],
+            genreOptions: filterOptions(document, "select[name='cat'] option")
+        };
+    },
     getById: function (id) { return getTitle(id); },
     getPlaybackGroups: function (titleId) {
         var entries = playlist(titleId), groups = {}, order = [];
