@@ -57,24 +57,6 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animego.manifest.json"
     },
     {
-      "id": "animekhor",
-      "name": "AnimeKhor",
-      "version": "1.0.1",
-      "author": "Hibiki",
-      "website": "https://animekhor.org",
-      "iconUrl": "https://animekhor.org/favicon.ico",
-      "lang": "en",
-      "capabilities": [
-        "LATEST_RELEASES",
-        "PLAYBACK"
-      ],
-      "resolverDependencies": [
-        "dailymotion"
-      ],
-      "type": "source",
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animekhor.manifest.json"
-    },
-    {
       "id": "animepahe",
       "name": "AnimePahe",
       "version": "1.0.9",
