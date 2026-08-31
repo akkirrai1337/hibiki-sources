@@ -98,7 +98,7 @@
     {
       "id": "anitube",
       "name": "AniTube",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Hibiki",
       "website": "https://anitube.in.ua",
       "iconUrl": "https://anitube.in.ua/favicon.ico",
@@ -108,6 +108,7 @@
         "PLAYBACK"
       ],
       "resolverDependencies": [
+        "anitube-ashdi",
         "anitube-player"
       ],
       "isNsfw": false,
@@ -190,9 +191,23 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/animepahe-player.manifest.json"
     },
     {
+      "id": "anitube-ashdi",
+      "name": "AniTube ASHDI resolver",
+      "version": "1.0.0",
+      "author": null,
+      "website": null,
+      "iconUrl": null,
+      "lang": "",
+      "capabilities": [],
+      "resolverDependencies": [],
+      "isNsfw": false,
+      "type": "player-resolver",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/anitube-ashdi.manifest.json"
+    },
+    {
       "id": "anitube-player",
       "name": "AniTube browser resolver",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": null,
       "website": null,
       "iconUrl": null,
