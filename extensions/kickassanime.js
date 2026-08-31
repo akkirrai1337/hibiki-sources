@@ -39,18 +39,7 @@ function posterUrl(image) {
     return BASE_URL + "/image/poster/" + image.hq + ".jpg";
 }
 
-function title(fields) {
-    var base = {
-        russianName: null, englishName: null, japaneseName: null, synonyms: [],
-        year: null, type: null, episodeCount: null, posterUrl: null, status: null,
-        description: null, nextEpisodeAt: null, genres: [], ratings: [], ageRating: null,
-        viewCount: null, screenshots: [], trailer: null, sourceMaterial: null, studios: [],
-        mainCharacters: [], similarAnime: [], franchiseAnime: [], relatedAnime: [],
-        season: null, availableEpisodeCount: null, posterFallbackUrl: null,
-    };
-    for (var key in fields) base[key] = fields[key];
-    return base;
-}
+function title(fields) { return AnimeTitle(fields); }
 
 function toAnimeTitle(obj) {
     var englishName = obj.title_en || null;

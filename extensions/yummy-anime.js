@@ -110,18 +110,7 @@ function extractNextDate(episodes) {
     return episodes.next_date > 0 ? episodes.next_date : null;
 }
 
-function title(fields) {
-    var base = {
-        russianName: null, englishName: null, japaneseName: null, synonyms: [],
-        year: null, type: null, episodeCount: null, posterUrl: null, status: null,
-        description: null, nextEpisodeAt: null, genres: [], ratings: [], ageRating: null,
-        viewCount: null, screenshots: [], trailer: null, sourceMaterial: null, studios: [],
-        mainCharacters: [], similarAnime: [], franchiseAnime: [], relatedAnime: [],
-        season: null, availableEpisodeCount: null, posterFallbackUrl: null,
-    };
-    for (var key in fields) base[key] = fields[key];
-    return base;
-}
+function title(fields) { return AnimeTitle(fields); }
 
 function toRatings(rating) {
     if (!rating) return [];
