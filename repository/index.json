@@ -93,7 +93,7 @@
     {
       "id": "donghuastream",
       "name": "DonghuaStream",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "Hibiki",
       "website": "https://donghuastream.org",
       "iconUrl": "https://donghuastream.org/favicon.ico",
@@ -202,7 +202,7 @@
     {
       "id": "kodik",
       "name": "Kodik player resolver",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": null,
       "website": null,
       "iconUrl": null,
