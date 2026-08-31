@@ -1,7 +1,7 @@
 {
     "id": "miruro",
     "name": "Miruro",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "AniList-quality metadata with playback aggregated from several upstream providers (AllAnime, AnimePahe, AniKoto, AnimeDao, ...) - if one provider is down, pick another as a separate group.",
     "author": "Hibiki",
     "website": "https://www.miruro.to",

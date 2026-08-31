@@ -180,6 +180,27 @@ function sortForBrowse(sort, hasQuery) {
     }
 }
 
+/** perPage above 50 502s (the server enforces AniList's own real max), so an arbitrary [offset,
+ * offset+limit) window can't always be read from a single page - fetches however many consecutive
+ * pages of MAX_RESULTS actually cover it (almost always 1, occasionally 2 when the window straddles
+ * a page boundary) and slices the concatenated result down to exactly what was asked for. */
+function fetchBrowseWindow(baseQuery, offset, limit) {
+    var startPage = Math.floor(offset / MAX_RESULTS) + 1;
+    var endPage = Math.floor((offset + limit - 1) / MAX_RESULTS) + 1;
+    var items = [];
+    for (var page = startPage; page <= endPage; page++) {
+        var query = {};
+        for (var key in baseQuery) query[key] = baseQuery[key];
+        query.page = page;
+        query.perPage = MAX_RESULTS;
+        var pageItems = pipeGet("search/browse", query);
+        items = items.concat(pageItems);
+        if (pageItems.length < MAX_RESULTS) break;
+    }
+    var localOffset = offset - (startPage - 1) * MAX_RESULTS;
+    return items.slice(localOffset, localOffset + limit);
+}
+
 var Provider = {
     search: function (requestJson) {
         var request = JSON.parse(requestJson);
@@ -194,19 +215,14 @@ var Provider = {
             if (sort) searchQuery.sort = sort;
             mediaList = pipeGet("search", searchQuery);
         } else {
-            var browseQuery = {
-                type: "ANIME",
-                sort: sortForBrowse(request.sort, false),
-                page: 1,
-                perPage: Math.min(offset + limit, MAX_RESULTS),
-            };
+            var browseQuery = { type: "ANIME", sort: sortForBrowse(request.sort, false) };
             if (request.typeAliases && request.typeAliases.length > 0) browseQuery.format = request.typeAliases[0];
             if (request.statusAliases && request.statusAliases.length > 0) browseQuery.status = request.statusAliases[0];
             if (request.includedGenreAliases && request.includedGenreAliases.length > 0) browseQuery.genre_in = request.includedGenreAliases;
             if (request.excludedGenreAliases && request.excludedGenreAliases.length > 0) browseQuery.genre_not_in = request.excludedGenreAliases;
             if (request.yearFrom) browseQuery.startDate_greater = request.yearFrom * 10000;
             if (request.yearTo) browseQuery.startDate_lesser = (request.yearTo + 1) * 10000;
-            mediaList = pipeGet("search/browse", browseQuery).slice(offset, offset + limit);
+            mediaList = fetchBrowseWindow(browseQuery, offset, limit);
         }
         return mediaList.map(toAnimeTitle);
     },
