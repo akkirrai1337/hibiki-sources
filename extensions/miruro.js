@@ -46,6 +46,12 @@ function sendChallenged(url, options, session) {
     return fetch(url, merged);
 }
 
+// The WebView challenge always navigates to the site's real homepage, never the raw
+// `/api/secure/pipe?e=...` URL being fetched: Cloudflare's WAF treats a top-level navigation to a
+// JSON API endpoint with a huge opaque query string as attack-shaped traffic (a real browser never
+// does that) and hard-blocks it outright ("Sorry, you have been blocked") instead of serving the
+// normal JS challenge a genuine page load gets. Solving against the homepage earns the same
+// cf_clearance cookie, which is then reused for the actual API request.
 function fetchChallenged(url, options) {
     if (cachedSession !== null) {
         var cached = sendChallenged(url, options, cachedSession);
@@ -56,14 +62,14 @@ function fetchChallenged(url, options) {
     var first = sendChallenged(url, options, null);
     if (!isBrowserChallenge(first)) return first;
 
-    var session = challenge(url, [CLOUDFLARE_COOKIE], false);
+    var session = challenge(BASE_URL + "/", [CLOUDFLARE_COOKIE], false);
     var second = sendChallenged(url, options, session);
     if (!isBrowserChallenge(second)) {
         cachedSession = session;
         return second;
     }
 
-    var refreshed = challenge(url, [CLOUDFLARE_COOKIE], true);
+    var refreshed = challenge(BASE_URL + "/", [CLOUDFLARE_COOKIE], true);
     cachedSession = refreshed;
     return sendChallenged(url, options, refreshed);
 }
