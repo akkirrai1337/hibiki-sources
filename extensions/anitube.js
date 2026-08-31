@@ -6,6 +6,8 @@ var BASE_URL = "https://anitube.in.ua";
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36";
 var DESKTOP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36";
 var MAX_RESULTS = 50;
+var LISTING_PAGE_SIZE = 8;
+var SEARCH_PAGE_SIZE = 10;
 var TITLE_ID = /^(\d+)-[^/]+\.html$/;
 var EPISODE_NUMBER = /^\s*(\d+(?:[.,]\d+)?)/;
 
@@ -226,16 +228,54 @@ function listing(path, form) {
     return mergeListingCards(mobile, parseCards(request(BASE_URL + path, desktopOptions)));
 }
 
+// AniTube's regular feed is eight cards per page and its search results are ten cards per page.
+// The host passes an arbitrary offset/limit window, so resolve just the site pages intersecting
+// that window instead of always returning the first eight cards.
+function collectListingWindow(pageSize, offset, limit, fetchPage) {
+    offset = Math.max(offset || 0, 0);
+    limit = Math.min(Math.max(limit || 20, 1), MAX_RESULTS);
+    var firstPage = Math.floor(offset / pageSize) + 1;
+    var lastPage = Math.floor((offset + limit - 1) / pageSize) + 1;
+    var result = [];
+    for (var page = firstPage; page <= lastPage; page++) {
+        var cards = fetchPage(page);
+        result = result.concat(cards);
+        // No subsequent page can contain items when AniTube has reached the end.
+        if (cards.length < pageSize) break;
+    }
+    var localOffset = offset - (firstPage - 1) * pageSize;
+    return result.slice(localOffset, localOffset + limit);
+}
+
+function latestWindow(offset, limit) {
+    return collectListingWindow(LISTING_PAGE_SIZE, offset, limit, function (page) {
+        return listing(page === 1 ? "/" : "/page/" + page + "/");
+    });
+}
+
+function searchWindow(query, offset, limit) {
+    return collectListingWindow(SEARCH_PAGE_SIZE, offset, limit, function (page) {
+        return listing("/index.php?do=search", {
+            do: "search",
+            subaction: "search",
+            story: query,
+            search_start: page,
+            result_from: (page - 1) * SEARCH_PAGE_SIZE + 1,
+            full_search: 0
+        });
+    });
+}
+
 var Provider = {
     search: function (requestJson) {
         var requestJsonObject = JSON.parse(requestJson);
         var query = S(requestJsonObject.query).trim();
-        if (!query) return listing("/").slice(0, Math.min(requestJsonObject.limit || 20, MAX_RESULTS));
-        var cards = listing("/index.php?do=search", { do: "search", subaction: "search", story: query });
-        var start = Math.max(requestJsonObject.offset || 0, 0);
-        return cards.slice(start, start + Math.min(requestJsonObject.limit || 20, MAX_RESULTS));
+        var offset = Math.max(requestJsonObject.offset || 0, 0);
+        var limit = requestJsonObject.limit || 20;
+        if (!query) return latestWindow(offset, limit);
+        return searchWindow(query, offset, limit);
     },
-    latest: function (limit) { return listing("/").slice(0, Math.min(limit || 20, MAX_RESULTS)); },
+    latest: function (limit) { return latestWindow(0, limit); },
     getSettings: function () { return { sortOptions: [{ id: "relevance", title: "Relevance" }] }; },
     getById: function (id) { return getTitle(id); },
     getPlaybackGroups: function (titleId) {
