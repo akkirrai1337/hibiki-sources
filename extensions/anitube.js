@@ -80,12 +80,14 @@ function parseCards(html) {
     var seen = {};
     for (var i = 0; i < cards.size(); i++) {
         var card = cards.get(i);
-        var link = card.selectFirst("a.short-title[href$='.html'], .title2 a[href$='.html']");
-        if (link === null) continue;
-        var href = S(link.absUrl("href"));
+        // The first .short-title wraps a poster and contains labels such as "Озв+Суб 6 з 10".
+        // Only the nested h2 is the actual release name.
+        var heading = card.selectFirst("a.short-title h2, .title2 a[href$='.html']");
+        if (heading === null) continue;
+        var href = S(heading.absUrl("href"));
         var id = href.replace(/^https?:\/\/[^/]+\//i, "").split("?")[0];
         if (!TITLE_ID.test(id) || seen[id]) continue;
-        var name = S(link.selectFirst("h2") ? link.selectFirst("h2").text() : link.text()).trim();
+        var name = S(heading.text()).trim();
         if (!name) continue;
         var poster = card.selectFirst("img.poster, .news_post img, img[alt]");
         var posterUrl = null;

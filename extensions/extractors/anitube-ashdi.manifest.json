@@ -1,0 +1,7 @@
+{
+  "id": "anitube-ashdi",
+  "name": "AniTube ASHDI resolver",
+  "version": "1.0.0",
+  "type": "player-resolver",
+  "hosts": ["ashdi.vip"]
+}

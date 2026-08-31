@@ -1,9 +1,9 @@
 {
   "id": "anitube-player",
   "name": "AniTube browser resolver",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "player-resolver",
   "runtime": "BROWSER",
   "browserPlaybackMode": "EXTRACT_STREAM",
-  "hosts": ["ashdi.vip", "moonanime.art"]
+  "hosts": ["moonanime.art"]
 }
