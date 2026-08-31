@@ -27,6 +27,7 @@ var PROVIDER_NAMES = {
     kiwi: "AnimePahe",
     hop: "KickAssAnime",
     bonk: "AnimeDao",
+    moo: "AnimeGG",
 };
 
 var cachedSession = null;
@@ -316,7 +317,7 @@ var Provider = {
             return {
                 url: stream.url,
                 type: type,
-                quality: null,
+                quality: stream.quality || null,
                 headers: { "Referer": stream.referer || (BASE_URL + "/") },
                 playerName: stream.server || (PROVIDER_NAMES[providerId] || providerId),
                 translation: translation,
