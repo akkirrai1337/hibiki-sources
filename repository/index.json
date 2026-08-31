@@ -159,7 +159,7 @@
     {
       "id": "animepahe-player",
       "name": "AnimePahe browser resolver",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": null,
       "website": null,
       "iconUrl": null,
@@ -257,7 +257,7 @@
     {
       "id": "gogoanime",
       "name": "Gogoanime",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Hibiki",
       "website": "https://gogoanime.by",
       "iconUrl": "https://gogoanime.by/wp-content/uploads/2024/03/logo-gogo.png",
