@@ -20,7 +20,7 @@
     {
       "id": "anichi",
       "name": "Anichi",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "Hibiki",
       "website": "https://anichi.to",
       "iconUrl": "https://anichi.to/favicon.ico",
@@ -93,7 +93,7 @@
     {
       "id": "donghuastream",
       "name": "DonghuaStream",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Hibiki",
       "website": "https://donghuastream.org",
       "iconUrl": "https://donghuastream.org/favicon.ico",
