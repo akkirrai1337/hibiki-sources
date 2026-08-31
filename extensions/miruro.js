@@ -5,17 +5,21 @@
 // covers, AnimeDao, ...) - so one episode can come back with several independent provider options,
 // several of which are ALREADY fully-resolved direct HLS/MP4 CDN links (no embed/WebView needed).
 //
-// Every /api/secure/pipe response is gated behind Cloudflare (plain HTTP without a solved challenge
-// gets a 403), so this goes through `challenge()` exactly like animepahe.js does. On top of that,
-// responses carry a light "x-obfuscated: 2" scrambling: base64url -> XOR with a fixed key -> gzip.
+// Responses carry a light "x-obfuscated: 2" scrambling: base64url -> XOR with a fixed key -> gzip.
 // This is NOT real encryption - the XOR key ships in plaintext to every visitor at /env2.js
 // (`VITE_PIPE_OBF_KEY`), just a speed bump against naive scrapers, so it's reproduced verbatim here
 // rather than treated as a secret worth protecting.
+//
+// This deliberately does NOT go through the host's WebView challenge() flow: the /api/secure/pipe
+// endpoint's Cloudflare gate reacts to a plain fetch's fingerprint (datacenter/proxy IPs, unusual
+// TLS), not to missing cookies - a real device's own IP/fetch already gets through directly in
+// practice. Routing it through challenge() only bought a WebView stuck loading the homepage forever
+// (no interactive challenge ever appears there for the WebView to solve, so no cf_clearance cookie
+// is ever minted and the flow just times out) - net worse than the plain 403 it was meant to avoid.
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
 var BASE_URL = "https://www.miruro.to";
-var CLOUDFLARE_COOKIE = "cf_clearance";
 var BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 var OBFUSCATION_KEY_HEX = "71951034f8fbcf53d89db52ceb3dc22c";
 var MAX_RESULTS = 50;
@@ -29,50 +33,6 @@ var PROVIDER_NAMES = {
     bonk: "AnimeDao",
     moo: "AnimeGG",
 };
-
-var cachedSession = null;
-
-function isBrowserChallenge(response) {
-    return response.status === 403 || String((response.headers && response.headers["cf-mitigated"]) || "").toLowerCase() === "challenge";
-}
-
-function sendChallenged(url, options, session) {
-    var merged = { method: options.method, headers: {}, form: options.form, body: options.body };
-    for (var key in options.headers) merged.headers[key] = options.headers[key];
-    if (session) {
-        merged.headers["Cookie"] = session.cookieHeader;
-        merged.headers["User-Agent"] = session.userAgent;
-    }
-    return fetch(url, merged);
-}
-
-// The WebView challenge always navigates to the site's real homepage, never the raw
-// `/api/secure/pipe?e=...` URL being fetched: Cloudflare's WAF treats a top-level navigation to a
-// JSON API endpoint with a huge opaque query string as attack-shaped traffic (a real browser never
-// does that) and hard-blocks it outright ("Sorry, you have been blocked") instead of serving the
-// normal JS challenge a genuine page load gets. Solving against the homepage earns the same
-// cf_clearance cookie, which is then reused for the actual API request.
-function fetchChallenged(url, options) {
-    if (cachedSession !== null) {
-        var cached = sendChallenged(url, options, cachedSession);
-        if (!isBrowserChallenge(cached)) return cached;
-        cachedSession = null;
-    }
-
-    var first = sendChallenged(url, options, null);
-    if (!isBrowserChallenge(first)) return first;
-
-    var session = challenge(BASE_URL + "/", [CLOUDFLARE_COOKIE], false);
-    var second = sendChallenged(url, options, session);
-    if (!isBrowserChallenge(second)) {
-        cachedSession = session;
-        return second;
-    }
-
-    var refreshed = challenge(BASE_URL + "/", [CLOUDFLARE_COOKIE], true);
-    cachedSession = refreshed;
-    return sendChallenged(url, options, refreshed);
-}
 
 /** Rhino has no TextEncoder; this is the classic encodeURIComponent trick (same one Miruro's own
  * client JS uses) to turn a native UTF-16 JS string into a "one byte per char code" byte-string. */
@@ -112,7 +72,7 @@ function decodePipeResponse(response) {
 function pipeGet(path, query) {
     var e = base64UrlEncode({ path: path, method: "GET", query: query || {}, body: null, version: "0.2.0" });
     var url = BASE_URL + "/api/secure/pipe?e=" + e;
-    var response = fetchChallenged(url, {
+    var response = fetch(url, {
         headers: {
             "User-Agent": BROWSER_USER_AGENT,
             "Accept": "text/plain, application/json, */*",

@@ -106,6 +106,7 @@ def build_index() -> dict:
                 "lang": manifest.get("lang", ""),
                 "capabilities": manifest.get("capabilities", []),
                 "resolverDependencies": manifest.get("resolverDependencies", []),
+                "isNsfw": manifest.get("isNsfw", False),
                 "type": manifest.get("type", "source"),
                 "manifestUrl": f"{RAW_BASE_URL}/{path.relative_to(EXTENSIONS_DIR).as_posix()}",
             }
