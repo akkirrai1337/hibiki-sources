@@ -10,17 +10,17 @@
 // (`VITE_PIPE_OBF_KEY`), just a speed bump against naive scrapers, so it's reproduced verbatim here
 // rather than treated as a secret worth protecting.
 //
-// This deliberately does NOT go through the host's WebView challenge() flow: the /api/secure/pipe
-// endpoint's Cloudflare gate reacts to a plain fetch's fingerprint (datacenter/proxy IPs, unusual
-// TLS), not to missing cookies - a real device's own IP/fetch already gets through directly in
-// practice. Routing it through challenge() only bought a WebView stuck loading the homepage forever
-// (no interactive challenge ever appears there for the WebView to solve, so no cf_clearance cookie
-// is ever minted and the flow just times out) - net worse than the plain 403 it was meant to avoid.
+// /api/secure/pipe is gated by Cloudflare bot-management that binds the block to the exact client
+// fingerprint (TLS/JA3), not just a missing cookie - confirmed live: a plain fetch() gets a genuine
+// 403 even from a real device's own IP, and routing it through challenge() (which harvests cookies
+// via a WebView, then replays them through this runtime's own HTTP client) still 403s, because the
+// replaying client's TLS fingerprint never matches the WebView's. browserFetch() instead performs
+// the actual request from inside the WebView's own JS/network context - a genuine same-stack
+// request, not a replay - so it earns and uses the pass together, atomically.
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
 var BASE_URL = "https://www.miruro.to";
-var BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 var OBFUSCATION_KEY_HEX = "71951034f8fbcf53d89db52ceb3dc22c";
 var MAX_RESULTS = 50;
 
@@ -72,12 +72,8 @@ function decodePipeResponse(response) {
 function pipeGet(path, query) {
     var e = base64UrlEncode({ path: path, method: "GET", query: query || {}, body: null, version: "0.2.0" });
     var url = BASE_URL + "/api/secure/pipe?e=" + e;
-    var response = fetch(url, {
-        headers: {
-            "User-Agent": BROWSER_USER_AGENT,
-            "Accept": "text/plain, application/json, */*",
-            "Referer": BASE_URL + "/",
-        },
+    var response = browserFetch(BASE_URL + "/", url, {
+        headers: { "Accept": "text/plain, application/json, */*" },
     });
     if (response.status < 200 || response.status >= 300) {
         throw new Error("Miruro returned HTTP " + response.status + " for " + path);
