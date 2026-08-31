@@ -4,6 +4,7 @@ function S(value) { return value === null || value === undefined ? "" : String(v
 
 var BASE_URL = "https://anitube.in.ua";
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36";
+var DESKTOP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36";
 var MAX_RESULTS = 50;
 var TITLE_ID = /^(\d+)-[^/]+\.html$/;
 var EPISODE_NUMBER = /^\s*(\d+(?:[.,]\d+)?)/;
@@ -45,13 +46,25 @@ function parseType(card) {
     var lines = card.select(".sd-line");
     for (var i = 0; i < lines.size(); i++) {
         var text = S(lines.get(i).text());
-        if (text.indexOf("Тип:") !== 0) continue;
-        var value = text.substring(4).trim().toLowerCase();
+        var label = lines.get(i).selectFirst("span");
+        if (label === null || S(label.text()).replace(/:\s*$/, "") !== "Тип") continue;
+        var value = text.substring(S(label.text()).length).trim().toLowerCase();
         if (value === "тв") return "tv";
-        if (value.indexOf("фільм") >= 0) return "movie";
+        if (value.indexOf("фільм") >= 0 || value.indexOf("повнометраж") >= 0) return "movie";
         return value || null;
     }
     return null;
+}
+
+function parseEpisodeInfo(card) {
+    var progress = card.selectFirst(".up-series");
+    var text = progress === null ? S(card.text()) : S(progress.text());
+    var match = /(\d+(?:[.,]\d+)?)\s*з\s*(\d+(?:[.,]\d+)?)/i.exec(text);
+    if (match === null) return { available: null, total: null, status: null };
+    var available = parseFloat(match[1].replace(",", "."));
+    var total = parseFloat(match[2].replace(",", "."));
+    if (isNaN(available) || isNaN(total) || total <= 0) return { available: null, total: null, status: null };
+    return { available: available, total: total, status: available < total ? "ongoing" : "released" };
 }
 
 function parseGenres(card) {
@@ -98,6 +111,7 @@ function parseCards(html) {
             posterUrl = S(poster.absUrl("src"));
             if (!posterUrl) posterUrl = S(poster.absUrl("data-src"));
         }
+        var episodes = parseEpisodeInfo(card);
         seen[id] = true;
         result.push(title({
             id: id,
@@ -106,11 +120,12 @@ function parseCards(html) {
             originalName: name,
             year: parseYear(card),
             type: parseType(card),
-            episodeCount: null,
+            episodeCount: episodes.total,
             posterUrl: posterUrl || null,
-            status: null,
+            status: episodes.status,
             description: parseDescription(card),
-            genres: parseGenres(card)
+            genres: parseGenres(card),
+            availableEpisodeCount: episodes.available
         }));
     }
     return result;
@@ -185,16 +200,42 @@ function parsePlaylist(html) {
 
 function groupLabel(item) { return item.category + " · " + item.studio; }
 
+// AniTube renders different metadata on its responsive templates. The mobile response provides
+// type and a compact episode badge; the desktop response provides the year. They describe the
+// same IDs, so merge them instead of opening every title page merely to fill catalog cards.
+function mergeListingCards(primary, supplementary) {
+    var byId = {};
+    for (var i = 0; i < supplementary.length; i++) byId[supplementary[i].id] = supplementary[i];
+    for (var j = 0; j < primary.length; j++) {
+        var extra = byId[primary[j].id];
+        if (!extra) continue;
+        if (primary[j].year === null || primary[j].year === undefined) primary[j].year = extra.year;
+        if (primary[j].type === null || primary[j].type === undefined) primary[j].type = extra.type;
+        if (primary[j].episodeCount === null || primary[j].episodeCount === undefined) primary[j].episodeCount = extra.episodeCount;
+        if (primary[j].availableEpisodeCount === null || primary[j].availableEpisodeCount === undefined) primary[j].availableEpisodeCount = extra.availableEpisodeCount;
+        if (primary[j].status === null || primary[j].status === undefined) primary[j].status = extra.status;
+    }
+    return primary;
+}
+
+function listing(path, form) {
+    var options = form ? { method: "POST", form: form } : {};
+    var mobile = parseCards(request(BASE_URL + path, options));
+    var desktopHeaders = { "User-Agent": DESKTOP_USER_AGENT };
+    var desktopOptions = form ? { method: "POST", form: form, headers: desktopHeaders } : { headers: desktopHeaders };
+    return mergeListingCards(mobile, parseCards(request(BASE_URL + path, desktopOptions)));
+}
+
 var Provider = {
     search: function (requestJson) {
         var requestJsonObject = JSON.parse(requestJson);
         var query = S(requestJsonObject.query).trim();
-        if (!query) return parseCards(request(BASE_URL + "/")).slice(0, Math.min(requestJsonObject.limit || 20, MAX_RESULTS));
-        var html = request(BASE_URL + "/index.php?do=search", { method: "POST", form: { do: "search", subaction: "search", story: query } });
+        if (!query) return listing("/").slice(0, Math.min(requestJsonObject.limit || 20, MAX_RESULTS));
+        var cards = listing("/index.php?do=search", { do: "search", subaction: "search", story: query });
         var start = Math.max(requestJsonObject.offset || 0, 0);
-        return parseCards(html).slice(start, start + Math.min(requestJsonObject.limit || 20, MAX_RESULTS));
+        return cards.slice(start, start + Math.min(requestJsonObject.limit || 20, MAX_RESULTS));
     },
-    latest: function (limit) { return parseCards(request(BASE_URL + "/")).slice(0, Math.min(limit || 20, MAX_RESULTS)); },
+    latest: function (limit) { return listing("/").slice(0, Math.min(limit || 20, MAX_RESULTS)); },
     getSettings: function () { return { sortOptions: [{ id: "relevance", title: "Relevance" }] }; },
     getById: function (id) { return getTitle(id); },
     getPlaybackGroups: function (titleId) {
