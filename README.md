@@ -75,6 +75,12 @@ Field notes:
   network/parse HTML/read host state. See `extensions/animevost.js` for a complete, real example,
   and the `hibiki` repo's `RhinoExtensionRuntime`/`ScriptedAnimeSource` for exactly how each
   method is invoked.
+- `getPlayerLinks()` may return direct `DIRECT_HLS`/`DIRECT_MP4` links with optional `audioUrl`,
+  `audioHeaders`, and `subtitles`. Each subtitle is `{ url, label?, language?, headers? }`. The host
+  preserves the separate headers for video, audio, and subtitle requests and carries all of them
+  through its browser-backed relay fallback, so a source does not need a player resolver when it
+  already knows the final media URLs. Omitted or empty auxiliary headers inherit the link's video
+  headers.
 
 ## Player resolvers
 
@@ -87,8 +93,10 @@ and `console` APIs, so the same payload can be reused by a future desktop host.
 For interactive players, use `"runtime": "BROWSER"` and expose
 `Provider.browserScript(linkJson)`. The host runs that returned page script in its browser engine;
 the script may call `HibikiResolver.quality(label)` before changing quality and
-`HibikiResolver.done()` when probing is complete. The host owns the browser lifecycle and stream
-capture, which keeps this contract portable to desktop.
+`HibikiResolver.master(url)`, `video(url)`, `audio(url)`, or
+`subtitle(url, label, language)` when the page exposes a media track. Call
+`HibikiResolver.done()` when probing is complete. The host owns the browser lifecycle, stream
+capture, cookies, and relay transport, which keeps this contract portable to desktop.
 
 **Gotcha when writing a payload:** any string returned from a `Jsoup`/Java call (`.text()`,
 `.attr()`, `.absUrl()`) comes back as a boxed Java object inside Rhino, not a JS string primitive —
