@@ -187,7 +187,11 @@ function playerLinks(episodeId) {
         });
         var iframeMatch = /<iframe[^>]+src=["']([^"']+)/i.exec(response);
         if (iframeMatch === null) continue;
-        var embedUrl = S(Jsoup.resolve(BASE_URL, iframeMatch[1].replace(/&#038;/g, "&")));
+        // The AJAX response is JSON, so the iframe URL uses escaped slashes (`https:\/\/…`).
+        // Jsoup treats that as a relative URL unless we restore the real URL first.
+        var embedUrl = S(Jsoup.resolve(BASE_URL, iframeMatch[1]
+            .replace(/&#038;/g, "&")
+            .replace(/\\\//g, "/")));
         var embedHtml = request(embedUrl, { headers: { "Referer": absolute(episodeId) } });
         var videoMatch = /(?:file|src)\s*:\s*["'](https?:\\?\/\\?\/[^"']+\.(?:mp4|m3u8)[^"']*)/i.exec(embedHtml);
         if (videoMatch === null) continue;
