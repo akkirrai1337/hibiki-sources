@@ -92,17 +92,18 @@ function parseCards(html, selector) {
     var cards = document.select(usedSelector);
     var rawMatches = (S(html).match(new RegExp(usedSelector.replace(/^\./, ""), "g")) || []).length;
     console.log("AniKappa DIAG parseCards selector=" + usedSelector + " jsoupCount=" + cards.size() + " rawSubstringCount=" + rawMatches);
-    var result = [], seen = {};
+    var result = [], seen = {}, skipped = { noLink: 0, badId: 0, noName: 0 };
     for (var i = 0; i < cards.size(); i++) {
         var card = cards.get(i);
         var link = card.selectFirst("a[href*='.html']");
-        if (link === null) continue;
+        if (link === null) { skipped.noLink++; continue; }
         var href = S(link.absUrl("href"));
         var id = href.replace(/^https?:\/\/[^/]+\//i, "").split("?")[0];
-        if (!TITLE_PATH.test(id) || seen[id]) continue;
+        if (i === 0) console.log("AniKappa DIAG card0 href=" + href + " id=" + id + " titlePathOk=" + TITLE_PATH.test(id));
+        if (!TITLE_PATH.test(id) || seen[id]) { skipped.badId++; continue; }
         var nameNode = card.selectFirst(".shortstory__title, .card-update__title, img[alt]");
         var name = nameNode === null ? "" : S(nameNode.text()).trim();
-        if (!name) continue;
+        if (!name) { skipped.noName++; continue; }
         var image = card.selectFirst("img");
         var poster = image === null ? null : S(image.absUrl("src")) || null;
         var info = card.select(".shortstory__info span");
@@ -121,6 +122,7 @@ function parseCards(html, selector) {
             posterUrl: poster, status: null, description: null, genres: []
         }));
     }
+    console.log("AniKappa DIAG parseCards result=" + result.length + " noLink=" + skipped.noLink + " badId=" + skipped.badId + " noName=" + skipped.noName);
     return result;
 }
 
