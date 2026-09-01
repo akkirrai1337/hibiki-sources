@@ -339,6 +339,26 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/kickassanime.manifest.json"
     },
     {
+      "id": "mikai",
+      "name": "Mikai",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://mikai.me",
+      "iconUrl": "https://mikai.me/favicon.ico",
+      "lang": "uk",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [
+        "anitube-ashdi",
+        "anitube-player"
+      ],
+      "isNsfw": false,
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/mikai.manifest.json"
+    },
+    {
       "id": "miruro",
       "name": "Miruro",
       "version": "1.0.5",
