@@ -104,7 +104,11 @@ function listPage(request, page, limit) {
 function list(request) {
     var offset = Math.max(request.offset || 0, 0);
     var limit = Math.min(Math.max(request.limit || 20, 1), MAX_RESULTS);
-    var pageSize = 100;
+    // The host asks for small windows (normally 20–24 items).  Asking the API for 100 richly
+    // populated cards made a non-zero home-feed offset decode a multi-megabyte JSON response on
+    // the device before it could render anything.  Use the requested window size instead; only
+    // a boundary-spanning request needs a second small page.
+    var pageSize = limit;
     var firstPage = Math.floor(offset / pageSize) + 1;
     var localOffset = offset % pageSize;
     var items = [];
