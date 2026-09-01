@@ -185,13 +185,18 @@ function playerLinks(episodeId) {
             method: "POST",
             form: { action: "get_player_contents", a: postId, i: String(mirror) },
         });
-        var iframeMatch = /<iframe[^>]+src=["']([^"']+)/i.exec(response);
+        // DooPlay returns a JSON array of iframe fragments. Matching the raw response fails
+        // because its HTML quotes are still escaped (`src=\"…\"`). Decode it first, just like
+        // the site's own player script does, then inspect the selected mirror fragment.
+        var iframeHtml;
+        try {
+            iframeHtml = JSON.parse(response)[mirror - 1] || "";
+        } catch (error) {
+            continue;
+        }
+        var iframeMatch = /<iframe[^>]+src=["']([^"']+)/i.exec(iframeHtml);
         if (iframeMatch === null) continue;
-        // The AJAX response is JSON, so the iframe URL uses escaped slashes (`https:\/\/…`).
-        // Jsoup treats that as a relative URL unless we restore the real URL first.
-        var embedUrl = S(Jsoup.resolve(BASE_URL, iframeMatch[1]
-            .replace(/&#038;/g, "&")
-            .replace(/\\\//g, "/")));
+        var embedUrl = S(Jsoup.resolve(BASE_URL, iframeMatch[1].replace(/&#038;/g, "&")));
         var embedHtml = request(embedUrl, { headers: { "Referer": absolute(episodeId) } });
         var videoMatch = /(?:file|src)\s*:\s*["'](https?:\\?\/\\?\/[^"']+\.(?:mp4|m3u8)[^"']*)/i.exec(embedHtml);
         if (videoMatch === null) continue;
