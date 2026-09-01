@@ -1,0 +1,15 @@
+{
+  "id": "mikai",
+  "name": "Mikai",
+  "version": "1.0.0",
+  "description": "Ukrainian anime catalog with Ukrainian voice tracks and subtitle releases.",
+  "author": "Hibiki",
+  "website": "https://mikai.me",
+  "iconUrl": "https://mikai.me/favicon.ico",
+  "lang": "uk",
+  "capabilities": ["LATEST_RELEASES", "PLAYBACK"],
+  "supportedSorts": ["RELEVANCE", "TITLE", "RATING", "YEAR"],
+  "supportedFilters": ["TYPE", "INCLUDED_GENRES", "YEAR_RANGE"],
+  "fallbackSort": "RELEVANCE",
+  "resolverDependencies": ["anitube-ashdi", "anitube-player"]
+}
