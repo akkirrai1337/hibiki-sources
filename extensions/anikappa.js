@@ -1,11 +1,20 @@
 // AniKappa is a DLE catalog. Its own player endpoint returns the selected source, translation
 // team and episode as HTML; preserving those selectors gives the app proper voice/subtitle groups.
+//
+// AniKappa sits behind a Cloudflare bot check that flags Hibiki's plain HTTP client (unlike
+// AniTube's Cloudflare zone, which doesn't) - every request needs to be able to survive it, so
+// `request` routes through `fetchChallenged`, the same try-bare / solve-via-WebView / retry-once
+// dance AnimePahe's extension uses, backed by the host's `challenge()` global.
 function S(value) { return value === null || value === undefined ? "" : String(value); }
 
 var BASE_URL = "https://anikappa.in.ua";
 var MAX_RESULTS = 50;
 var TITLE_PATH = /^(?:[^?#]+\/)?\d+-[^?#/]+\.html$/;
 var EPISODE_NUMBER = /(\d+(?:[.,]\d+)?)/;
+var CLOUDFLARE_COOKIE = "cf_clearance";
+var BROWSER_USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36";
+
+var cachedSession = null;
 
 function title(fields) { return AnimeTitle(fields); }
 
@@ -14,12 +23,48 @@ function absolute(path) {
     return /^https?:\/\//i.test(path) ? path : BASE_URL + (path.charAt(0) === "/" ? path : "/" + path);
 }
 
+function isBrowserChallenge(response) {
+    return response.status === 403 || String((response.headers && response.headers["cf-mitigated"]) || "").toLowerCase() === "challenge";
+}
+
+function sendChallenged(url, options, session) {
+    var merged = { method: options.method, headers: {}, form: options.form };
+    for (var key in options.headers) merged.headers[key] = options.headers[key];
+    if (session) {
+        merged.headers["Cookie"] = session.cookieHeader;
+        merged.headers["User-Agent"] = session.userAgent;
+    }
+    return fetch(url, merged);
+}
+
+function fetchChallenged(url, options) {
+    if (cachedSession !== null) {
+        var cached = sendChallenged(url, options, cachedSession);
+        if (!isBrowserChallenge(cached)) return cached;
+        cachedSession = null;
+    }
+
+    var first = sendChallenged(url, options, null);
+    if (!isBrowserChallenge(first)) return first;
+
+    var session = challenge(url, [CLOUDFLARE_COOKIE], false);
+    var second = sendChallenged(url, options, session);
+    if (!isBrowserChallenge(second)) {
+        cachedSession = session;
+        return second;
+    }
+
+    var refreshed = challenge(url, [CLOUDFLARE_COOKIE], true);
+    cachedSession = refreshed;
+    return sendChallenged(url, options, refreshed);
+}
+
 function request(path, options) {
     options = options || {};
     var headers = options.headers || {};
-    if (!headers["User-Agent"]) headers["User-Agent"] = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36";
+    if (!headers["User-Agent"]) headers["User-Agent"] = BROWSER_USER_AGENT;
     if (!headers["Referer"]) headers["Referer"] = BASE_URL + "/";
-    var response = fetch(absolute(path), { method: options.method || "GET", headers: headers, form: options.form });
+    var response = fetchChallenged(absolute(path), { method: options.method || "GET", headers: headers, form: options.form });
     if (!response.ok) throw new Error("AniKappa returned HTTP " + response.status);
     return S(response.body);
 }
