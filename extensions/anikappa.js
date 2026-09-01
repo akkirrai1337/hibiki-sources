@@ -65,6 +65,7 @@ function request(path, options) {
     if (!headers["User-Agent"]) headers["User-Agent"] = BROWSER_USER_AGENT;
     if (!headers["Referer"]) headers["Referer"] = BASE_URL + "/";
     var response = fetchChallenged(absolute(path), { method: options.method || "GET", headers: headers, form: options.form });
+    console.log("AniKappa DIAG " + path + " -> status=" + response.status + " len=" + S(response.body).length + " head=" + S(response.body).slice(0, 300).replace(/\s+/g, " "));
     if (!response.ok) throw new Error("AniKappa returned HTTP " + response.status);
     return S(response.body);
 }
