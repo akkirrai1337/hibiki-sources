@@ -38,6 +38,26 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anichi.manifest.json"
     },
     {
+      "id": "anikappa",
+      "name": "AniKappa",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://anikappa.in.ua",
+      "iconUrl": "https://anikappa.in.ua/templates/AniKappa/images/favicon/favicon.ico",
+      "lang": "uk",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [
+        "anitube-ashdi",
+        "anitube-player"
+      ],
+      "isNsfw": false,
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anikappa.manifest.json"
+    },
+    {
       "id": "animego",
       "name": "AnimeGo",
       "version": "1.0.5",
