@@ -65,7 +65,6 @@ function request(path, options) {
     if (!headers["User-Agent"]) headers["User-Agent"] = BROWSER_USER_AGENT;
     if (!headers["Referer"]) headers["Referer"] = BASE_URL + "/";
     var response = fetchChallenged(absolute(path), { method: options.method || "GET", headers: headers, form: options.form });
-    console.log("AniKappa DIAG " + path + " -> status=" + response.status + " len=" + S(response.body).length + " head=" + S(response.body).slice(0, 300).replace(/\s+/g, " "));
     if (!response.ok) throw new Error("AniKappa returned HTTP " + response.status);
     return S(response.body);
 }
@@ -87,23 +86,29 @@ function typeOf(text) {
 }
 
 function parseCards(html, selector) {
-    var usedSelector = selector || ".shortstory__body";
     var document = Jsoup.parse(html, BASE_URL);
-    var cards = document.select(usedSelector);
-    var rawMatches = (S(html).match(new RegExp(usedSelector.replace(/^\./, ""), "g")) || []).length;
-    console.log("AniKappa DIAG parseCards selector=" + usedSelector + " jsoupCount=" + cards.size() + " rawSubstringCount=" + rawMatches);
-    var result = [], seen = {}, skipped = { noLink: 0, badId: 0, noName: 0 };
+    var cards = document.select(selector || ".shortstory__body");
+    var result = [], seen = {};
     for (var i = 0; i < cards.size(); i++) {
         var card = cards.get(i);
         var link = card.selectFirst("a[href*='.html']");
-        if (link === null) { skipped.noLink++; continue; }
+        if (link === null) continue;
         var href = S(link.absUrl("href"));
         var id = href.replace(/^https?:\/\/[^/]+\//i, "").split("?")[0];
-        if (i === 0) console.log("AniKappa DIAG card0 href=" + href + " id=" + id + " titlePathOk=" + TITLE_PATH.test(id));
-        if (!TITLE_PATH.test(id) || seen[id]) { skipped.badId++; continue; }
-        var nameNode = card.selectFirst(".shortstory__title, .card-update__title, img[alt]");
-        var name = nameNode === null ? "" : S(nameNode.text()).trim();
-        if (!name) { skipped.noName++; continue; }
+        if (!TITLE_PATH.test(id) || seen[id]) continue;
+        // A grouped Jsoup selector returns the first match in *document* order, not selector-list
+        // order - and on these cards the poster <img alt="..."> sits before .shortstory__title in
+        // the DOM, so selectFirst(".shortstory__title, img[alt]") would hit the <img> first. That's
+        // harmless for img[alt] since it's a fallback anyway, but .text() on an <img> is always
+        // empty (alt is an attribute, not rendered text) - so the img case needs .attr("alt"), not
+        // .text(), or every card silently loses its name.
+        var titleNode = card.selectFirst(".shortstory__title, .card-update__title");
+        var name = titleNode === null ? "" : S(titleNode.text()).trim();
+        if (!name) {
+            var altNode = card.selectFirst("img[alt]");
+            name = altNode === null ? "" : S(altNode.attr("alt")).trim();
+        }
+        if (!name) continue;
         var image = card.selectFirst("img");
         var poster = image === null ? null : S(image.absUrl("src")) || null;
         var info = card.select(".shortstory__info span");
@@ -122,7 +127,6 @@ function parseCards(html, selector) {
             posterUrl: poster, status: null, description: null, genres: []
         }));
     }
-    console.log("AniKappa DIAG parseCards result=" + result.length + " noLink=" + skipped.noLink + " badId=" + skipped.badId + " noName=" + skipped.noName);
     return result;
 }
 
