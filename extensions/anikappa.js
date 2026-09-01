@@ -87,8 +87,11 @@ function typeOf(text) {
 }
 
 function parseCards(html, selector) {
+    var usedSelector = selector || ".shortstory__body";
     var document = Jsoup.parse(html, BASE_URL);
-    var cards = document.select(selector || ".shortstory__body");
+    var cards = document.select(usedSelector);
+    var rawMatches = (S(html).match(new RegExp(usedSelector.replace(/^\./, ""), "g")) || []).length;
+    console.log("AniKappa DIAG parseCards selector=" + usedSelector + " jsoupCount=" + cards.size() + " rawSubstringCount=" + rawMatches);
     var result = [], seen = {};
     for (var i = 0; i < cards.size(); i++) {
         var card = cards.get(i);
