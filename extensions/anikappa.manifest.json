@@ -1,0 +1,15 @@
+{
+  "id": "anikappa",
+  "name": "AniKappa",
+  "version": "1.0.0",
+  "description": "Ukrainian anime catalog with voice tracks and subtitle releases.",
+  "author": "Hibiki",
+  "website": "https://anikappa.in.ua",
+  "iconUrl": "https://anikappa.in.ua/templates/AniKappa/images/favicon/favicon.ico",
+  "lang": "uk",
+  "capabilities": ["LATEST_RELEASES", "PLAYBACK"],
+  "supportedSorts": ["RELEVANCE"],
+  "supportedFilters": ["TYPE", "INCLUDED_GENRES"],
+  "fallbackSort": "RELEVANCE",
+  "resolverDependencies": ["anitube-ashdi", "anitube-player"]
+}
