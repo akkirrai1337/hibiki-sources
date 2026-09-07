@@ -61,6 +61,21 @@ function seasonFromValue(value) {
     }
 }
 
+// AniLiberty's API never gives an exact next-episode timestamp, only a weekly `publish_day`
+// (ISO weekday, 1=Monday..7=Sunday) on the release itself - so this is the nearest upcoming
+// occurrence of that weekday, not a real per-episode air time. Good enough for a "new episode in
+// N days" style countdown; not meant to be to-the-hour accurate.
+function nextPublishAt(publishDay) {
+    if (!publishDay || !(publishDay.value >= 1 && publishDay.value <= 7)) return null;
+    var now = new Date();
+    var isoToday = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
+    var daysAhead = (publishDay.value - isoToday + 7) % 7;
+    // End of that day, not midnight - the host app treats a past timestamp as "no upcoming
+    // episode" and hides the countdown, which a start-of-day value would do for the rest of
+    // publish day itself the moment the clock ticks past 00:00:00.
+    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysAhead, 23, 59, 59);
+}
+
 function toTitle(value) {
     if (!value) return null;
     var id = value.id !== undefined && value.id !== null ? String(value.id) : (value.alias || null);
@@ -69,8 +84,13 @@ function toTitle(value) {
     var posterPath = poster ? ((poster.optimized && poster.optimized.src) || poster.src) : null;
     var episodes = Array.isArray(value.episodes) ? value.episodes.length : 0;
     var availableEpisodeCount = episodes > 0 ? episodes : null;
+    var episodeCount = value.episodes_total !== undefined ? value.episodes_total : availableEpisodeCount;
     var alt = (value.name.alternative || "").split(/[,;\n]/).map(function (n) { return n.trim(); }).filter(function (n) { return n.length > 0; });
     var genres = Array.isArray(value.genres) ? value.genres.map(function (g) { return g && (g.name || g.description); }).filter(Boolean) : [];
+    // Only worth a countdown while there's actually still an episode left to air - a finished
+    // production (available already caught up to the known total) has nothing left to wait for,
+    // even while `is_ongoing` is still true (e.g. between-cours gaps AniLiberty hasn't flipped yet).
+    var stillAiring = value.is_ongoing === true && (episodeCount == null || (availableEpisodeCount || 0) < episodeCount);
     return title({
         id: id,
         russianName: value.name.main,
@@ -79,7 +99,7 @@ function toTitle(value) {
         synonyms: alt,
         year: value.year !== undefined ? value.year : null,
         type: value.type ? value.type.value : null,
-        episodeCount: value.episodes_total !== undefined ? value.episodes_total : availableEpisodeCount,
+        episodeCount: episodeCount,
         posterUrl: posterPath ? Jsoup.resolve(PUBLIC_SITE_URL, posterPath) : null,
         status: value.is_ongoing === true ? "ongoing" : (value.is_ongoing === false ? "released" : null),
         description: value.description || null,
@@ -87,6 +107,7 @@ function toTitle(value) {
         ageRating: value.age_rating ? value.age_rating.label : null,
         season: value.season ? seasonFromValue(value.season.value) : null,
         availableEpisodeCount: availableEpisodeCount,
+        nextEpisodeAt: stillAiring ? nextPublishAt(value.publish_day) : null,
     });
 }
 

@@ -76,15 +76,6 @@ function hasCyrillic(value) {
     return /[Ѐ-ӿ]/.test(value);
 }
 
-function isReleasedStatus(value) {
-    switch (String(value || "").trim().toLowerCase()) {
-        case "released": case "completed": case "вышел": case "завершён": case "завершен": case "вийшов":
-            return true;
-        default:
-            return false;
-    }
-}
-
 function bestImageUrl(image) {
     if (!image) return null;
     var candidates = [image.fullsize, image.mega, image.huge, image.big, image.medium, image.small, image.original, image.preview, image.thumbnail, image.url];
@@ -105,9 +96,13 @@ function extractEpisodeCount(episodes, preferTotal) {
     return null;
 }
 
+// Yummy's `next_date`/`prev_date` are Unix seconds (confirmed against /anime/schedule - e.g.
+// 1788220800 -> 2026-09-01), but AnimeTitle.nextEpisodeAt is epoch milliseconds everywhere else in
+// the host app - passing the raw value through silently produced a January-1970 timestamp, which
+// then read as permanently in the past and hid the next-episode countdown entirely.
 function extractNextDate(episodes) {
     if (!episodes || !episodes.next_date) return null;
-    return episodes.next_date > 0 ? episodes.next_date : null;
+    return episodes.next_date > 0 ? episodes.next_date * 1000 : null;
 }
 
 function title(fields) { return AnimeTitle(fields); }
@@ -164,8 +159,6 @@ function toAnimeTitle(payload, language) {
     });
     synonyms = distinct(synonyms);
 
-    var statusCandidates = [payload.anime_status ? payload.anime_status.alias : null, payload.anime_status ? payload.anime_status.title : null, payload.status];
-    var isReleased = statusCandidates.some(isReleasedStatus);
     var availableEpisodeCount = extractEpisodeCount(payload.episodes, false);
     if (availableEpisodeCount === null) availableEpisodeCount = payload.episodes_count !== undefined ? payload.episodes_count : null;
     var totalEpisodeCount = extractEpisodeCount(payload.episodes, true);
@@ -184,7 +177,7 @@ function toAnimeTitle(payload, language) {
         synonyms: synonyms,
         year: payload.year !== undefined ? payload.year : null,
         type: normalize(payload.type ? payload.type.alias : null),
-        episodeCount: isReleased ? totalEpisodeCount : availableEpisodeCount,
+        episodeCount: totalEpisodeCount !== null ? totalEpisodeCount : availableEpisodeCount,
         posterUrl: bestImageUrl(payload.poster) || bestImageUrl(payload.image),
         status: normalize(payload.anime_status ? payload.anime_status.alias : null)
             || normalize(payload.anime_status ? payload.anime_status.title : null)
@@ -201,7 +194,7 @@ function toAnimeTitle(payload, language) {
         franchiseAnime: related,
         relatedAnime: related,
         season: payload.season !== undefined ? payload.season : null,
-        availableEpisodeCount: isReleased ? totalEpisodeCount : availableEpisodeCount,
+        availableEpisodeCount: availableEpisodeCount,
     });
 }
 
@@ -227,7 +220,7 @@ function csv(list) {
 function scheduleToTitle(item) {
     var aired = item.episodes && item.episodes.aired > 0 ? item.episodes.aired : null;
     var total = item.episodes && item.episodes.count > 0 ? item.episodes.count : null;
-    var nextDate = item.episodes && item.episodes.next_date > 0 ? item.episodes.next_date : null;
+    var nextDate = item.episodes && item.episodes.next_date > 0 ? item.episodes.next_date * 1000 : null;
     var isAnnouncement = aired === null && nextDate !== null;
     var normalizedTitle = normalize(item.title) || String(item.anime_id);
     return title({
