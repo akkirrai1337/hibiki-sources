@@ -76,9 +76,17 @@ function hasCyrillic(value) {
     return /[Ѐ-ӿ]/.test(value);
 }
 
+// `posterUrl` never gets shown larger than a few hundred CSS px anywhere in the host app (catalog
+// cards, the detail page's own poster, related-title strips - all well under 400px wide), but
+// `fullsize` is a 784x1200 JPEG (~140KB) meant for something closer to a full-page hero image.
+// `mega` is the same artwork re-encoded as 570x800 AVIF at a fraction of the size (~28KB) - still
+// sharp at 2x+ device pixel ratio for anything this app actually renders it at, and a browser has
+// to fully decode whatever it's given before it can downscale for display, so this isn't just a
+// smaller download: it's meaningfully less decode work per poster, which matters a lot once dozens
+// of cards are loading in close succession during a fast catalog scroll.
 function bestImageUrl(image) {
     if (!image) return null;
-    var candidates = [image.fullsize, image.mega, image.huge, image.big, image.medium, image.small, image.original, image.preview, image.thumbnail, image.url];
+    var candidates = [image.mega, image.huge, image.big, image.medium, image.fullsize, image.original, image.small, image.preview, image.thumbnail, image.url];
     for (var i = 0; i < candidates.length; i++) {
         var url = normalizeUrl(candidates[i]);
         if (url !== null) return url;
