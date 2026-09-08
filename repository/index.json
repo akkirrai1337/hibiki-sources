@@ -136,6 +136,28 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anitube.manifest.json"
     },
     {
+      "id": "anixart",
+      "name": "Anixart",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://anixart.tv",
+      "iconUrl": "https://anixart.tv/favicon.ico",
+      "lang": "ru",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK",
+        "RELATED_TITLES",
+        "SIMILAR_TITLES"
+      ],
+      "resolverDependencies": [
+        "kodik",
+        "sibnet"
+      ],
+      "isNsfw": false,
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anixart.manifest.json"
+    },
+    {
       "id": "donghuastream",
       "name": "DonghuaStream",
       "version": "1.0.4",
