@@ -80,6 +80,27 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animego.manifest.json"
     },
     {
+      "id": "animelib",
+      "name": "AnimeLib",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://anilib.me",
+      "iconUrl": "https://anilib.me/favicon.ico",
+      "lang": "ru",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK",
+        "RELATED_TITLES",
+        "SIMILAR_TITLES"
+      ],
+      "resolverDependencies": [
+        "kodik"
+      ],
+      "isNsfw": false,
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/animelib.manifest.json"
+    },
+    {
       "id": "animepahe",
       "name": "AnimePahe",
       "version": "1.0.10",
