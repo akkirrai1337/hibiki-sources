@@ -48,8 +48,13 @@ function normalizeScriptUrl(scriptUrl, pageOrigin) {
 }
 
 // Kodik moves its /ftor endpoint behind an obfuscated alias every so often; the alias is inlined
-// as an atob(...) call inside the page's player script when present, falling back to /ftor when
-// there's no such script (the common case).
+// as an atob(...) call inside the page's player script when present.
+//
+// Called only after a POST to /ftor has already failed, never up front. The player script is 144KB
+// and is currently downloaded on every single resolve just to decode one atob() literal - which, as
+// of this writing, spells "/ftor": the exact value already used as the fallback. Paying ~110ms and
+// 144KB per episode to confirm a constant is a bad trade when finding out the other way round costs
+// one cheap failed POST on the rare day Kodik actually rotates the endpoint.
 function resolveEndpointUrl(html, pageUrl, pageOrigin, headers) {
     var scriptMatch = /src=["']((?:\/\/[^"']+)?\/assets\/js\/app\.player_single[^"']+)["']/i.exec(html);
     if (scriptMatch === null) return pageOrigin + "/ftor";
@@ -177,7 +182,6 @@ var Provider = {
         var cookieHeader = setCookie ? S(setCookie).split(";")[0] : null;
 
         var pageInfo = parsePageInfo(html);
-        var endpointUrl = resolveEndpointUrl(html, pageUrl, pageOrigin, pageHeaders);
         var segments = parseSkipSegments(html);
 
         var missing = [];
@@ -208,14 +212,27 @@ var Provider = {
         });
         if (cookieHeader) postHeaders.Cookie = cookieHeader;
 
-        var ftorResponse = fetch(endpointUrl, {
-            method: "POST",
-            headers: postHeaders,
-            body: formEncode(formParams),
-        });
-        if (!ftorResponse.ok) throw new Error("Kodik returned HTTP " + ftorResponse.status + " from " + endpointUrl);
+        var requestBody = formEncode(formParams);
+        function postTo(endpointUrl) {
+            var response = fetch(endpointUrl, { method: "POST", headers: postHeaders, body: requestBody });
+            if (!response.ok) return null;
+            // A 200 that isn't the payload counts as a miss too, not as success: if Kodik ever
+            // leaves /ftor answering with something else after moving the real endpoint, that has
+            // to send us looking for the alias rather than throwing out of the whole resolve.
+            var parsed;
+            try { parsed = JSON.parse(S(response.body)); } catch (e) { return null; }
+            return parsed && parsed.links ? parsed : null;
+        }
 
-        var ftor = JSON.parse(S(ftorResponse.body));
+        var defaultEndpoint = pageOrigin + "/ftor";
+        var ftor = postTo(defaultEndpoint);
+        if (ftor === null) {
+            // Only now is the player script worth its download - see resolveEndpointUrl above.
+            var aliasEndpoint = resolveEndpointUrl(html, pageUrl, pageOrigin, pageHeaders);
+            if (aliasEndpoint === defaultEndpoint) throw new Error("Kodik rejected " + defaultEndpoint);
+            ftor = postTo(aliasEndpoint);
+            if (ftor === null) throw new Error("Kodik rejected both " + defaultEndpoint + " and " + aliasEndpoint);
+        }
         var links = ftor.links || {};
         var candidates = [];
         var seen = {};
