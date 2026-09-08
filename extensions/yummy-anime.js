@@ -330,9 +330,12 @@ function episodeIndex(videos) {
 
 function playerPriority(name) {
     switch (String(name || "").toLowerCase()) {
-        case "kodik": return 0;
-        case "aksor": return 1;
-        case "alloha": return 2;
+        // The host resolves one embedded mirror per request. Prefer Alloha when a dubbing offers
+        // it so its browser resolver produces a native HLS link instead of leaving Alloha as an
+        // iframe after an earlier mirror (usually Kodik) has already resolved successfully.
+        case "alloha": return 0;
+        case "kodik": return 1;
+        case "aksor": return 2;
         case "sibnet": return 3;
         case "cvh": return 4;
         case "vk": return 5;
@@ -455,7 +458,12 @@ var Provider = {
     getPlayerLinks: function (titleId, groupId, episodeId) {
         var videos = getVideos(titleId);
         var targetNumber = parseEpisodeNumber(episodeId);
-        var matching = videos.filter(function (v) { return parseEpisodeNumber(v.number) === targetNumber; });
+        var requestedDubbing = String(groupId || "").trim();
+        var matching = videos.filter(function (v) {
+            var dubbing = String(v.data.dubbing || "").replace(/^Озвучка\s*/, "").trim();
+            return parseEpisodeNumber(v.number) === targetNumber &&
+                (requestedDubbing.length === 0 || dubbing === requestedDubbing);
+        });
         if (matching.length === 0) throw new Error("YummyAnime could not find this episode");
         var links = matching.map(function (video) {
             var segments = [];
