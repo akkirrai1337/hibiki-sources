@@ -330,11 +330,8 @@ function episodeIndex(videos) {
 
 function playerPriority(name) {
     switch (String(name || "").toLowerCase()) {
-        // The host resolves one embedded mirror per request. Prefer Alloha when a dubbing offers
-        // it so its browser resolver produces a native HLS link instead of leaving Alloha as an
-        // iframe after an earlier mirror (usually Kodik) has already resolved successfully.
-        case "alloha": return 0;
-        case "kodik": return 1;
+        case "kodik": return 0;
+        case "alloha": return 1;
         case "aksor": return 2;
         case "sibnet": return 3;
         case "cvh": return 4;
