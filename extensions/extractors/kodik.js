@@ -127,13 +127,18 @@ function qualityValue(quality) {
     return digits.length > 0 ? parseInt(digits, 10) : null;
 }
 
-function repairManifestQuality(url, expectedQuality) {
+// Kodik's /ftor response is a map of quality -> sources, and the two do not always agree: a title
+// with no real 720p rendition is still listed under "720", pointing at the same /480.mp4 manifest
+// its 480 entry points at. This used to rewrite that path to match the key it arrived under, which
+// invents a URL for a file the CDN does not have - Kodik's edge answers it with a 500, the player
+// spends its whole retry budget on it, and only then falls back. The URL is the fact here and the
+// key is the claim, so the rendition is labelled by what it actually points at; the duplicate then
+// collapses into the real 480p entry through the dedup below.
+function manifestQuality(url) {
     var match = /\/(\d+)\.mp4:hls:manifest\.m3u8(?=$|[?#])/.exec(url);
-    if (match === null) return url;
-    var actualQuality = parseInt(match[1], 10);
-    if (isNaN(actualQuality) || actualQuality >= expectedQuality) return url;
-    return url.substring(0, match.index) + "/" + expectedQuality + ".mp4:hls:manifest.m3u8" +
-        url.substring(match.index + match[0].length);
+    if (match === null) return null;
+    var quality = parseInt(match[1], 10);
+    return isNaN(quality) ? null : quality;
 }
 
 function streamTypeFor(itemType, url) {
@@ -243,14 +248,14 @@ var Provider = {
             for (var idx = 0; idx < items.length; idx++) {
                 var item = items[idx];
                 if (!item.src) continue;
-                var source = Url.decodeShifted(item.src);
-                var url = repairManifestQuality(source, numericQuality);
-                var qualityLabel = numericQuality + "p";
+                var url = Url.decodeShifted(item.src);
+                var actualQuality = manifestQuality(url);
+                var qualityLabel = (actualQuality === null ? numericQuality : actualQuality) + "p";
                 var key = qualityLabel + "|" + url;
                 if (seen[key]) continue;
                 seen[key] = true;
                 candidates.push({
-                    url: url, type: streamTypeFor(item.type, source), quality: qualityLabel,
+                    url: url, type: streamTypeFor(item.type, url), quality: qualityLabel,
                     headers: buildPlaybackHeaders(pageHeaders, pageUrl), segments: segments,
                 });
             }

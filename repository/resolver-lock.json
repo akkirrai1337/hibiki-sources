@@ -19,18 +19,18 @@
       }
     },
     "animego": {
-      "version": "1.0.6",
+      "version": "1.0.7",
       "resolvers": {
         "aniboom": "1.0.0",
         "sibnet": "1.0.1",
         "aksor": "1.0.0",
-        "kodik": "1.0.3"
+        "kodik": "1.0.4"
       }
     },
     "animelib": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "resolvers": {
-        "kodik": "1.0.3"
+        "kodik": "1.0.4"
       }
     },
     "animepahe": {
@@ -51,9 +51,9 @@
       }
     },
     "anixart": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "resolvers": {
-        "kodik": "1.0.3",
+        "kodik": "1.0.4",
         "sibnet": "1.0.1"
       }
     },
@@ -94,7 +94,7 @@
         "sibnet": "1.0.1",
         "aksor": "1.0.0",
         "cvh": "1.1.0",
-        "kodik": "1.0.3",
+        "kodik": "1.0.4",
         "vk": "1.0.1"
       }
     }
