@@ -12,10 +12,13 @@
 var BASE_URL = "https://api.yani.tv";
 var APPLICATION_TOKEN = "wawegr8j13it4rdw";
 
-var FALLBACK_SORT_ALIASES = ["top", "title", "year", "votes", "views", "comments"];
-var FALLBACK_TYPE_ALIASES = ["tv", "movie", "short_movie", "ova", "special", "short_serial", "ona"];
-var FALLBACK_STATUS_ALIASES = ["released", "ongoing", "announcement"];
-var FALLBACK_GENRE_ALIASES = [
+// The sort values /anime actually accepts, verified against the live API - "votes" and
+// "comments" were in here and answer HTTP 400, while "rating", "rating_counters", "random" and
+// "id" work and were missing. Two broken options offered and four working ones hidden.
+var SORT_ALIASES = ["top", "title", "year", "rating", "rating_counters", "views", "random", "id"];
+var TYPE_ALIASES = ["tv", "movie", "short_movie", "ova", "special", "short_serial", "ona"];
+var STATUS_ALIASES = ["released", "ongoing", "announcement"];
+var GENRE_ALIASES = [
     "bisenen", "dzesej", "maho-sedze", "sedze", "sedze-aj", "senen", "senen-aj", "sejnen",
     "etti", "vestern", "detektiv", "drama", "komediya", "parodiya", "prestupnyj-mir",
     "vori", "mafiya-yakudza", "ohotniki-za-golovami", "piraty", "terroristy", "ubijcy",
@@ -277,46 +280,16 @@ function scheduleToTitle(item) {
     });
 }
 
-function loadSettingsFromSwagger() {
-    var response = fetch(BASE_URL + "/swagger.json", { headers: { "Lang": requestLanguage() } });
-    if (!response.ok) throw new Error("swagger unavailable");
-    var root = JSON.parse(S(response.body));
-    var genreAliases = enumPath(root, ["components", "schemas", "GetAnimeGenresIdResponse", "properties", "response", "properties", "alias", "enum"]);
-    var statusAliases = enumPath(root, ["components", "schemas", "GetAnimeCatalogResponse", "properties", "response", "properties", "data", "items", "properties", "anime_status", "properties", "alias", "enum"]);
-    var sortAliases = pathParameterEnum(root, "/anime", "sort");
-    var genreOptions;
-    try {
-        genreOptions = loadGenreOptions();
-    } catch (ignored) {
-        genreOptions = genreAliases.length > 0 ? genreAliases : FALLBACK_GENRE_ALIASES;
-    }
-    return buildSettings(
-        sortAliases.length > 0 ? sortAliases : FALLBACK_SORT_ALIASES,
-        FALLBACK_TYPE_ALIASES,
-        statusAliases.length > 0 ? statusAliases : FALLBACK_STATUS_ALIASES,
-        genreOptions,
-    );
-}
+// Deliberately no /swagger.json here any more. It was fetched on every launch to read the sort,
+// status and genre enums out of the API's own schema - 471KB and ~414ms to extract about 1.5KB,
+// 0.31% of what came down the wire. Worse, almost none of it was even used: the statuses matched
+// the list below exactly, the genres come from /anime/genres (9KB) which is fetched anyway, and
+// what was left was eight sort strings.
+//
+// Those are now the list above, checked against the live API rather than read from a schema at
+// runtime. If the API's sorts change, the extension ships a new version - which is how everything
+// else in this file already tracks the API, and is the mechanism the repository exists for.
 
-function enumPath(root, path) {
-    var current = root;
-    for (var i = 0; i < path.length; i++) {
-        if (!current || typeof current !== "object") return [];
-        current = current[path[i]];
-    }
-    return Array.isArray(current) ? current : [];
-}
-
-function pathParameterEnum(root, pathKey, parameterName) {
-    var parameters = root.paths && root.paths[pathKey] && root.paths[pathKey].get ? root.paths[pathKey].get.parameters : null;
-    if (!parameters) return [];
-    for (var i = 0; i < parameters.length; i++) {
-        if (parameters[i].name === parameterName) {
-            return (parameters[i].schema && parameters[i].schema.enum) || [];
-        }
-    }
-    return [];
-}
 
 function aliasOption(alias) { return { id: alias, title: alias }; }
 
@@ -458,11 +431,15 @@ var Provider = {
     },
 
     getSettings: function () {
+        // One 9KB request, for the only part that genuinely has to come from the server: the genre
+        // list, which is long and does change. Everything else is known.
+        var genreOptions;
         try {
-            return loadSettingsFromSwagger();
-        } catch (error) {
-            return buildSettings(FALLBACK_SORT_ALIASES, FALLBACK_TYPE_ALIASES, FALLBACK_STATUS_ALIASES, FALLBACK_GENRE_ALIASES);
+            genreOptions = loadGenreOptions();
+        } catch (ignored) {
+            genreOptions = GENRE_ALIASES;
         }
+        return buildSettings(SORT_ALIASES, TYPE_ALIASES, STATUS_ALIASES, genreOptions);
     },
 
     getPlaybackGroups: function (titleId) {
