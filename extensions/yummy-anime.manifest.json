@@ -1,7 +1,7 @@
 {
     "id": "yummy-anime",
     "name": "YummyAnime",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "author": "Hibiki",
     "website": "https://ru.yummyani.me",
     "iconUrl": "https://yummyani.me/favicon.ico",
@@ -51,10 +51,10 @@
         },
         {
             "key": "syncLibrary",
-            "type": "TOGGLE",
+            "type": "LIBRARY_SYNC",
             "title": "Sync library to your account",
-            "description": "Sends a title's status and score to YummyAnime when you change them here.",
-            "default": true
+            "description": "Sends a title's status and score to YummyAnime when you change them here. You choose what happens to what is already in both places when you turn this on.",
+            "default": false
         }
     ]
 }

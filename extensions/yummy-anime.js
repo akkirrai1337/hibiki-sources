@@ -19,14 +19,28 @@ var SORT_ALIASES = ["top", "title", "year", "rating", "rating_counters", "views"
 var TYPE_ALIASES = ["tv", "movie", "short_movie", "ova", "special", "short_serial", "ona"];
 var STATUS_ALIASES = ["released", "ongoing", "announcement"];
 
-/** Hibiki's library categories to the site's own list names. "favorite" is not a list there but a
- * separate flag, and "saved" has no counterpart at all, so neither appears here. */
-var LIST_BY_CATEGORY = {
-    "watching": "watching",
-    "planned": "planned",
-    "completed": "completed",
-    "dropped": "dropped",
-    "on_hold": "postponed",
+/*
+ * The site's lists are numbered, and its own client sends the number, not a name - `setIt` compares
+ * what it sends against `user.list.list.id`. The names below are the `href` values the read side
+ * answers with, kept next to the ids they belong to so the two directions cannot drift.
+ *
+ * "favourite" (4) is deliberately absent from the write map: it is not a list there but a separate
+ * flag with its own endpoint. "saved" has no counterpart at all.
+ */
+var LIST_ID_BY_CATEGORY = {
+    "watching": 0,   // watch_now
+    "planned": 1,    // will
+    "completed": 2,  // watched
+    "dropped": 3,    // lost
+    "on_hold": 5,    // postpone
+};
+
+var CATEGORY_BY_LIST_HREF = {
+    "watch_now": "watching",
+    "will": "planned",
+    "watched": "completed",
+    "lost": "dropped",
+    "postpone": "on_hold",
 };
 var GENRE_ALIASES = [
     "bisenen", "dzesej", "maho-sedze", "sedze", "sedze-aj", "senen", "senen-aj", "sejnen",
@@ -169,12 +183,16 @@ function requireAccount() {
     if (!sessionToken()) throw new Error("Not signed in to YummyAnime");
 }
 
+/** The API returns protocol-relative URLs; anything loading an image wants a real scheme. */
+function prefixScheme(url) {
+    if (!url) return null;
+    return String(url).indexOf("//") === 0 ? "https:" + url : String(url);
+}
+
 function avatarUrlOf(avatars) {
     if (!avatars) return null;
     var url = avatars.big || avatars.full || avatars.small || null;
-    if (!url) return null;
-    // The API returns protocol-relative URLs; an image loader wants a real scheme.
-    return normalizeUrl(String(url).indexOf("//") === 0 ? "https:" + url : url);
+    return url ? normalizeUrl(prefixScheme(url)) : null;
 }
 
 function toAccount(profile) {
@@ -654,6 +672,49 @@ var Provider = {
         }
     },
 
+    /**
+     * Everything in the signed-in account's lists.
+     *
+     * Paged rather than asked for in one go: an account with hundreds of titles would otherwise be
+     * one enormous response, and the API answers a page at a time anyway. Stops at the first short
+     * page, and at a hard ceiling - a list that never ends is a bug somewhere, not a library.
+     */
+    listLibrary: function () {
+        requireAccount();
+        var profile = callApi("GET", "/profile", null);
+        var userId = profile && profile.id !== undefined ? String(profile.id) : null;
+        if (!userId) throw new Error("YummyAnime did not return a profile");
+
+        var out = [];
+        var offset = 0;
+        var pageSize = 100;
+        while (offset < 5000) {
+            var page = callApi("GET", "/users/" + encodeURIComponent(userId) + "/lists?limit=" + pageSize + "&offset=" + offset, null);
+            var items = page || [];
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var state = item && item.user ? item.user.list : null;
+                var href = state && state.list ? String(state.list.href || "") : "";
+                // A title can be favourited and also sit in a list; this app has one category per
+                // row, and being marked a favourite is the more specific of the two.
+                var category = (state && state.is_fav)
+                    ? "favorite"
+                    : (CATEGORY_BY_LIST_HREF[href] || null);
+                if (!category) continue;
+                out.push({
+                    animeId: String(item.anime_id),
+                    title: normalize(item.title),
+                    posterUrl: item.poster ? normalizeUrl(prefixScheme(item.poster.medium || item.poster.big || item.poster.small)) : null,
+                    category: category,
+                    rating: item.user && item.user.rating ? item.user.rating : null,
+                });
+            }
+            if (items.length < pageSize) break;
+            offset += pageSize;
+        }
+        return out;
+    },
+
     /* Comments are public - reading them needs no account, only posting does. */
     listComments: function (json) {
         var request = JSON.parse(json);
@@ -757,11 +818,14 @@ var Provider = {
         requireAccount();
         var request = JSON.parse(json);
         var animeId = encodeURIComponent(String(request.animeId));
-        var list = LIST_BY_CATEGORY[String(request.category || "")] || null;
+        var category = String(request.category || "");
+        var list = Object.prototype.hasOwnProperty.call(LIST_ID_BY_CATEGORY, category)
+            ? LIST_ID_BY_CATEGORY[category]
+            : null;
 
-        if (String(request.category || "") === "favorite") {
+        if (category === "favorite") {
             callApi("PUT", "/anime/" + animeId + "/list/fav", {});
-        } else if (list) {
+        } else if (list !== null) {
             callApi("PUT", "/anime/" + animeId + "/list", { list: list });
         } else {
             // Removed from the library here means removed there, not left behind under whatever
