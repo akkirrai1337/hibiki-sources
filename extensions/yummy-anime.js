@@ -185,7 +185,9 @@ function toAccount(profile) {
         id: id,
         name: normalize(profile.nickname) || ("id" + id),
         avatarUrl: avatarUrlOf(profile.avatars || profile.avatar),
-        profileUrl: "https://ru.yummyani.me/users/" + id,
+        // The site addresses a profile by "id<number>", not by the bare number - a bare one is a
+        // nickname there, so the two are different pages and the bare form is a dead link.
+        profileUrl: "https://ru.yummyani.me/users/id" + id,
     };
 }
 
