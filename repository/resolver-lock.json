@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "sources": {
+    "ani-liberty": {
+      "version": "1.0.3",
+      "resolvers": {}
+    },
+    "anichi": {
+      "version": "1.0.6",
+      "resolvers": {
+        "animepahe-player": "1.0.7"
+      }
+    },
+    "anikappa": {
+      "version": "1.0.5",
+      "resolvers": {
+        "anitube-ashdi": "1.0.0",
+        "anitube-player": "1.0.1"
+      }
+    },
+    "animego": {
+      "version": "1.0.6",
+      "resolvers": {
+        "aniboom": "1.0.0",
+        "sibnet": "1.0.1",
+        "aksor": "1.0.0",
+        "kodik": "1.0.3"
+      }
+    },
+    "animelib": {
+      "version": "1.0.1",
+      "resolvers": {
+        "kodik": "1.0.3"
+      }
+    },
+    "animepahe": {
+      "version": "1.0.10",
+      "resolvers": {
+        "animepahe-player": "1.0.7"
+      }
+    },
+    "animevost": {
+      "version": "1.0.4",
+      "resolvers": {}
+    },
+    "anitube": {
+      "version": "1.0.5",
+      "resolvers": {
+        "anitube-ashdi": "1.0.0",
+        "anitube-player": "1.0.1"
+      }
+    },
+    "anixart": {
+      "version": "1.0.1",
+      "resolvers": {
+        "kodik": "1.0.3",
+        "sibnet": "1.0.1"
+      }
+    },
+    "donghuastream": {
+      "version": "1.0.4",
+      "resolvers": {
+        "dailymotion": "1.0.0"
+      }
+    },
+    "hentaimama": {
+      "version": "1.0.3",
+      "resolvers": {}
+    },
+    "kickassanime": {
+      "version": "1.0.11",
+      "resolvers": {
+        "kickassanime-player": "1.0.8"
+      }
+    },
+    "mikai": {
+      "version": "1.0.1",
+      "resolvers": {
+        "anitube-ashdi": "1.0.0",
+        "anitube-player": "1.0.1"
+      }
+    },
+    "miruro": {
+      "version": "1.0.5",
+      "resolvers": {
+        "animepahe-player": "1.0.7"
+      }
+    },
+    "yummy-anime": {
+      "version": "1.0.15",
+      "resolvers": {
+        "aniboom": "1.0.0",
+        "alloha": "1.0.1",
+        "sibnet": "1.0.1",
+        "aksor": "1.0.0",
+        "cvh": "1.1.0",
+        "kodik": "1.0.3",
+        "vk": "1.0.1"
+      }
+    }
+  }
+}

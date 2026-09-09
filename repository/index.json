@@ -60,7 +60,7 @@
     {
       "id": "animego",
       "name": "AnimeGo",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "Hibiki",
       "website": "https://animego.me",
       "iconUrl": "https://animego.me/favicon.ico",
@@ -82,7 +82,7 @@
     {
       "id": "animelib",
       "name": "AnimeLib",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Hibiki",
       "website": "https://anilib.me",
       "iconUrl": "https://anilib.me/favicon.ico",
@@ -159,7 +159,7 @@
     {
       "id": "anixart",
       "name": "Anixart",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Hibiki",
       "website": "https://anixart.tv",
       "iconUrl": "https://anixart.tv/favicon.ico",
@@ -326,7 +326,7 @@
     {
       "id": "kodik",
       "name": "Kodik player resolver",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": null,
       "website": null,
       "iconUrl": null,
@@ -443,7 +443,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.0.13",
+      "version": "1.0.15",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",

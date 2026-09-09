@@ -6,6 +6,7 @@ on:
     paths:
       - "extensions/**"
       - "scripts/build_index.py"
+      - "scripts/sync_resolver_bumps.py"
   workflow_dispatch: {}
 
 permissions:
@@ -21,17 +22,26 @@ jobs:
         with:
           python-version: "3.x"
 
+      # Before the index, not after: this can rewrite source manifests, and the index has to be
+      # built from the versions that come out of it rather than the ones that went in.
+      - name: Bump sources whose resolver dependencies changed
+        run: python scripts/sync_resolver_bumps.py
+
       - name: Validate manifests and regenerate index
         run: python scripts/build_index.py
 
-      - name: Commit index if changed
+      - name: Commit index and any dependency bumps
         run: |
-          if git diff --quiet -- repository/index.json; then
-            echo "index unchanged"
+          # Manifests and the lock file too, not just the index: a resolver bump rewrites the
+          # version of every source that depends on it, and committing the index alone would
+          # publish an index that disagrees with the manifests it points at - which reads to a
+          # client as an update that is still "available" after installing it.
+          if git diff --quiet -- repository/ extensions/; then
+            echo "nothing to commit"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add repository/index.json
-          git commit -m "chore: regenerate repository/index.json"
+          git add repository/ extensions/
+          git commit -m "chore: regenerate repository index and dependency bumps"
           git push

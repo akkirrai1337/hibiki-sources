@@ -5,6 +5,7 @@ on:
     paths:
       - "extensions/**"
       - "scripts/build_index.py"
+      - "scripts/sync_resolver_bumps.py"
 
 jobs:
   validate:
@@ -18,3 +19,9 @@ jobs:
 
       - name: Validate every extension manifest parses and satisfies the schema
         run: python scripts/build_index.py --check
+
+      # Reports only - the bump itself belongs to the push-to-main run, which is what can commit.
+      # Failing here makes the pending republish visible on the PR instead of appearing as a
+      # surprise bot commit on main afterwards.
+      - name: Report sources needing a bump for a changed resolver
+        run: python scripts/sync_resolver_bumps.py --check
