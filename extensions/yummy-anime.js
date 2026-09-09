@@ -18,6 +18,16 @@ var APPLICATION_TOKEN = "wawegr8j13it4rdw";
 var SORT_ALIASES = ["top", "title", "year", "rating", "rating_counters", "views", "random", "id"];
 var TYPE_ALIASES = ["tv", "movie", "short_movie", "ova", "special", "short_serial", "ona"];
 var STATUS_ALIASES = ["released", "ongoing", "announcement"];
+
+/** Hibiki's library categories to the site's own list names. "favorite" is not a list there but a
+ * separate flag, and "saved" has no counterpart at all, so neither appears here. */
+var LIST_BY_CATEGORY = {
+    "watching": "watching",
+    "planned": "planned",
+    "completed": "completed",
+    "dropped": "dropped",
+    "on_hold": "postponed",
+};
 var GENRE_ALIASES = [
     "bisenen", "dzesej", "maho-sedze", "sedze", "sedze-aj", "senen", "senen-aj", "sejnen",
     "etti", "vestern", "detektiv", "drama", "komediya", "parodiya", "prestupnyj-mir",
@@ -98,6 +108,85 @@ function getAll(paths) {
         try { results.push(JSON.parse(S(response.body)).response); } catch (e2) { results.push(null); }
     }
     return results;
+}
+
+/* ------------------------------------------------------------------ account ---------------- */
+
+/*
+ * Everything below needs a signed-in user. The session token is kept in the host's own per-source
+ * store (the `storage` global), never in this file and never anywhere the script can leak it - and
+ * the password is not kept at all, it is a parameter of login() and nothing else.
+ *
+ * Feature-detected like fetchAll is: a host without `storage` simply has no account, rather than
+ * throwing on load and taking the catalog down with it.
+ */
+
+var TOKEN_KEY = "session_token";
+
+function hasStorage() {
+    return typeof storage === "object" && storage !== null && typeof storage.get === "function";
+}
+
+function sessionToken() {
+    if (!hasStorage()) return null;
+    var token = storage.get(TOKEN_KEY);
+    return (token && String(token).length > 0) ? String(token) : null;
+}
+
+function authHeaders(extra) {
+    var headers = { "Lang": requestLanguage(), "X-Application": APPLICATION_TOKEN };
+    var token = sessionToken();
+    // The site's own scheme, not Bearer: "Yummy <token>".
+    if (token) headers["Authorization"] = "Yummy " + token;
+    if (extra) for (var key in extra) headers[key] = extra[key];
+    return headers;
+}
+
+/** The API always answers with a JSON envelope; errors carry a human message worth surfacing. */
+function apiError(response) {
+    var message = "YummyAnime returned HTTP " + (response ? response.status : 0);
+    try {
+        var parsed = JSON.parse(S(response.body));
+        if (parsed && parsed.error) message = String(parsed.error);
+    } catch (e) { /* keep the status-only message */ }
+    return new Error(message);
+}
+
+function callApi(method, path, body) {
+    var options = { method: method, headers: authHeaders(null) };
+    if (body !== null && body !== undefined) {
+        options.body = JSON.stringify(body);
+        options.headers["Content-Type"] = "application/json";
+    }
+    var response = fetch(BASE_URL + path, options);
+    if (!response || !response.ok) throw apiError(response);
+    var parsed = JSON.parse(S(response.body));
+    return parsed ? parsed.response : null;
+}
+
+function requireAccount() {
+    if (!hasStorage()) throw new Error("This app cannot store a session for YummyAnime");
+    if (!sessionToken()) throw new Error("Not signed in to YummyAnime");
+}
+
+function avatarUrlOf(avatars) {
+    if (!avatars) return null;
+    var url = avatars.big || avatars.full || avatars.small || null;
+    if (!url) return null;
+    // The API returns protocol-relative URLs; an image loader wants a real scheme.
+    return normalizeUrl(String(url).indexOf("//") === 0 ? "https:" + url : url);
+}
+
+function toAccount(profile) {
+    if (!profile) return null;
+    var id = profile.id !== undefined && profile.id !== null ? String(profile.id) : null;
+    if (!id) return null;
+    return {
+        id: id,
+        name: normalize(profile.nickname) || ("id" + id),
+        avatarUrl: avatarUrlOf(profile.avatars || profile.avatar),
+        profileUrl: "https://ru.yummyani.me/users/" + id,
+    };
 }
 
 function normalize(value) {
@@ -502,5 +591,185 @@ var Provider = {
         });
         links.sort(function (a, b) { return playerPriority(a.playerName) - playerPriority(b.playerName); });
         return links;
+    },
+
+    /*
+     * Account. The password reaches this function and goes no further: what is kept is the token
+     * the API hands back, and only that.
+     *
+     * `need_json` asks the API to answer with the token in the body rather than only as a cookie,
+     * which is the difference between a session this app can carry and one only a browser could.
+     */
+    login: function (json) {
+        if (!hasStorage()) throw new Error("This app cannot store a session for YummyAnime");
+        var request = JSON.parse(json);
+        var response = fetch(BASE_URL + "/profile/login", {
+            method: "POST",
+            headers: { "Lang": requestLanguage(), "X-Application": APPLICATION_TOKEN, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                login: String(request.login || ""),
+                password: String(request.password || ""),
+                need_json: true,
+            }),
+        });
+        if (!response || !response.ok) throw apiError(response);
+        var parsed = JSON.parse(S(response.body));
+        var token = parsed && parsed.response ? parsed.response.token : null;
+        if (!token) throw new Error("YummyAnime did not return a session token");
+        storage.set(TOKEN_KEY, String(token));
+
+        // Read the profile back, so a caller gets a name and an avatar rather than just "it
+        // worked". A token that cannot fetch its own profile is not a session worth keeping.
+        try {
+            var account = toAccount(callApi("GET", "/profile", null));
+            if (account) return account;
+        } catch (e) {
+            storage.remove(TOKEN_KEY);
+            throw e;
+        }
+        storage.remove(TOKEN_KEY);
+        throw new Error("YummyAnime returned an unexpected profile");
+    },
+
+    logout: function () {
+        if (!sessionToken()) return true;
+        // The token goes first: if telling the server fails, this app is still signed out, which
+        // is what the person asked for. A stale server session expires on its own.
+        try { callApi("POST", "/profile/logout", null); } catch (e) { /* local sign-out stands */ }
+        storage.remove(TOKEN_KEY);
+        return true;
+    },
+
+    getAccount: function () {
+        if (!sessionToken()) return null;
+        try {
+            return toAccount(callApi("GET", "/profile", null));
+        } catch (e) {
+            // A token the server no longer accepts is worse than no token: it makes the app look
+            // signed in while nothing an account unlocks actually works.
+            storage.remove(TOKEN_KEY);
+            return null;
+        }
+    },
+
+    /* Comments are public - reading them needs no account, only posting does. */
+    listComments: function (json) {
+        var request = JSON.parse(json);
+        var animeId = String(request.animeId || "");
+        var parentId = request.parentId !== null && request.parentId !== undefined ? String(request.parentId) : null;
+        var skip = request.offset || 0;
+        var path = parentId
+            ? "/comments/" + encodeURIComponent(parentId) + "/children?skip=" + skip
+            : "/comments/anime/" + encodeURIComponent(animeId) + "?skip=" + skip + "&sort=new";
+        var response = callApi("GET", path, null);
+        // The two endpoints disagree about their shape: the thread one answers with an object
+        // carrying `comments`, the children one with a bare array.
+        var items = response && response.comments ? response.comments : (response || []);
+        var out = [];
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (!item || item.deleted_at) continue;
+            out.push({
+                id: String(item.id),
+                authorName: normalize(item.name) || "",
+                authorAvatarUrl: avatarUrlOf(item.avatars),
+                text: String(item.text || ""),
+                createdAt: (item.time || 0) * 1000,
+                likes: (item.likes || 0) - (item.dislikes || 0),
+                replyCount: item.children_count || 0,
+                parentId: item.parent_id ? String(item.parent_id) : null,
+            });
+        }
+        return out;
+    },
+
+    postComment: function (json) {
+        requireAccount();
+        var request = JSON.parse(json);
+        var body = { text: String(request.text || "") };
+        if (request.parentId) body.parent_id = Number(request.parentId);
+        var created = callApi("POST", "/comments/anime/" + encodeURIComponent(String(request.animeId)), body);
+        return {
+            id: created && created.id !== undefined ? String(created.id) : "",
+            authorName: normalize(created && created.name) || "",
+            authorAvatarUrl: avatarUrlOf(created && created.avatars),
+            text: String((created && created.text) || request.text || ""),
+            createdAt: created && created.time ? created.time * 1000 : Date.now(),
+            likes: 0,
+            replyCount: 0,
+            parentId: request.parentId ? String(request.parentId) : null,
+        };
+    },
+
+    listReviews: function (json) {
+        var request = JSON.parse(json);
+        var response = callApi("GET", "/anime/" + encodeURIComponent(String(request.animeId)) + "/reviews", null);
+        var items = (response && response.reviews) || [];
+        var out = [];
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            out.push({
+                id: String(item.review_id),
+                authorName: normalize(item.nickname) || normalize(item.author) || "",
+                authorAvatarUrl: avatarUrlOf(item.avatar),
+                // text_html when the whole review came back, text_preview in a listing - the two
+                // endpoints differ, and a review with neither is not worth showing.
+                text: String(item.text_html || item.text_preview || ""),
+                createdAt: (item.create_date || 0) * 1000,
+                rating: item.rating && item.rating.average !== undefined ? item.rating.average : null,
+                likes: item.total_likes || 0,
+            });
+        }
+        return out;
+    },
+
+    postReview: function (json) {
+        requireAccount();
+        var request = JSON.parse(json);
+        var created = callApi("POST", "/reviews", {
+            anime_id: Number(request.animeId),
+            text: String(request.text || ""),
+            commentable: true,
+            rating: { average: Number(request.rating || 0), category: [] },
+        });
+        return {
+            id: created && created.review_id !== undefined ? String(created.review_id) : "",
+            authorName: "",
+            authorAvatarUrl: null,
+            text: String(request.text || ""),
+            createdAt: Date.now(),
+            rating: request.rating === undefined ? null : request.rating,
+            likes: 0,
+        };
+    },
+
+    /*
+     * Pushes one title's status, and its score when there is one, to the account.
+     *
+     * This is what the site's own profile actually records - lists, ratings, reviews - and it is
+     * as close to "activity" as its API goes. There is no endpoint anywhere in their web client
+     * that takes watched minutes or episode progress for anime, so nothing here pretends to send
+     * any.
+     */
+    syncLibraryEntry: function (json) {
+        requireAccount();
+        var request = JSON.parse(json);
+        var animeId = encodeURIComponent(String(request.animeId));
+        var list = LIST_BY_CATEGORY[String(request.category || "")] || null;
+
+        if (String(request.category || "") === "favorite") {
+            callApi("PUT", "/anime/" + animeId + "/list/fav", {});
+        } else if (list) {
+            callApi("PUT", "/anime/" + animeId + "/list", { list: list });
+        } else {
+            // Removed from the library here means removed there, not left behind under whatever
+            // status it last had.
+            try { callApi("DELETE", "/anime/" + animeId + "/list", null); } catch (e) { /* already absent */ }
+        }
+
+        if (request.rating !== null && request.rating !== undefined) {
+            callApi("PUT", "/anime/" + animeId + "/rate", { rate: Number(request.rating) });
+        }
+        return true;
     },
 };

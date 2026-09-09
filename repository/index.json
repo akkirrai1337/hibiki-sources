@@ -443,7 +443,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.0.16",
+      "version": "1.1.0",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",
@@ -452,7 +452,11 @@
         "LATEST_RELEASES",
         "PLAYBACK",
         "RELATED_TITLES",
-        "SIMILAR_TITLES"
+        "SIMILAR_TITLES",
+        "ACCOUNT",
+        "COMMENTS",
+        "REVIEWS",
+        "LIBRARY_SYNC"
       ],
       "resolverDependencies": [
         "aniboom",

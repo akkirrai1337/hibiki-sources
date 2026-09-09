@@ -1,17 +1,29 @@
 {
     "id": "yummy-anime",
     "name": "YummyAnime",
-    "version": "1.0.16",
+    "version": "1.1.0",
     "author": "Hibiki",
     "website": "https://ru.yummyani.me",
     "iconUrl": "https://yummyani.me/favicon.ico",
     "lang": "ru",
-    "resolverDependencies": ["aniboom", "alloha", "sibnet", "aksor", "cvh", "kodik", "vk"],
+    "resolverDependencies": [
+        "aniboom",
+        "alloha",
+        "sibnet",
+        "aksor",
+        "cvh",
+        "kodik",
+        "vk"
+    ],
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK",
         "RELATED_TITLES",
-        "SIMILAR_TITLES"
+        "SIMILAR_TITLES",
+        "ACCOUNT",
+        "COMMENTS",
+        "REVIEWS",
+        "LIBRARY_SYNC"
     ],
     "supportedSorts": [
         "RELEVANCE",
@@ -29,5 +41,20 @@
         "EXCLUDED_GENRES",
         "YEAR_RANGE"
     ],
-    "fallbackSort": "RELEVANCE"
+    "fallbackSort": "RELEVANCE",
+    "settings": [
+        {
+            "key": "account",
+            "type": "ACCOUNT",
+            "title": "YummyAnime account",
+            "description": "Sign in to read and post comments and reviews, and to keep your lists in sync."
+        },
+        {
+            "key": "syncLibrary",
+            "type": "TOGGLE",
+            "title": "Sync library to your account",
+            "description": "Sends a title's status and score to YummyAnime when you change them here.",
+            "default": true
+        }
+    ]
 }
