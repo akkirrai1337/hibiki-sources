@@ -1,7 +1,7 @@
 {
     "id": "yummy-anime",
     "name": "YummyAnime",
-    "version": "1.3.0",
+    "version": "1.3.1",
     "author": "Hibiki",
     "website": "https://ru.yummyani.me",
     "iconUrl": "https://yummyani.me/favicon.ico",
@@ -48,21 +48,45 @@
             "key": "account",
             "type": "ACCOUNT",
             "title": "YummyAnime account",
-            "description": "Sign in to read and post comments and reviews, and to keep your lists in sync."
+            "description": "Sign in to read and post comments and reviews, and to keep your lists in sync.",
+            "titleI18n": {
+                "ru": "Аккаунт YummyAnime",
+                "uk": "Акаунт YummyAnime"
+            },
+            "descriptionI18n": {
+                "ru": "Войдите, чтобы читать и писать комментарии и отзывы, а также держать списки в синхронизации.",
+                "uk": "Увійдіть, щоб читати й писати коментарі та відгуки, а також тримати списки синхронізованими."
+            }
         },
         {
             "key": "syncLibrary",
             "type": "LIBRARY_SYNC",
             "title": "Sync library to your account",
             "description": "Sends a title's status and score to YummyAnime when you change them here. You choose what happens to what is already in both places when you turn this on.",
-            "default": false
+            "default": false,
+            "titleI18n": {
+                "ru": "Синхронизировать библиотеку с аккаунтом",
+                "uk": "Синхронізувати бібліотеку з акаунтом"
+            },
+            "descriptionI18n": {
+                "ru": "Отправляет статус и оценку тайтла в YummyAnime, когда вы меняете их здесь. При включении вы сами выбираете, что делать с тем, что уже есть с обеих сторон.",
+                "uk": "Надсилає статус і оцінку тайтла до YummyAnime, коли ви змінюєте їх тут. Під час увімкнення ви самі обираєте, що робити з тим, що вже є з обох боків."
+            }
         },
         {
             "key": "syncActivity",
             "type": "ACTIVITY_SYNC",
             "title": "Send watch activity",
             "description": "Counts an episode and the minutes you actually watched on your YummyAnime profile, and keeps its day streak going.",
-            "default": true
+            "default": true,
+            "titleI18n": {
+                "ru": "Отправлять активность просмотра",
+                "uk": "Надсилати активність перегляду"
+            },
+            "descriptionI18n": {
+                "ru": "Засчитывает эпизод и реально просмотренные минуты в вашем профиле YummyAnime и поддерживает его дневной стрик.",
+                "uk": "Зараховує епізод і справді переглянуті хвилини у вашому профілі YummyAnime та підтримує його денний стрик."
+            }
         }
     ]
 }
