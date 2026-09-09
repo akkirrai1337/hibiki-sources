@@ -1,7 +1,7 @@
 {
     "id": "yummy-anime",
     "name": "YummyAnime",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "Hibiki",
     "website": "https://ru.yummyani.me",
     "iconUrl": "https://yummyani.me/favicon.ico",
@@ -23,7 +23,8 @@
         "ACCOUNT",
         "COMMENTS",
         "REVIEWS",
-        "LIBRARY_SYNC"
+        "LIBRARY_SYNC",
+        "ACTIVITY_SYNC"
     ],
     "supportedSorts": [
         "RELEVANCE",
@@ -55,6 +56,13 @@
             "title": "Sync library to your account",
             "description": "Sends a title's status and score to YummyAnime when you change them here. You choose what happens to what is already in both places when you turn this on.",
             "default": false
+        },
+        {
+            "key": "syncActivity",
+            "type": "ACTIVITY_SYNC",
+            "title": "Send watch activity",
+            "description": "Counts an episode and the minutes you actually watched on your YummyAnime profile, and keeps its day streak going.",
+            "default": true
         }
     ]
 }

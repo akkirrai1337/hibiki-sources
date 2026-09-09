@@ -136,6 +136,7 @@ function getAll(paths) {
  */
 
 var TOKEN_KEY = "session_token";
+var ONLINE_HASH_KEY = "online_hash";
 
 function hasStorage() {
     return typeof storage === "object" && storage !== null && typeof storage.get === "function";
@@ -713,6 +714,53 @@ var Provider = {
             offset += pageSize;
         }
         return out;
+    },
+
+    /**
+     * Reports one episode's watching to the account.
+     *
+     * This is what fills the day squares on a YummyAnime profile: an episode counted, and the
+     * minutes actually spent in it. The site's own client does exactly this - it keeps the seconds
+     * a player really played and sends them with the episode's own video id, which is why a
+     * half-watched film shows as a few minutes rather than as its whole length.
+     *
+     * `times` is that list of watched second offsets. Sending the position alone is not enough:
+     * the minutes come from how many distinct seconds were seen, not from where playback stopped.
+     */
+    reportPlayback: function (json) {
+        requireAccount();
+        var request = JSON.parse(json);
+        var videoId = String(request.videoId || "");
+        if (videoId.length === 0) throw new Error("This episode has no YummyAnime video id");
+        var times = request.watchedSeconds || [];
+        // Nothing new to report is not a failure - it is the normal answer between two saves that
+        // happened while paused.
+        if (times.length === 0) return false;
+        callApi("PUT", "/video/" + encodeURIComponent(videoId), {
+            time: Math.floor(Number(request.positionSeconds || 0)),
+            duration: Math.round(Number(request.durationSeconds || 0)),
+            times: times,
+        });
+        return true;
+    },
+
+    /**
+     * Marks the account as online for today, which is what its day streak counts.
+     *
+     * The site derives its `hash` from a Yandex Metrica client id. This app has no such thing, so
+     * it makes one of its own once and keeps it: what the value is matters less than that it stays
+     * the same account-to-account, since a fresh one on every launch would look like a different
+     * visitor each time.
+     */
+    pingOnline: function () {
+        requireAccount();
+        var hash = storage.get(ONLINE_HASH_KEY);
+        if (!hash) {
+            hash = "hibiki-" + String(Date.now()) + "-" + String(Math.floor(Math.random() * 1e9));
+            storage.set(ONLINE_HASH_KEY, hash);
+        }
+        callApi("POST", "/profile/online", { hash: hash });
+        return true;
     },
 
     /* Comments are public - reading them needs no account, only posting does. */
