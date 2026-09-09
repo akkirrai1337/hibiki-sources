@@ -87,7 +87,7 @@
       }
     },
     "yummy-anime": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "resolvers": {
         "aniboom": "1.0.0",
         "alloha": "1.0.1",
