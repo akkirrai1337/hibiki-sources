@@ -1,7 +1,7 @@
 {
     "id": "animepahe",
     "name": "AnimePahe",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "author": "Hibiki",
     "website": "https://animepahetv.to",
     "iconUrl": "https://animepahetv.to/favicon.ico",
@@ -11,6 +11,7 @@
         "LATEST_RELEASES",
         "PLAYBACK"
     ],
+    "useExternalMetadata": true,
     "supportedSorts": [
         "RELEVANCE"
     ],

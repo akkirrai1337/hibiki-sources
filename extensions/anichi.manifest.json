@@ -1,7 +1,7 @@
 {
     "id": "anichi",
     "name": "Anichi",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "author": "Hibiki",
     "website": "https://anichi.to",
     "iconUrl": "https://anichi.to/favicon.ico",
@@ -10,6 +10,7 @@
         "LATEST_RELEASES",
         "PLAYBACK"
     ],
+    "useExternalMetadata": true,
     "resolverDependencies": [
         "animepahe-player"
     ],

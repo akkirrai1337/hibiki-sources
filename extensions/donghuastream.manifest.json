@@ -1,7 +1,7 @@
 {
     "id": "donghuastream",
     "name": "DonghuaStream",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "author": "Hibiki",
     "website": "https://donghuastream.org",
     "iconUrl": "https://donghuastream.org/favicon.ico",
@@ -10,6 +10,7 @@
         "LATEST_RELEASES",
         "PLAYBACK"
     ],
+    "useExternalMetadata": true,
     "resolverDependencies": [
         "dailymotion"
     ],

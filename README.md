@@ -64,6 +64,12 @@ Field notes:
 - `capabilities` — today the host requires **both** `LATEST_RELEASES` and `PLAYBACK` on every
   scripted extension (see `ScriptedAnimeSource` in the `hibiki` repo); this is a current
   limitation of the runtime, not a per-extension choice.
+- `useExternalMetadata` — optional, defaults to `false`. Says this source's own descriptions,
+  posters and genres are the weak half of what it returns, and asks the host to describe its titles
+  from a metadata aggregator (Kitsu / AniList / MAL) instead. Never affects what is playable:
+  episode lists, dubs and available-episode counts always stay with the source. The user can turn
+  it off globally or per source. A host that has never heard of this key ignores it, so declaring
+  it is safe for older app versions.
 - `cleartextPlaybackHosts` — hostnames this extension is explicitly allowed to return plain
   `http://` playback URLs for (some source sites still serve direct video over HTTP).
 - The `.js` payload is plain JavaScript (no TypeScript/bundler support yet). The `Provider`
