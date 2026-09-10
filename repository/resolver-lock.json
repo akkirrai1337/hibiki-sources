@@ -74,7 +74,7 @@
       }
     },
     "mikai": {
-      "version": "1.0.9",
+      "version": "1.1.0",
       "resolvers": {
         "anitube-ashdi": "1.0.0",
         "anitube-player": "1.0.9"
