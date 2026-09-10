@@ -130,15 +130,16 @@ function groupTitle(release) {
     return release.kind === "sub" ? name + " · Субтитри" : name + " · Озвучення";
 }
 
-/** Which referrer a mirror's page is loaded with.
+/** Which headers a mirror's page is loaded with.
  *
- * Moon decides at request time whether it serves its player at all: asked with another site's page
- * as the referrer it answers with a page that has no player in it (no .ma-player-wrap, no <video>,
- * nothing to extract - the embed simply never builds), and its own anti-embed list carries mikai.me
- * among the alternative sites. Loading its iframe as if Moon itself were the embedding page is the
- * one shape that page is written for. Every other mirror keeps Mikai's own referrer. */
-function embedReferer(provider) {
-    return S(provider).toLowerCase() === "moon" ? "https://moonanime.art/" : BASE_URL + "/";
+ * Moon decides whether it hands out its player at all, and the deciding input is the referrer:
+ * asked with mikai.me it answers with a page that has no player in it (no .ma-player-wrap, no
+ * <video>, a third of the scripts, nothing to extract), and asking with Moon's own origin changed
+ * nothing - the page still came back stripped. The one shape that is *known* to return the real
+ * player page is a request that carries no referrer at all, which is what Moon now gets. Every
+ * other mirror keeps Mikai's own referrer, which is what those players expect. */
+function embedHeaders(provider) {
+    return S(provider).toLowerCase() === "moon" ? {} : { "Referer": BASE_URL + "/" };
 }
 
 var Provider = {
@@ -205,7 +206,7 @@ var Provider = {
                 return sources.map(function (source) {
                     return {
                         url: source.embedUrl, type: "EMBED", quality: null,
-                        headers: { "Referer": embedReferer(source.provider) },
+                        headers: embedHeaders(source.provider),
                         playerName: source.provider || null, translation: groupTitle(release), segments: [], videoId: null
                     };
                 });
