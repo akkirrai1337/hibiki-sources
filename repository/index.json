@@ -422,25 +422,6 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/mikai.manifest.json"
     },
     {
-      "id": "miruro",
-      "name": "Miruro",
-      "version": "1.0.9",
-      "author": "Hibiki",
-      "website": "https://www.miruro.to",
-      "iconUrl": "https://www.miruro.to/assets/logo-Dnw3w3dS.png",
-      "lang": "en",
-      "capabilities": [
-        "LATEST_RELEASES",
-        "PLAYBACK"
-      ],
-      "resolverDependencies": [
-        "animepahe-player"
-      ],
-      "isNsfw": false,
-      "type": "source",
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/miruro.manifest.json"
-    },
-    {
       "id": "yummy-anime",
       "name": "YummyAnime",
       "version": "1.3.4",
