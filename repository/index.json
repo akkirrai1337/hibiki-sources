@@ -40,7 +40,7 @@
     {
       "id": "anikappa",
       "name": "AniKappa",
-      "version": "1.0.14",
+      "version": "1.0.13",
       "author": "Hibiki",
       "website": "https://anikappa.in.ua",
       "iconUrl": "https://anikappa.in.ua/templates/AniKappa/images/favicon/favicon.ico",
@@ -139,7 +139,7 @@
     {
       "id": "anitube",
       "name": "AniTube",
-      "version": "1.0.14",
+      "version": "1.0.13",
       "author": "Hibiki",
       "website": "https://anitube.in.ua",
       "iconUrl": "https://anitube.in.ua/favicon.ico",
@@ -270,7 +270,7 @@
     {
       "id": "anitube-player",
       "name": "AniTube browser resolver",
-      "version": "1.0.10",
+      "version": "1.0.9",
       "author": null,
       "website": null,
       "iconUrl": null,
@@ -404,7 +404,7 @@
     {
       "id": "mikai",
       "name": "Mikai",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "Hibiki",
       "website": "https://mikai.me",
       "iconUrl": "https://mikai.me/favicon.ico",
