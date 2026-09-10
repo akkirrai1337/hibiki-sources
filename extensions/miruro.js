@@ -286,7 +286,17 @@ var Provider = {
         var parts = String(groupId).split(":");
         var providerId = parts[0];
         var category = parts[1] || "sub";
-        var response = pipeGet("sources", { episodeId: episodeId, provider: providerId, category: category, anilistId: titleId });
+        // Miruro caches resolved CDN URLs for a long time. Those URLs may already have expired
+        // (typically HTTP 410) by the time Hibiki validates them, so playback must use the same
+        // live-refresh route as Miruro's own retry action instead of accepting stale cached URLs.
+        var response = pipeGet("sources", {
+            episodeId: episodeId,
+            provider: providerId,
+            category: category,
+            anilistId: titleId,
+            live: "true",
+            _t: Math.floor(Date.now() / 600000) * 600000,
+        });
         var streams = response.streams || [];
         var translation = category === "dub" ? "Dub" : "Sub";
 
