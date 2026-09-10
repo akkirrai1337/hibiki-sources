@@ -21,7 +21,7 @@
     {
       "id": "anichi",
       "name": "Anichi",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "Hibiki",
       "website": "https://anichi.to",
       "iconUrl": "https://anichi.to/favicon.ico",
@@ -103,7 +103,7 @@
     {
       "id": "animepahe",
       "name": "AnimePahe",
-      "version": "1.0.11",
+      "version": "1.0.12",
       "author": "Hibiki",
       "website": "https://animepahetv.to",
       "iconUrl": "https://animepahetv.to/favicon.ico",
@@ -181,7 +181,7 @@
     {
       "id": "donghuastream",
       "name": "DonghuaStream",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Hibiki",
       "website": "https://donghuastream.org",
       "iconUrl": "https://donghuastream.org/favicon.ico",
@@ -385,7 +385,7 @@
     {
       "id": "kickassanime",
       "name": "KickAssAnime",
-      "version": "1.0.11",
+      "version": "1.0.12",
       "author": "Hibiki",
       "website": "https://kaa.lt",
       "iconUrl": "https://kaa.lt/favicon.ico",
