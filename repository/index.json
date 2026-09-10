@@ -21,7 +21,7 @@
     {
       "id": "anichi",
       "name": "Anichi",
-      "version": "1.0.9",
+      "version": "1.0.10",
       "author": "Hibiki",
       "website": "https://anichi.to",
       "iconUrl": "https://anichi.to/favicon.ico",
@@ -443,7 +443,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",
