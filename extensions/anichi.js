@@ -23,6 +23,35 @@ function isEmbedReachable(url) {
     }
 }
 
+/** Checks all mirrors in one network wave. A status-0 batch item represents the same transport
+ * failure that isEmbedReachable deliberately treats as inconclusive, so it also fails open. */
+function getEmbedReachability(urls) {
+    if (typeof fetchAll !== "function") {
+        var serial = [];
+        for (var i = 0; i < urls.length; i++) serial.push(isEmbedReachable(urls[i]));
+        return serial;
+    }
+    try {
+        var requests = [];
+        for (var j = 0; j < urls.length; j++) {
+            requests.push({
+                url: urls[j],
+                headers: { "Referer": BASE_URL + "/", "User-Agent": BROWSER_USER_AGENT },
+            });
+        }
+        var responses = fetchAll(requests);
+        var reachable = [];
+        for (var r = 0; r < responses.length; r++) {
+            reachable.push(!responses[r] || responses[r].status === 0 || responses[r].ok);
+        }
+        return reachable;
+    } catch (e) {
+        var fallback = [];
+        for (var k = 0; k < urls.length; k++) fallback.push(isEmbedReachable(urls[k]));
+        return fallback;
+    }
+}
+
 var BASE_URL = "https://anichi.to";
 var MAX_RESULTS = 50;
 var LISTING_PAGE_SIZE = 30;
@@ -53,14 +82,50 @@ function getHtml(path) {
     return S(response.body);
 }
 
-function fetchAjax(path, referer) {
+function ajaxRequest(path, referer) {
     var headers = { "Referer": referer || (BASE_URL + "/") };
     for (var key in XHR_HEADERS) headers[key] = XHR_HEADERS[key];
-    var response = fetch(BASE_URL + path, { headers: headers });
+    return { url: BASE_URL + path, headers: headers };
+}
+
+function parseAjaxResponse(response, path) {
     if (!response.ok) throw new Error("Anichi ajax returned HTTP " + response.status + " for " + path);
     var data = JSON.parse(S(response.body));
     if (data.status !== 200) throw new Error("Anichi ajax reported status " + data.status + " for " + path);
     return data.result;
+}
+
+function fetchAjax(path, referer) {
+    var request = ajaxRequest(path, referer);
+    return parseAjaxResponse(fetch(request.url, { headers: request.headers }), path);
+}
+
+/** Resolves independent ajax endpoints concurrently on both desktop and Android. Individual bad
+ * mirrors become null, just like the old per-server try/catch, without delaying healthy ones. */
+function fetchAjaxResults(paths, referer) {
+    var results = [];
+    if (typeof fetchAll !== "function") {
+        for (var s = 0; s < paths.length; s++) {
+            try { results.push(fetchAjax(paths[s], referer)); } catch (e) { results.push(null); }
+        }
+        return results;
+    }
+
+    var requests = [];
+    for (var i = 0; i < paths.length; i++) requests.push(ajaxRequest(paths[i], referer));
+    var responses;
+    try {
+        responses = fetchAll(requests);
+    } catch (e) {
+        for (var f = 0; f < paths.length; f++) {
+            try { results.push(fetchAjax(paths[f], referer)); } catch (ignored) { results.push(null); }
+        }
+        return results;
+    }
+    for (var j = 0; j < paths.length; j++) {
+        try { results.push(parseAjaxResponse(responses[j], paths[j])); } catch (error) { results.push(null); }
+    }
+    return results;
 }
 
 /** Fragment endpoints (episode/server lists) return an HTML string in `result`. */
@@ -285,6 +350,7 @@ var Provider = {
         var document = Jsoup.parseBodyFragment(fragment, BASE_URL);
         var typeSections = document.select(".type[data-type]");
         var referer = { "Referer": BASE_URL + "/" };
+        var serversToResolve = [];
         var links = [];
         var seenUrls = {};
 
@@ -297,30 +363,38 @@ var Provider = {
                 var linkId = S(server.attr("data-link-id")).trim();
                 var serverName = S(server.text()).trim();
                 if (linkId.length === 0 || serverName.length === 0) continue;
-
-                var embedUrl;
-                try {
-                    var resolved = getAjaxResult("/ajax/server?get=" + encodeURIComponent(linkId));
-                    embedUrl = resolved && resolved.url ? String(resolved.url) : null;
-                } catch (e) {
-                    embedUrl = null;
-                }
-                if (!embedUrl || seenUrls[embedUrl]) continue;
-                seenUrls[embedUrl] = true;
-
-                // This engine's own server list can point at a genuinely dead file (megaplay.buzz
-                // returns a real, fast HTTP 410 "removed due to copyright violation" for some
-                // titles/servers) - the app's own browser-based resolver has no fast way to tell
-                // that apart from a slow/finicky-but-alive CDN, so it burns its whole per-player
-                // timeout on it. A quick native check here is cheap and lets a truly dead mirror
-                // get skipped instead of stalling playback behind it.
-                if (!isEmbedReachable(embedUrl)) continue;
-
-                links.push({
-                    url: embedUrl, type: "EMBED", quality: null, headers: referer,
-                    playerName: serverName + " (" + typeLabel + ")", translation: null, segments: [], videoId: null,
-                });
+                serversToResolve.push({ linkId: linkId, serverName: serverName, typeLabel: typeLabel });
             }
+        }
+
+        // The old implementation waited for two requests per server before starting the next
+        // one. Resolve all opaque ids together, then probe all unique embed URLs together: three
+        // network waves total regardless of how many mirrors the episode exposes.
+        var resolvePaths = [];
+        for (var p = 0; p < serversToResolve.length; p++) {
+            resolvePaths.push("/ajax/server?get=" + encodeURIComponent(serversToResolve[p].linkId));
+        }
+        var resolvedServers = fetchAjaxResults(resolvePaths);
+        var candidates = [];
+        for (var c = 0; c < resolvedServers.length; c++) {
+            var resolved = resolvedServers[c];
+            var embedUrl = resolved && resolved.url ? String(resolved.url) : null;
+            if (!embedUrl || seenUrls[embedUrl]) continue;
+            seenUrls[embedUrl] = true;
+            candidates.push({ url: embedUrl, server: serversToResolve[c] });
+        }
+
+        var candidateUrls = [];
+        for (var u = 0; u < candidates.length; u++) candidateUrls.push(candidates[u].url);
+        var reachability = getEmbedReachability(candidateUrls);
+        for (var l = 0; l < candidates.length; l++) {
+            if (!reachability[l]) continue;
+            var candidate = candidates[l];
+            links.push({
+                url: candidate.url, type: "EMBED", quality: null, headers: referer,
+                playerName: candidate.server.serverName + " (" + candidate.server.typeLabel + ")",
+                translation: null, segments: [], videoId: null,
+            });
         }
         return links;
     },
