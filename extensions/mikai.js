@@ -130,6 +130,17 @@ function groupTitle(release) {
     return release.kind === "sub" ? name + " · Субтитри" : name + " · Озвучення";
 }
 
+/** Which referrer a mirror's page is loaded with.
+ *
+ * Moon decides at request time whether it serves its player at all: asked with another site's page
+ * as the referrer it answers with a page that has no player in it (no .ma-player-wrap, no <video>,
+ * nothing to extract - the embed simply never builds), and its own anti-embed list carries mikai.me
+ * among the alternative sites. Loading its iframe as if Moon itself were the embedding page is the
+ * one shape that page is written for. Every other mirror keeps Mikai's own referrer. */
+function embedReferer(provider) {
+    return S(provider).toLowerCase() === "moon" ? "https://moonanime.art/" : BASE_URL + "/";
+}
+
 var Provider = {
     search: function (requestJson) {
         var request = JSON.parse(requestJson);
@@ -194,7 +205,7 @@ var Provider = {
                 return sources.map(function (source) {
                     return {
                         url: source.embedUrl, type: "EMBED", quality: null,
-                        headers: { "Referer": BASE_URL + "/" },
+                        headers: { "Referer": embedReferer(source.provider) },
                         playerName: source.provider || null, translation: groupTitle(release), segments: [], videoId: null
                     };
                 });
