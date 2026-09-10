@@ -81,7 +81,7 @@
       }
     },
     "miruro": {
-      "version": "1.0.7",
+      "version": "1.0.8",
       "resolvers": {
         "animepahe-player": "1.0.8"
       }
