@@ -1,26 +1,244 @@
-// Moon puts a short-lived HLS URL in its iframe HTML. The value is obfuscated, rather than
-// protected by a browser-only session, so decode it in the resolver WebView and hand the HLS
-// URL to ExoPlayer. This keeps the iframe invisible and avoids waiting for Moon's hls.js player
-// to begin a network request.
+// Moon (moonanime.art) player resolver for the Mikai source.
+//
+// Moon is a plain hls.js player. Its iframe HTML carries one large obfuscated payload (`_xlink`)
+// that holds the "[quality]https://...m3u8" source list; the site's own module (ma-source.js)
+// decodes it, sorts it by quality and hands the best entry to `new Hls().loadSource(...)`.
+// Decoding that payload ourselves is a moving target: the transform lives in an inline script,
+// changes shape between player versions, and any copy of it goes stale within weeks.
+//
+// It is also unnecessary, because the URL we want is the URL the player itself requests. The host
+// already watches the resolver WebView's network layer and captures every HLS request the page
+// makes (BrowserPlayerWebViewExtractor.shouldInterceptRequest -> BrowserCaptureOrigin.NETWORK), and
+// it keeps that WebView alive as a relay backend for CDNs that block plain HTTP clients. What the
+// host cannot see is a stream that is never requested, and a URL the page hands straight to hls.js
+// before that request becomes visible.
+//
+// So this resolver does three things, in that order of preference:
+//
+//   1. starts playback. Mikai's embed loads in a hidden WebView with no user to click anything, and
+//      a player that never starts never requests a manifest - the one case where nothing at all can
+//      be observed.
+//   2. reports the stream from every place the URL can surface: hls.js's `loadSource` (always the
+//      master playlist), an XHR/fetch for an .m3u8, Moon's own `MaSource.switchTo` (which receives
+//      the decoded source list), and the page's resource timings - the last one recovers streams
+//      the page fetched before this script was injected. Subtitle tracks come from Moon's own
+//      `parseSubs` rather than from any .vtt the page fetches, because the player also fetches its
+//      thumbnail sprite as a .vtt and that is not a subtitle.
+//   3. keeps watching for as long as the host keeps probing, so an embed whose player starts late
+//      still reports.
+//
+// The host re-evaluates this script on every probe, so every hook it installs is idempotent. It
+// deliberately never calls HibikiResolver.done(): the host already settles on its own after the
+// last new stream, and ending the capture on the first URL would cut off the audio rendition and
+// the subtitle list that arrive moments later.
+
 var Provider = {
     browserScript: function (linkJson) {
-        return "" +
-            "(function(){" +
-            "try{" +
-            "if(window.__hibikiMoonUrl)return 'captured';" +
-            "var scripts=document.scripts,xorKey='j9AXLAnTDkiJ',video='',i;" +
-            "for(i=0;i<scripts.length&&!video;i++){var text=scripts[i].text||scripts[i].textContent||'',encoded=/atob\\s*\\(\\s*[\\\"']([^\\\"']+)[\\\"']\\s*\\)/.exec(text);if(!encoded||text.indexOf('Uint8Array')<0)continue;try{" +
-            "var bytes=Uint8Array.from(atob(encoded[1]),function(c){return c.charCodeAt(0);}),key=bytes.slice(1,33),out=new Uint8Array(bytes.length-33),previous=bytes[0],j;" +
-            "for(j=0;j<out.length;j++){var k=key[j%32];out[j]=bytes[j+33]^k^previous;previous=(bytes[j+33]+k)&255;}" +
-            "var decoded=new TextDecoder().decode(out),payloads=/[_$a-zA-Z][_$\\w]*\\(\\s*[\\\"']([A-Za-z0-9+\\/=]{32,})[\\\"']\\s*\\)/g,payload;" +
-            "while((payload=payloads.exec(decoded))!==null){var value=atob(payload[1]),candidate='';for(j=0;j<value.length;j++)candidate+=String.fromCharCode(value.charCodeAt(j)^xorKey.charCodeAt(j%xorKey.length));if(/\\.m3u8(?:[?#]|$)/i.test(candidate)){video=candidate;break;}}" +
-            "}catch(ignore){}}" +
-            "if(!video)return 'moon-no-video-payload';" +
-            "var found=/\\[[^\\]]+\\](https?:\\/\\/[^,\\[\\s]+)/g,match,best='';" +
-            "while((match=found.exec(video))!==null){if(/\\.m3u8(?:[?#]|$)/i.test(match[1]))best=match[1];}" +
-            "if(!best){var direct=/(https?:\\/\\/[^\\\"'\\s,]+\\.m3u8[^\\\"'\\s,]*)/i.exec(video);best=direct&&direct[1]||'';}" +
-            "if(!best)return 'moon-no-hls';window.__hibikiMoonUrl=best;HibikiResolver.master(best);return 'captured';" +
-            "}catch(error){return 'moon-decode-error';}" +
-            "})();";
-    }
+        return [
+            "(function () {",
+            "  var bridge = window.HibikiResolver;",
+            "  if (!bridge) return 'moon-no-bridge';",
+            "",
+            "  var state = window.__hibikiMoonState;",
+            "  if (!state) {",
+            "    state = window.__hibikiMoonState = {",
+            "      streams: {},",
+            "      subtitles: {},",
+            "      firstUrl: null,",
+            "      nudges: 0",
+            "    };",
+            "  }",
+            "",
+            "  function isHls(url) {",
+            "    return /\\.m3u8(?:[?#]|$)/i.test(String(url || ''));",
+            "  }",
+            "",
+            "  function report(url) {",
+            "    if (!isHls(url)) return false;",
+            "    var text = String(url);",
+            "    if (state.streams[text]) return false;",
+            "    state.streams[text] = true;",
+            "    if (!state.firstUrl) state.firstUrl = text;",
+            "    try { bridge.master(text); } catch (error) {}",
+            "    return true;",
+            "  }",
+            "",
+            "  function reportSubtitle(url, label, language) {",
+            "    if (!/^https?:/i.test(String(url || ''))) return false;",
+            "    var text = String(url);",
+            "    if (state.subtitles[text]) return false;",
+            "    state.subtitles[text] = true;",
+            "    try {",
+            "      bridge.subtitle(",
+            "        text,",
+            "        label == null ? null : String(label),",
+            "        language == null ? null : String(language)",
+            "      );",
+            "    } catch (error) {}",
+            "    return true;",
+            "  }",
+            "",
+            "  // hls.js: loadSource() is always handed the master playlist, which makes this the most",
+            "  // reliable single observation point the page offers.",
+            "  function patchHls() {",
+            "    var Hls = window.Hls;",
+            "    if (!Hls || !Hls.prototype || Hls.prototype.__hibikiMoonPatched) return !!Hls;",
+            "    var loadSource = Hls.prototype.loadSource;",
+            "    if (typeof loadSource !== 'function') return false;",
+            "    Hls.prototype.loadSource = function (url) {",
+            "      report(url);",
+            "      return loadSource.apply(this, arguments);",
+            "    };",
+            "    Hls.prototype.__hibikiMoonPatched = true;",
+            "    return true;",
+            "  }",
+            "",
+            "  // hls.js is loaded by the page after this script runs, so a plain assignment would let a",
+            "  // loadSource call slip past us in the gap before the next tick. Trapping the assignment",
+            "  // patches the prototype in the same task that defines it.",
+            "  function installHlsTrap() {",
+            "    patchHls();",
+            "    if (window.__hibikiMoonHlsTrap) return;",
+            "    window.__hibikiMoonHlsTrap = true;",
+            "    var current = window.Hls;",
+            "    try {",
+            "      Object.defineProperty(window, 'Hls', {",
+            "        configurable: true,",
+            "        get: function () { return current; },",
+            "        set: function (next) {",
+            "          current = next;",
+            "          try { patchHls(); } catch (error) {}",
+            "        }",
+            "      });",
+            "    } catch (error) {",
+            "      // A page that froze its own window.Hls keeps the polled patch as the only way in.",
+            "    }",
+            "    patchHls();",
+            "  }",
+            "",
+            "  // Any manifest request that does not go through hls.js - a quality list the page fetches",
+            "  // itself, or a player library this script does not know about.",
+            "  function patchNetwork() {",
+            "    if (window.__hibikiMoonNetworkPatched) return;",
+            "    window.__hibikiMoonNetworkPatched = true;",
+            "    var open = XMLHttpRequest.prototype.open;",
+            "    XMLHttpRequest.prototype.open = function (method, url) {",
+            "      try { report(url); } catch (error) {}",
+            "      return open.apply(this, arguments);",
+            "    };",
+            "    if (window.fetch) {",
+            "      var fetchImpl = window.fetch;",
+            "      window.fetch = function (input) {",
+            "        try {",
+            "          report(typeof input === 'string' ? input : (input && input.url));",
+            "        } catch (error) {}",
+            "        return fetchImpl.apply(this, arguments);",
+            "      };",
+            "    }",
+            "  }",
+            "",
+            "  // Moon's own module: switchTo() receives the decoded source list, parseSubs() the subtitle",
+            "  // list. Patching them keeps the site owning its own deobfuscation.",
+            "  function patchMaSource() {",
+            "    var ma = window.MaSource;",
+            "    if (!ma || ma.__hibikiMoonPatched) return !!ma;",
+            "    ma.__hibikiMoonPatched = true;",
+            "    var switchTo = ma.switchTo;",
+            "    ma.switchTo = function (videoEl, hls, sources, options) {",
+            "      try {",
+            "        var list = (sources || []).slice().sort(function (a, b) {",
+            "          return (parseInt(b && b.q, 10) || 0) - (parseInt(a && a.q, 10) || 0);",
+            "        });",
+            "        for (var i = 0; i < list.length; i++) report(list[i] && list[i].u);",
+            "      } catch (error) {}",
+            "      return switchTo.apply(this, arguments);",
+            "    };",
+            "    var parseSubs = ma.parseSubs;",
+            "    ma.parseSubs = function (raw) {",
+            "      var parsed = parseSubs.apply(this, arguments);",
+            "      try {",
+            "        for (var i = 0; i < (parsed || []).length; i++) {",
+            "          reportSubtitle(parsed[i] && parsed[i].u, parsed[i] && parsed[i].l, null);",
+            "        }",
+            "      } catch (error) {}",
+            "      return parsed;",
+            "    };",
+            "    return true;",
+            "  }",
+            "",
+            "  // Same reasoning as the Hls trap: Moon's inline script assigns window.MaSource during page",
+            "  // parse, which is earlier than this script is injected, so the assignment is what has to be",
+            "  // caught - and it must still be able to hand the page its own object back.",
+            "  function installMaSourceTrap() {",
+            "    patchMaSource();",
+            "    if (window.__hibikiMoonMaTrap) return;",
+            "    window.__hibikiMoonMaTrap = true;",
+            "    var current = window.MaSource;",
+            "    try {",
+            "      Object.defineProperty(window, 'MaSource', {",
+            "        configurable: true,",
+            "        get: function () { return current; },",
+            "        set: function (next) {",
+            "          current = next;",
+            "          try { patchMaSource(); } catch (error) {}",
+            "        }",
+            "      });",
+            "    } catch (error) {",
+            "      // Keeps the polled patch as the only way in, same as the Hls trap above.",
+            "    }",
+            "    patchMaSource();",
+            "  }",
+            "",
+            "  // Everything the page has already fetched, in request order - the first .m3u8 here is the",
+            "  // master the player started from, which is what makes a late injection still work.",
+            "  function reportFromResourceTimings() {",
+            "    try {",
+            "      var entries = performance.getEntriesByType",
+            "        ? performance.getEntriesByType('resource')",
+            "        : [];",
+            "      for (var i = 0; i < entries.length; i++) report(entries[i].name);",
+            "    } catch (error) {}",
+            "  }",
+            "",
+            "  // Mikai's embed runs hidden, so nothing ever clicks Moon's own play button.",
+            "  function nudgePlayback() {",
+            "    if (state.firstUrl || state.nudges > 20) return;",
+            "    state.nudges++;",
+            "    var video = document.querySelector('video');",
+            "    if (video) {",
+            "      try {",
+            "        video.muted = true;",
+            "        var attempt = video.play();",
+            "        if (attempt && attempt.catch) attempt.catch(function () {});",
+            "      } catch (error) {}",
+            "    }",
+            "    var button = document.querySelector(",
+            "      '.plyr__control--overlaid, [data-plyr=play], .ma-player-play, .plyr__play-large'",
+            "    );",
+            "    if (button && button.click) {",
+            "      try { button.click(); } catch (error) {}",
+            "    }",
+            "  }",
+            "",
+            "  patchNetwork();",
+            "  installHlsTrap();",
+            "  installMaSourceTrap();",
+            "  reportFromResourceTimings();",
+            "  nudgePlayback();",
+            "",
+            "  // One shared ticker, however many times the host re-evaluates this script.",
+            "  if (!window.__hibikiMoonTimer) {",
+            "    window.__hibikiMoonTimer = setInterval(function () {",
+            "      patchHls();",
+            "      patchMaSource();",
+            "      reportFromResourceTimings();",
+            "      nudgePlayback();",
+            "    }, 400);",
+            "  }",
+            "",
+            "  if (state.firstUrl) return 'moon-captured';",
+            "  return document.querySelector('video') ? 'moon-watching' : 'moon-no-video';",
+            "})();",
+        ].join("\n");
+    },
 };
