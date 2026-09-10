@@ -11,7 +11,7 @@ var Provider = {
             "if(video){video.muted=true;video.play().catch(function(){});}" +
             "var button=doc.querySelector('.vjs-big-play-button, .plyr__control--overlaid, button[aria-label*=Play]');" +
             "if(button){button.click();}" +
-            "var sent={};var emit=function(){var r=performance.getEntriesByType('resource');for(var i=0;i<r.length;i++){var u=r[i].name;if(/\\.m3u8(?:[?#]|$)/i.test(u)&&!sent[u]){HibikiResolver.video(u);sent[u]=1;}}};emit();setInterval(emit,250);" +
+            "var sent={};var emit=function(){var r=performance.getEntriesByType('resource');for(var i=0;i<r.length;i++){var u=r[i].name;if(/\\.m3u8(?:[?#]|$)/i.test(u)&&!sent[u]){HibikiResolver.video(u);sent[u]=1;HibikiResolver.done();return;}}};emit();setInterval(emit,250);" +
             "return video?'starting':'no-player';" +
             "}catch(e){return 'no-player';}" +
             "})();";
