@@ -8,7 +8,7 @@ var Provider = {
             "try {" +
             "if(window.__hibikiAniTubeResolver)return 'waiting';window.__hibikiAniTubeResolver=true;" +
             "var sent={};" +
-            "var report=function(url){if(!url||sent[url])return;sent[url]=true;HibikiResolver.video(url);};" +
+            "var report=function(url){if(!url||sent[url])return;sent[url]=true;if(window.HibikiResolver&&typeof HibikiResolver.video==='function')HibikiResolver.video(url);};" +
             "var start=function(){" +
               "var video=document.querySelector('video');" +
               "if(video){video.muted=true;video.play().catch(function(){});if(video.currentSrc&&/^https?:/i.test(video.currentSrc))report(video.currentSrc);}" +
