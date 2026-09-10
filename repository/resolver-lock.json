@@ -6,7 +6,7 @@
       "resolvers": {}
     },
     "anichi": {
-      "version": "1.0.8",
+      "version": "1.0.10",
       "resolvers": {
         "animepahe-player": "1.0.8"
       }
@@ -34,7 +34,7 @@
       }
     },
     "animepahe": {
-      "version": "1.0.11",
+      "version": "1.0.12",
       "resolvers": {
         "animepahe-player": "1.0.8"
       }
@@ -58,7 +58,7 @@
       }
     },
     "donghuastream": {
-      "version": "1.0.4",
+      "version": "1.0.5",
       "resolvers": {
         "dailymotion": "1.0.0"
       }
@@ -68,7 +68,7 @@
       "resolvers": {}
     },
     "kickassanime": {
-      "version": "1.0.11",
+      "version": "1.0.12",
       "resolvers": {
         "kickassanime-player": "1.0.8"
       }
@@ -87,7 +87,7 @@
       }
     },
     "yummy-anime": {
-      "version": "1.3.1",
+      "version": "1.3.3",
       "resolvers": {
         "aniboom": "1.0.0",
         "alloha": "1.0.1",
