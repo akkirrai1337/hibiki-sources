@@ -23,6 +23,9 @@ function S(value) { return value === null || value === undefined ? null : String
 var BASE_URL = "https://www.miruro.to";
 var OBFUSCATION_KEY_HEX = "71951034f8fbcf53d89db52ceb3dc22c";
 var MAX_RESULTS = 50;
+var FAILED_SOURCE_TTL_MS = 10 * 60 * 1000;
+var failedSourceRequests = {};
+var lastSuccessfulProviderByTitle = {};
 
 var PROVIDER_NAMES = {
     ally: "AllAnime",
@@ -32,7 +35,17 @@ var PROVIDER_NAMES = {
     hop: "KickAssAnime",
     bonk: "AnimeDao",
     moo: "AnimeGG",
+    dune: "AnimeDunya",
+    ANIMEDUNYA: "AnimeDunya",
 };
+
+function sourceRequestKey(titleId, episodeId, providerId, category) {
+    return [titleId, episodeId, providerId, category].join("\u0000");
+}
+
+function isUnavailableUpstream(error) {
+    return /HTTP (444|50[0-9])\b/.test(String(error && error.message ? error.message : error));
+}
 
 /** Rhino has no TextEncoder; this is the classic encodeURIComponent trick (same one Miruro's own
  * client JS uses) to turn a native UTF-16 JS string into a "one byte per char code" byte-string. */
@@ -267,7 +280,15 @@ var Provider = {
         var response = pipeGet("episodes", { anilistId: titleId });
         var providers = response.providers || {};
         var groups = [];
-        for (var providerId in providers) {
+        var providerIds = Object.keys(providers);
+        var lastSuccessful = lastSuccessfulProviderByTitle[String(titleId)];
+        providerIds.sort(function (left, right) {
+            if (left === lastSuccessful) return -1;
+            if (right === lastSuccessful) return 1;
+            return 0;
+        });
+        for (var providerIndex = 0; providerIndex < providerIds.length; providerIndex++) {
+            var providerId = providerIds[providerIndex];
             var providerEpisodes = providers[providerId].episodes || {};
             for (var category in providerEpisodes) {
                 var list = providerEpisodes[category];
@@ -286,6 +307,10 @@ var Provider = {
         var parts = String(groupId).split(":");
         var providerId = parts[0];
         var category = parts[1] || "sub";
+        var sourceKey = sourceRequestKey(titleId, episodeId, providerId, category);
+        var failedAt = failedSourceRequests[sourceKey];
+        if (failedAt && Date.now() - failedAt < FAILED_SOURCE_TTL_MS) return [];
+        if (failedAt) delete failedSourceRequests[sourceKey];
 
         // The default route is Miruro's own cached source list: what its own site plays, answered
         // from its backend cache in ~40ms. `live: "true"` is Miruro's *refresh* route - the one
@@ -315,8 +340,14 @@ var Provider = {
             // own client, so back-to-back calls share one refresh instead of each forcing its own.
             request.live = "true";
             request._t = Math.floor(Date.now() / 600000) * 600000;
-            streams = pipeGet("sources", request).streams || [];
+            try {
+                streams = pipeGet("sources", request).streams || [];
+            } catch (liveError) {
+                if (isUnavailableUpstream(liveError)) failedSourceRequests[sourceKey] = Date.now();
+                throw liveError;
+            }
         }
+        if (streams.length > 0) lastSuccessfulProviderByTitle[String(titleId)] = providerId;
         var translation = category === "dub" ? "Dub" : "Sub";
 
         return streams.map(function (stream) {
