@@ -337,7 +337,7 @@ function toAnimeTitle(payload, language) {
         // The site's own page for this title. The host shows it as "open on the site" when a source
         // supplies one - the id here is numeric, while the site addresses titles by their slug, so
         // only the source can build this.
-        pageUrl: payload.anime_url ? SITE_URL + "/anime/" + String(payload.anime_url) : null,
+        pageUrl: payload.anime_url ? SITE_URL + "/catalog/item/" + String(payload.anime_url) : null,
         russianName: russianName, englishName: englishName, originalName: originalName, japaneseName: japaneseName,
         synonyms: synonyms,
         year: payload.year !== undefined ? payload.year : null,
