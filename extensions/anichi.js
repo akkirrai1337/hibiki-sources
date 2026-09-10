@@ -256,6 +256,9 @@ function parseDetails(id, html) {
     return {
         titleData: title({
             id: id,
+            // This site addresses a title by the same slug it is identified by here, so its page is
+            // just the base plus that - see the host's "open on the site" button.
+            pageUrl: BASE_URL + "/anime/" + id,
             englishName: name,
             originalName: name,
             japaneseName: japaneseName.length > 0 ? japaneseName : null,

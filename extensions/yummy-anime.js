@@ -10,6 +10,9 @@
 // access, not a per-user credential.
 
 var BASE_URL = "https://api.yani.tv";
+// The website, as opposed to the API above - the two are different hosts here, and only this one
+// has pages a person can open.
+var SITE_URL = "https://ru.yummyani.me";
 var APPLICATION_TOKEN = "wawegr8j13it4rdw";
 
 // The sort values /anime actually accepts, verified against the live API - "votes" and
@@ -331,6 +334,10 @@ function toAnimeTitle(payload, language) {
 
     return title({
         id: String(payload.anime_id),
+        // The site's own page for this title. The host shows it as "open on the site" when a source
+        // supplies one - the id here is numeric, while the site addresses titles by their slug, so
+        // only the source can build this.
+        pageUrl: payload.anime_url ? SITE_URL + "/anime/" + String(payload.anime_url) : null,
         russianName: russianName, englishName: englishName, originalName: originalName, japaneseName: japaneseName,
         synonyms: synonyms,
         year: payload.year !== undefined ? payload.year : null,
