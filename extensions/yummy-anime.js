@@ -786,12 +786,34 @@ var Provider = {
                 authorAvatarUrl: avatarUrlOf(item.avatars),
                 text: String(item.text || ""),
                 createdAt: (item.time || 0) * 1000,
-                likes: (item.likes || 0) - (item.dislikes || 0),
+                // Both sides, not one net number: the site shows them apart, and a host that wants
+                // the difference can subtract, while one given only the difference cannot get back
+                // to "4 up, 1 down".
+                likes: item.likes || 0,
+                dislikes: item.dislikes || 0,
+                // What *this* account already voted, so a button can show itself as pressed: 1, -1
+                // or 0. Absent while signed out, which is not the same as "voted nothing".
+                viewerVote: item.vote === undefined || item.vote === null ? null : Number(item.vote),
                 replyCount: item.children_count || 0,
                 parentId: item.parent_id ? String(item.parent_id) : null,
             });
         }
         return out;
+    },
+
+    /* PUT /comments/{id}/vote {action: 1|-1} to vote, DELETE to take it back - the same two calls
+       the site's own client makes. */
+    voteComment: function (json) {
+        requireAccount();
+        var request = JSON.parse(json);
+        var commentId = encodeURIComponent(String(request.commentId));
+        var vote = Number(request.vote || 0);
+        if (vote === 0) {
+            callApi("DELETE", "/comments/" + commentId + "/vote", null);
+        } else {
+            callApi("PUT", "/comments/" + commentId + "/vote", { action: vote > 0 ? 1 : -1 });
+        }
+        return true;
     },
 
     postComment: function (json) {
@@ -807,6 +829,8 @@ var Provider = {
             text: String((created && created.text) || request.text || ""),
             createdAt: created && created.time ? created.time * 1000 : Date.now(),
             likes: 0,
+            dislikes: 0,
+            viewerVote: 0,
             replyCount: 0,
             parentId: request.parentId ? String(request.parentId) : null,
         };
