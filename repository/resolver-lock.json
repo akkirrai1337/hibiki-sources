@@ -80,12 +80,6 @@
         "anitube-player": "1.0.1"
       }
     },
-    "miruro": {
-      "version": "1.0.9",
-      "resolvers": {
-        "animepahe-player": "1.0.8"
-      }
-    },
     "yummy-anime": {
       "version": "1.3.4",
       "resolvers": {
