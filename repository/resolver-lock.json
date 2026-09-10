@@ -12,10 +12,10 @@
       }
     },
     "anikappa": {
-      "version": "1.0.11",
+      "version": "1.0.12",
       "resolvers": {
         "anitube-ashdi": "1.0.0",
-        "anitube-player": "1.0.7"
+        "anitube-player": "1.0.8"
       }
     },
     "animego": {
@@ -44,10 +44,10 @@
       "resolvers": {}
     },
     "anitube": {
-      "version": "1.0.11",
+      "version": "1.0.12",
       "resolvers": {
         "anitube-ashdi": "1.0.0",
-        "anitube-player": "1.0.7"
+        "anitube-player": "1.0.8"
       }
     },
     "anixart": {
@@ -74,10 +74,10 @@
       }
     },
     "mikai": {
-      "version": "1.0.7",
+      "version": "1.0.8",
       "resolvers": {
         "anitube-ashdi": "1.0.0",
-        "anitube-player": "1.0.7"
+        "anitube-player": "1.0.8"
       }
     },
     "yummy-anime": {
