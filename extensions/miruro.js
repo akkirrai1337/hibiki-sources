@@ -286,18 +286,37 @@ var Provider = {
         var parts = String(groupId).split(":");
         var providerId = parts[0];
         var category = parts[1] || "sub";
-        // Miruro caches resolved CDN URLs for a long time. Those URLs may already have expired
-        // (typically HTTP 410) by the time Hibiki validates them, so playback must use the same
-        // live-refresh route as Miruro's own retry action instead of accepting stale cached URLs.
-        var response = pipeGet("sources", {
-            episodeId: episodeId,
-            provider: providerId,
-            category: category,
-            anilistId: titleId,
-            live: "true",
-            _t: Math.floor(Date.now() / 600000) * 600000,
-        });
-        var streams = response.streams || [];
+
+        // The default route is Miruro's own cached source list: what its own site plays, answered
+        // from its backend cache in ~40ms. `live: "true"` is Miruro's *refresh* route - the one
+        // behind its own retry button - and it skips that cache to re-resolve from the upstream
+        // provider on every call. Measured live, the live route is where Miruro is currently
+        // failing: ally, bee, kiwi and pewe all answer it with HTTP 444 and an HTML body titled
+        // "502 upstream unreachable", while the cached route answers the same providers, seconds
+        // apart and in both orders, with 200 and a playable master.m3u8. 444 is also exactly the
+        // status the host retries with backoff, so asking for live on every playback turned a
+        // ~40ms link fetch into 8-25s of retries ending in "Miruro returned HTTP 444 for sources"
+        // - the endless spinner, on every provider that is not on Miruro's own fast path. So:
+        // cached first, and the refresh route only as a fallback.
+        var request = { episodeId: episodeId, provider: providerId, category: category, anilistId: titleId };
+        var streams = [];
+        try {
+            streams = pipeGet("sources", request).streams || [];
+        } catch (cachedError) {
+            // A cached route that answers with a status at all is still a route worth failing over
+            // from - pipeGet throws on any non-2xx, so without this the refresh fallback below
+            // would only ever be reached by a 200 that happened to carry no streams.
+            streams = [];
+        }
+        if (streams.length === 0) {
+            // The one case the refresh route is worth its cost: the cached answer gave nothing (no
+            // cache entry for this provider/episode yet), so asking Miruro to resolve the provider
+            // now is the only way to get anything at all. Bucketed cache-buster, same as Miruro's
+            // own client, so back-to-back calls share one refresh instead of each forcing its own.
+            request.live = "true";
+            request._t = Math.floor(Date.now() / 600000) * 600000;
+            streams = pipeGet("sources", request).streams || [];
+        }
         var translation = category === "dub" ? "Dub" : "Sub";
 
         return streams.map(function (stream) {
