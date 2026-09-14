@@ -1,8 +1,9 @@
 {
   "id": "alloha",
   "name": "Alloha browser resolver",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "player-resolver",
   "runtime": "BROWSER",
+  "requiresFrame": true,
   "hosts": ["alloha.yani.tv"]
 }
