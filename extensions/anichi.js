@@ -283,7 +283,18 @@ function fetchCatalogPage(path, page) {
 }
 
 function fetchSearchPage(query, page) {
-    return parseCardList(getHtml("/filter?keyword=" + encodeURIComponent(query) + "&page=" + page + "&vrf=" + encodeURIComponent(query)));
+    try {
+        return parseCardList(getHtml("/filter?keyword=" + encodeURIComponent(query) + "&page=" + page + "&vrf=" + encodeURIComponent(query)));
+    } catch (e) {
+        // collectPaginated (see collectResults) silently swallows this and just stops paging, so a
+        // search that comes back empty because every page fetch failed looks identical to a search
+        // that came back empty because there truly were no results. Logging it here is the only way
+        // to tell the two apart from the exported log - status only, since getHtml's own error
+        // message embeds the request path (and with it the raw search query) verbatim.
+        var status = /HTTP (\d+)/.exec(String(e && e.message || e));
+        console.log("Anichi search page fetch failed: page=" + page + ", status=" + (status ? status[1] : "unknown"));
+        throw e;
+    }
 }
 
 function collectResults(fetchPage, wanted) {
