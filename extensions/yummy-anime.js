@@ -609,10 +609,18 @@ var Provider = {
                 }
             }
             var url = video.iframe_url.indexOf("//") === 0 ? "https:" + video.iframe_url : video.iframe_url;
+            var playerName = String(video.data.player || "").replace(/^Плеер\s*/, "").trim();
+            var headers = { "Referer": "https://ru.yummyani.me/" };
+            // Alloha's own player bundle (app.*.js) throws "fileList is not defined" and never
+            // mounts under the mobile Chrome UA Hibiki's browser resolver spoofs by default - a
+            // desktop UA is what a real visitor's browser sends, and what the bundle expects.
+            if (playerName.toLowerCase() === "alloha") {
+                headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36";
+            }
             return {
                 url: url, type: "EMBED", quality: null,
-                headers: { "Referer": "https://ru.yummyani.me/" },
-                playerName: String(video.data.player || "").replace(/^Плеер\s*/, "").trim(),
+                headers: headers,
+                playerName: playerName,
                 translation: String(video.data.dubbing || "").replace(/^Озвучка\s*/, "").trim(),
                 segments: segments, videoId: video.video_id,
             };
