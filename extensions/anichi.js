@@ -78,7 +78,14 @@ function title(fields) { return AnimeTitle(fields); }
 function getHtml(path) {
     var headers = { "Referer": BASE_URL + "/", "User-Agent": BROWSER_USER_AGENT };
     var response = fetch(BASE_URL + path, { headers: headers });
-    if (!response.ok) throw new Error("Anichi returned HTTP " + response.status + " for " + path);
+    if (!response.ok) {
+        // No request path in the message on purpose - a search path carries the raw query. A
+        // snippet of the error body is worth far more anyway: a WAF/CDN block page reads
+        // completely differently from a genuine backend 500, and there is currently no way to
+        // tell the two apart from the exported log otherwise.
+        var snippet = String(response.body || "").replace(/\s+/g, " ").trim().slice(0, 200);
+        throw new Error("Anichi returned HTTP " + response.status + (snippet ? ", body: " + snippet : ""));
+    }
     return S(response.body);
 }
 
@@ -289,10 +296,8 @@ function fetchSearchPage(query, page) {
         // collectPaginated (see collectResults) silently swallows this and just stops paging, so a
         // search that comes back empty because every page fetch failed looks identical to a search
         // that came back empty because there truly were no results. Logging it here is the only way
-        // to tell the two apart from the exported log - status only, since getHtml's own error
-        // message embeds the request path (and with it the raw search query) verbatim.
-        var status = /HTTP (\d+)/.exec(String(e && e.message || e));
-        console.log("Anichi search page fetch failed: page=" + page + ", status=" + (status ? status[1] : "unknown"));
+        // to tell the two apart from the exported log.
+        console.log("Anichi search page fetch failed: page=" + page + ", " + (e && e.message || e));
         throw e;
     }
 }
