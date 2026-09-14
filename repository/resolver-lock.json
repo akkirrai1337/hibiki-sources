@@ -6,7 +6,7 @@
       "resolvers": {}
     },
     "anichi": {
-      "version": "1.0.11",
+      "version": "1.0.12",
       "resolvers": {
         "animepahe-player": "1.0.8"
       }
