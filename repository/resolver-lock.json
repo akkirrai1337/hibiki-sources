@@ -19,7 +19,7 @@
       }
     },
     "anikoto": {
-      "version": "1.0.2",
+      "version": "1.0.3",
       "resolvers": {
         "animepahe-player": "1.0.8"
       }
@@ -70,7 +70,7 @@
       }
     },
     "hentaimama": {
-      "version": "1.0.4",
+      "version": "1.0.5",
       "resolvers": {}
     },
     "kickassanime": {
