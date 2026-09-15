@@ -9,12 +9,12 @@ var USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.
 var MAX_RESULTS = 50;
 var titleIds = {};
 
-function request(path, headers) {
+function request(path, referer) {
     var response = fetch(BASE_URL + path, {
         headers: {
             "User-Agent": USER_AGENT,
             "Accept-Language": "en-US,en;q=0.9",
-            "Referer": BASE_URL + "/",
+            "Referer": referer || BASE_URL + "/",
             "X-Requested-With": "XMLHttpRequest"
         }
     });
@@ -182,18 +182,23 @@ function collectEpisodes(titleId) {
     if (document === null) return { sub: [], dub: [] };
     var groups = { sub: [], dub: [] };
     var seen = { sub: {}, dub: {} };
-    var items = document.select("li[data-ep-id][data-link-id]");
+    // AniKoto puts the episode identity and opaque server-list token on the anchor, not its li.
+    // The server-specific data-link-id is returned only by /ajax/server/list later.
+    var items = document.select("a[data-id][data-ids]");
     for (var i = 0; i < items.size(); i++) {
         var item = items.get(i);
-        var typeEl = item.closest(".type[data-type]");
-        var type = typeEl === null ? "sub" : S(typeEl.attr("data-type")).toLowerCase();
-        if (type !== "sub" && type !== "dub") continue;
-        var epId = S(item.attr("data-ep-id"));
-        var numberLink = item.selectFirst("a");
-        var number = numberLink === null ? NaN : numberFromText(numberLink.text());
-        if (!epId || seen[type][epId] || isNaN(number)) continue;
-        seen[type][epId] = true;
-        groups[type].push({ id: titleId + "|" + epId, number: number, title: S(item.attr("title")) || null });
+        var epId = S(item.attr("data-id"));
+        var number = numberFromText(item.attr("data-num"));
+        if (!epId || isNaN(number)) continue;
+        var types = [];
+        if (S(item.attr("data-sub")) === "1") types.push("sub");
+        if (S(item.attr("data-dub")) === "1") types.push("dub");
+        for (var t = 0; t < types.length; t++) {
+            var type = types[t];
+            if (seen[type][epId]) continue;
+            seen[type][epId] = true;
+            groups[type].push({ id: titleId + "|" + epId, number: number, title: S(item.attr("title")) || null });
+        }
     }
     groups.sub.sort(function(a,b){ return a.number-b.number; });
     groups.dub.sort(function(a,b){ return a.number-b.number; });
@@ -204,7 +209,16 @@ function loadLinks(titleId, groupId, episodeId) {
     var type = groupId.indexOf("|dub") >= 0 ? "dub" : "sub";
     var epId = episodeId.substring(episodeId.lastIndexOf("|") + 1);
     var document = episodeHtml(titleId);
-    var items = document.select(".type[data-type='" + type + "'] li[data-ep-id='" + epId + "'][data-link-id]");
+    if (document === null) return [];
+    var episode = document.selectFirst("a[data-id='" + epId + "'][data-ids]");
+    if (episode === null || S(episode.attr("data-" + type)) !== "1") return [];
+    var serverToken = S(episode.attr("data-ids"));
+    if (!serverToken) return [];
+    var referer = BASE_URL + "/watch/" + titleId + "/ep-" + S(episode.attr("data-slug"));
+    var serverList = JSON.parse(request("/ajax/server/list?servers=" + encodeURIComponent(serverToken), referer));
+    if (!serverList || serverList.status !== 200 || !serverList.result) return [];
+    var servers = Jsoup.parseBodyFragment(S(serverList.result));
+    var items = servers.select(".type[data-type='" + type + "'] li[data-link-id]");
     var links = [];
     var seen = {};
     for (var i = 0; i < items.size(); i++) {
@@ -212,11 +226,11 @@ function loadLinks(titleId, groupId, episodeId) {
         var token = S(item.attr("data-link-id"));
         if (!token || seen[token]) continue;
         seen[token] = true;
-        var response = JSON.parse(request("/ajax/server?get=" + encodeURIComponent(token)));
+        var response = JSON.parse(request("/ajax/server?get=" + encodeURIComponent(token), referer));
         if (!response || response.status !== 200 || !response.result || !response.result.url) continue;
         links.push({
             url: S(response.result.url), type: "EMBED", quality: null,
-            headers: { "Referer": BASE_URL + "/watch/" + titleId + "/ep-" + epId },
+            headers: { "Referer": referer },
             playerName: S(item.text()).trim(),
             translation: type === "dub" ? "English dub" : "English sub",
             segments: [], videoId: null,
