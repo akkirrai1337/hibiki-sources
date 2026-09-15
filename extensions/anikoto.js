@@ -107,20 +107,11 @@ function parseCards(html) {
     return result;
 }
 
-function loadCatalog(path, wanted) {
-    var result = [];
-    var seen = {};
-    for (var page = 1; page <= 20 && result.length < wanted; page++) {
-        var suffix = page === 1 ? "" : "&page=" + page;
-        var html = request(path + (path.indexOf("?") >= 0 ? suffix : (page === 1 ? "" : "?page=" + page)));
-        var cards = parseCards(html);
-        if (cards.length === 0) break;
-        for (var i = 0; i < cards.length; i++) {
-            if (!seen[cards[i].id]) { seen[cards[i].id] = true; result.push(cards[i]); }
-        }
-        if (cards.length < 10) break;
-    }
-    return result;
+function loadCatalog(path) {
+    // AniKoto currently ignores `page` on both its home and filter routes: every
+    // requested page repeats the first result set. Do not keep requesting those
+    // duplicates, otherwise the site eventually answers with HTTP 500.
+    return parseCards(request(path));
 }
 
 function parseDetails(id, html) {
@@ -246,12 +237,12 @@ var Provider = {
         var offset = Math.max(requestData.offset || 0, 0);
         var limit = Math.min(Math.max(requestData.limit || 20, 1), MAX_RESULTS);
         var path = query ? "/filter?keyword=" + encodeURIComponent(query) : "/home";
-        return loadCatalog(path, offset + limit).slice(offset, offset + limit);
+        return loadCatalog(path).slice(offset, offset + limit);
     },
 
     latest: function (limit) {
         var safeLimit = Math.min(Math.max(limit || 20, 1), MAX_RESULTS);
-        return loadCatalog("/home", safeLimit).slice(0, safeLimit);
+        return loadCatalog("/home").slice(0, safeLimit);
     },
 
     getById: function (id) {
