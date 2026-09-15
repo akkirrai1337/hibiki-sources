@@ -58,6 +58,25 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anikappa.manifest.json"
     },
     {
+      "id": "anikoto",
+      "name": "AniKoto",
+      "version": "1.0.0",
+      "author": "Hibiki",
+      "website": "https://anikototv.to",
+      "iconUrl": "https://anikototv.to/AnikotoTheme/assets/images/favicon.png",
+      "lang": "en",
+      "capabilities": [
+        "LATEST_RELEASES",
+        "PLAYBACK"
+      ],
+      "resolverDependencies": [
+        "animepahe-player"
+      ],
+      "isNsfw": false,
+      "type": "source",
+      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/anikoto.manifest.json"
+    },
+    {
       "id": "animego",
       "name": "AnimeGo",
       "version": "1.0.8",
