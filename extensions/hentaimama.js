@@ -17,7 +17,7 @@ function request(url, options) {
     options = options || {};
     options.headers = options.headers || {};
     options.headers["User-Agent"] = USER_AGENT;
-    options.headers["Referer"] = BASE_URL + "/";
+    if (!options.headers["Referer"]) options.headers["Referer"] = BASE_URL + "/";
     var response = fetch(url, options);
     if (!response.ok) throw new Error("HentaiMama returned HTTP " + response.status + " for " + url);
     return S(response.body);
@@ -198,21 +198,29 @@ function playerLinks(episodeId) {
         if (iframeMatch === null) continue;
         var embedUrl = S(Jsoup.resolve(BASE_URL, iframeMatch[1].replace(/&#038;/g, "&")));
         var embedHtml = request(embedUrl, { headers: { "Referer": absolute(episodeId) } });
-        var videoMatch = /(?:file|src)\s*:\s*["'](https?:\\?\/\\?\/[^"']+\.(?:mp4|m3u8)[^"']*)/i.exec(embedHtml);
-        if (videoMatch === null) continue;
-        var videoUrl = videoMatch[1].replace(/\\\//g, "/");
-        if (seen[videoUrl]) continue;
-        seen[videoUrl] = true;
-        links.push({
-            url: videoUrl,
-            type: /\.m3u8(?:[?#]|$)/i.test(videoUrl) ? "DIRECT_HLS" : "DIRECT_MP4",
-            quality: "Mirror " + mirror,
-            headers: { "Referer": embedUrl },
-            playerName: "HentaiMama",
-            translation: "English subtitles",
-            segments: [],
-            videoId: null,
-        });
+        // JW Player now serializes sources as JSON (`"file":"https:\/\/…"`). The prior
+        // expression expected another escaping form and silently rejected every valid mirror.
+        // A single embed can also expose several MP4 qualities, so collect each file field.
+        var sourcePattern = /["']file["']\s*:\s*["']([^"']+\.(?:mp4|m3u8)[^"']*)/gi;
+        var videoMatch;
+        while ((videoMatch = sourcePattern.exec(embedHtml)) !== null) {
+            var videoUrl = videoMatch[1]
+                .replace(/\\\//g, "/")
+                .replace(/&amp;/g, "&")
+                .trim();
+            if (!/^https?:\/\//i.test(videoUrl) || seen[videoUrl]) continue;
+            seen[videoUrl] = true;
+            links.push({
+                url: videoUrl,
+                type: /\.m3u8(?:[?#]|$)/i.test(videoUrl) ? "DIRECT_HLS" : "DIRECT_MP4",
+                quality: "Mirror " + mirror,
+                headers: { "Referer": embedUrl },
+                playerName: "HentaiMama",
+                translation: "English subtitles",
+                segments: [],
+                videoId: null,
+            });
+        }
     }
     return links;
 }
