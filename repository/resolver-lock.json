@@ -18,6 +18,12 @@
         "anitube-player": "1.0.10"
       }
     },
+    "anikoto": {
+      "version": "1.0.0",
+      "resolvers": {
+        "animepahe-player": "1.0.8"
+      }
+    },
     "animego": {
       "version": "1.0.8",
       "resolvers": {
