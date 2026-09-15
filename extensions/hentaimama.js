@@ -32,6 +32,13 @@ function pathFromUrl(url) {
 
 function absolute(path) { return BASE_URL + "/" + String(path).replace(/^\/+/, ""); }
 
+function resolveEmbedUrl(value) {
+    var url = S(value) || "";
+    if (/^https?:\/\//i.test(url)) return url;
+    if (url.indexOf("//") === 0) return "https:" + url;
+    return absolute(url);
+}
+
 function imageUrl(element) {
     if (element === null) return null;
     var url = S(element.absUrl("src"));
@@ -184,6 +191,7 @@ function playerLinks(episodeId) {
         var response = request(BASE_URL + "/wp-admin/admin-ajax.php", {
             method: "POST",
             form: { action: "get_player_contents", a: postId, i: String(mirror) },
+            headers: { "X-Requested-With": "XMLHttpRequest", "Referer": absolute(episodeId) },
         });
         // DooPlay returns a JSON array of iframe fragments. Matching the raw response fails
         // because its HTML quotes are still escaped (`src=\"…\"`). Decode it first, just like
@@ -196,7 +204,9 @@ function playerLinks(episodeId) {
         }
         var iframeMatch = /<iframe[^>]+src=["']([^"']+)/i.exec(iframeHtml);
         if (iframeMatch === null) continue;
-        var embedUrl = S(Jsoup.resolve(BASE_URL, iframeMatch[1].replace(/&#038;/g, "&")));
+        var embedUrl = resolveEmbedUrl(iframeMatch[1]
+            .replace(/&#038;|&amp;/gi, "&")
+            .replace(/\\\//g, "/"));
         var embedHtml = request(embedUrl, { headers: { "Referer": absolute(episodeId) } });
         // JW Player now serializes sources as JSON (`"file":"https:\/\/…"`). The prior
         // expression expected another escaping form and silently rejected every valid mirror.
