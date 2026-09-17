@@ -21,7 +21,7 @@
     {
       "id": "anichi",
       "name": "Anichi",
-      "version": "1.0.12",
+      "version": "1.0.13",
       "author": "Hibiki",
       "website": "https://anichi.to",
       "iconUrl": "https://anichi.to/favicon.ico",
@@ -60,7 +60,7 @@
     {
       "id": "anikoto",
       "name": "AniKoto",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Hibiki",
       "website": "https://anikototv.to",
       "iconUrl": "https://anikototv.to/AnikotoTheme/assets/images/favicon.png",
@@ -122,7 +122,7 @@
     {
       "id": "animepahe",
       "name": "AnimePahe",
-      "version": "1.0.12",
+      "version": "1.0.13",
       "author": "Hibiki",
       "website": "https://animepahetv.to",
       "iconUrl": "https://animepahetv.to/favicon.ico",
@@ -261,7 +261,7 @@
     {
       "id": "animepahe-player",
       "name": "AnimePahe browser resolver",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": null,
       "website": null,
       "iconUrl": null,

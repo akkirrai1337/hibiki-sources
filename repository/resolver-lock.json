@@ -6,9 +6,9 @@
       "resolvers": {}
     },
     "anichi": {
-      "version": "1.0.12",
+      "version": "1.0.13",
       "resolvers": {
-        "animepahe-player": "1.0.8"
+        "animepahe-player": "1.0.9"
       }
     },
     "anikappa": {
@@ -19,9 +19,9 @@
       }
     },
     "anikoto": {
-      "version": "1.0.3",
+      "version": "1.0.4",
       "resolvers": {
-        "animepahe-player": "1.0.8"
+        "animepahe-player": "1.0.9"
       }
     },
     "animego": {
@@ -40,9 +40,9 @@
       }
     },
     "animepahe": {
-      "version": "1.0.12",
+      "version": "1.0.13",
       "resolvers": {
-        "animepahe-player": "1.0.8"
+        "animepahe-player": "1.0.9"
       }
     },
     "animevost": {
