@@ -1,13 +1,13 @@
 {
     "id": "anixart",
     "name": "Anixart",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Russian anime catalog with a pure JSON API, per-dub episode lists and Kodik playback.",
     "author": "Hibiki",
     "website": "https://anixart.tv",
     "iconUrl": "https://anixart.tv/favicon.ico",
     "lang": "ru",
-    "resolverDependencies": ["kodik", "sibnet"],
+    "resolverDependencies": ["kodik"],
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK",

@@ -460,9 +460,7 @@ function playerPriority(name) {
         case "kodik": return 0;
         case "alloha": return 1;
         case "aksor": return 2;
-        case "sibnet": return 3;
-        case "cvh": return 4;
-        case "vk": return 5;
+        case "vk": return 3;
         default: return 10;
     }
 }
@@ -625,6 +623,7 @@ var Provider = {
                 segments: segments, videoId: video.video_id,
             };
         });
+        links = links.filter(function (link) { return !isRetiredPlayer(link.playerName, link.url); });
         links.sort(function (a, b) { return playerPriority(a.playerName) - playerPriority(b.playerName); });
         return links;
     },
@@ -926,3 +925,10 @@ var Provider = {
         return true;
     },
 };
+
+function isRetiredPlayer(name, url) {
+    var player = String(name || "").toLowerCase();
+    var address = String(url || "").toLowerCase();
+    return player === "cvh" || player === "sibnet" ||
+        address.indexOf("yummyani.me") >= 0 || address.indexOf("sibnet.ru") >= 0;
+}

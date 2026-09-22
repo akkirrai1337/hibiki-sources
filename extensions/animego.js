@@ -358,10 +358,12 @@ var Provider = {
             var el = items.get(i);
             var rawUrl = S(el.attr("data-player"));
             if (!rawUrl) continue;
+            var playerName = S(el.attr("data-provider-title")) || null;
+            if (isRetiredPlayer(playerName, rawUrl)) continue;
             links.push({
                 url: Jsoup.resolve(BASE_URL, rawUrl), type: "EMBED", quality: null,
                 headers: { "Referer": BASE_URL + "/" },
-                playerName: S(el.attr("data-provider-title")) || null,
+                playerName: playerName,
                 translation: S(el.attr("data-translation-title")) || null,
                 segments: [], videoId: null,
             });
@@ -401,9 +403,14 @@ function filterOptions(document, namePrefix) {
 function playerPriority(name) {
     switch (String(name || "").toLowerCase()) {
         case "aniboom": return 0;
-        case "cvh": return 1;
-        case "kodik": return 2;
-        case "sibnet": return 3;
+        case "kodik": return 1;
         default: return 10;
     }
+}
+
+function isRetiredPlayer(name, url) {
+    var player = String(name || "").toLowerCase();
+    var address = String(url || "").toLowerCase();
+    return player === "cvh" || player === "sibnet" ||
+        address.indexOf("yummyani.me") >= 0 || address.indexOf("sibnet.ru") >= 0;
 }

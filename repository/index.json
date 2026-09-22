@@ -79,7 +79,7 @@
     {
       "id": "animego",
       "name": "AnimeGo",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "Hibiki",
       "website": "https://animego.me",
       "iconUrl": "https://animego.me/favicon.ico",
@@ -90,7 +90,6 @@
       ],
       "resolverDependencies": [
         "aniboom",
-        "sibnet",
         "aksor",
         "kodik"
       ],
@@ -178,7 +177,7 @@
     {
       "id": "anixart",
       "name": "Anixart",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "Hibiki",
       "website": "https://anixart.tv",
       "iconUrl": "https://anixart.tv/favicon.ico",
@@ -190,8 +189,7 @@
         "SIMILAR_TITLES"
       ],
       "resolverDependencies": [
-        "kodik",
-        "sibnet"
+        "kodik"
       ],
       "isNsfw": false,
       "type": "source",
@@ -301,20 +299,6 @@
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/anitube-player.manifest.json"
     },
     {
-      "id": "cvh",
-      "name": "CVH player resolver",
-      "version": "1.1.0",
-      "author": null,
-      "website": null,
-      "iconUrl": null,
-      "lang": "",
-      "capabilities": [],
-      "resolverDependencies": [],
-      "isNsfw": false,
-      "type": "player-resolver",
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/cvh.manifest.json"
-    },
-    {
       "id": "dailymotion",
       "name": "Dailymotion player resolver",
       "version": "1.0.0",
@@ -355,20 +339,6 @@
       "isNsfw": false,
       "type": "player-resolver",
       "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/kodik.manifest.json"
-    },
-    {
-      "id": "sibnet",
-      "name": "Sibnet player resolver",
-      "version": "1.0.1",
-      "author": null,
-      "website": null,
-      "iconUrl": null,
-      "lang": "",
-      "capabilities": [],
-      "resolverDependencies": [],
-      "isNsfw": false,
-      "type": "player-resolver",
-      "manifestUrl": "https://raw.githubusercontent.com/akkirrai1337/hibiki-sources/main/extensions/extractors/sibnet.manifest.json"
     },
     {
       "id": "vk",
@@ -443,7 +413,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.3.7",
+      "version": "1.3.8",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",
@@ -462,9 +432,7 @@
       "resolverDependencies": [
         "aniboom",
         "alloha",
-        "sibnet",
         "aksor",
-        "cvh",
         "kodik",
         "vk"
       ],

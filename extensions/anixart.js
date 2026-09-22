@@ -259,6 +259,13 @@ function toPlayerLink(episode, source, dubbing) {
     };
 }
 
+function isRetiredPlayer(name, url) {
+    var player = String(name || "").toLowerCase();
+    var address = String(url || "").toLowerCase();
+    return player === "cvh" || player === "sibnet" ||
+        address.indexOf("yummyani.me") >= 0 || address.indexOf("sibnet.ru") >= 0;
+}
+
 var Provider = {
     search: function (requestJson) {
         var searchRequest = JSON.parse(requestJson);
@@ -356,7 +363,7 @@ var Provider = {
                 // dubbing would otherwise hand back links one episode apart.
                 if (episodeNumber(episodes[e]) !== target) continue;
                 var link = toPlayerLink(episodes[e], sources[i], dubbing);
-                if (link !== null) links.push(link);
+                if (link !== null && !isRetiredPlayer(link.playerName, link.url)) links.push(link);
             }
         }
         if (links.length === 0) throw new Error("Anixart could not find this episode");
