@@ -104,6 +104,12 @@ the script may call `HibikiResolver.quality(label)` before changing quality and
 `HibikiResolver.done()` when probing is complete. The host owns the browser lifecycle, stream
 capture, cookies, and relay transport, which keeps this contract portable to desktop.
 
+When a resolver needs the embed page to run inside a particular parent browsing context, it may
+return `"hibiki-browser-resolver:v1:" + JSON.stringify({ script, parentUrl })` instead of a plain
+script string. `parentUrl` must be an HTTP(S) URL; the host creates the embed as a child frame of
+that page. Existing resolvers can continue returning a plain script string. This keeps provider-
+specific page/context requirements in the resolver rather than hardcoding host rules in the app.
+
 **Gotcha when writing a payload:** any string returned from a `Jsoup`/Java call (`.text()`,
 `.attr()`, `.absUrl()`) comes back as a boxed Java object inside Rhino, not a JS string primitive —
 `===`, `.charAt()`, and regex behave wrong on it until you wrap it with `String(x)`. Every `.js`

@@ -36,5 +36,20 @@ var ALLOHA_DIRECT_SCRIPT = [
 ].join("\n");
 
 var Provider = {
-    browserScript: function () { return ALLOHA_DIRECT_SCRIPT; }
+    browserScript: function (linkJson) {
+        // This player needs its embed to be a real child frame of an origin-local page.
+        // Supplying that context here keeps provider-specific navigation policy in the resolver,
+        // while the app only implements the reusable parentUrl/browserScript contract.
+        try {
+            var link = JSON.parse(linkJson || "{}");
+            var origin = String(link.url || "").match(/^https?:\/\/[^/]+/i);
+            if (!origin) return ALLOHA_DIRECT_SCRIPT;
+            return "hibiki-browser-resolver:v1:" + JSON.stringify({
+                script: ALLOHA_DIRECT_SCRIPT,
+                parentUrl: origin[0] + "/"
+            });
+        } catch (e) {
+            return ALLOHA_DIRECT_SCRIPT;
+        }
+    }
 };

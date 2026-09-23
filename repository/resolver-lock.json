@@ -85,10 +85,10 @@
       }
     },
     "yummy-anime": {
-      "version": "1.3.9",
+      "version": "1.3.10",
       "resolvers": {
         "aniboom": "1.0.1",
-        "alloha": "1.0.3",
+        "alloha": "1.0.4",
         "aksor": "1.0.1",
         "kodik": "1.0.4",
         "vk": "1.0.1"
