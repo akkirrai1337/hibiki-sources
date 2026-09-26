@@ -86,6 +86,14 @@ function toPosterProxyUrl(url) {
     return POSTER_PROXY_URL + "?url=" + encodeURIComponent(url) + "&w=500&h=700&fit=cover&output=webp";
 }
 
+// The stills on a title page (`.screenshots__item`, thumbnails on the CDN). The CDN serves the same image
+// at a larger size by the size in its path, and is reached through the same proxy the posters use.
+function screenshotUrl(url) {
+    if (!url || url.indexOf("https://img.cdngos.com/") !== 0) return null;
+    var larger = url.replace("/v/320x180/", "/v/640x360/");
+    return POSTER_PROXY_URL + "?url=" + encodeURIComponent(larger) + "&w=960&fit=inside&output=webp";
+}
+
 function animeSlugFromUrl(url) {
     var match = /\/anime\/([^/?]+)/.exec(url || "");
     if (match === null) return null;
@@ -207,6 +215,13 @@ function parseDetails(id, html) {
         if (!isNaN(parsedAvailable)) availableEpisodeCount = parsedAvailable;
     }
 
+    var stillEls = document.select(".screenshots__item img");
+    var screenshots = [];
+    for (var k = 0; k < stillEls.size(); k++) {
+        var still = screenshotUrl(S(stillEls.get(k).attr("src")).trim());
+        if (still !== null && screenshots.indexOf(still) < 0) screenshots.push(still);
+    }
+
     var descriptionEl = document.selectFirst(".description");
     var description = schema.description || (descriptionEl !== null ? S(descriptionEl.text()).trim() : null);
 
@@ -223,6 +238,7 @@ function parseDetails(id, html) {
         status: statusText ? toStatusAlias(statusText.toLowerCase()) : null,
         description: description,
         genres: genres,
+        screenshots: screenshots,
         ratings: ratings,
         ageRating: schema.contentRating || null,
         sourceMaterial: fieldValue(document, "Первоисточник"),

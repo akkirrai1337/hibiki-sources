@@ -155,12 +155,36 @@ function parseCards(html) {
 
 function titlePage(id) { return absolute(normalizedTitleId(id)); }
 
+// The stills of the story itself (DLE's `.story_screens` block: each one a link to the full image).
+function parseScreenshots(document) {
+    var links = document.select(".story_screens a[href]");
+    var urls = [];
+    for (var i = 0; i < links.size(); i++) {
+        var href = S(links.get(i).attr("href")).trim();
+        if (/\.(jpe?g|png|webp)(\?|$)/i.test(href)) urls.push(S(Jsoup.resolve(BASE_URL, href)));
+    }
+    return urls;
+}
+
 function getTitle(id) {
     id = normalizedTitleId(id);
     var html = request(titlePage(id));
     var cards = parseCards(html);
-    for (var i = 0; i < cards.length; i++) if (cards[i].id === id) return cards[i];
     var document = Jsoup.parse(html, BASE_URL);
+    // The mobile page this source reads has no stills block; the desktop one does. Best effort, so a title
+    // page never fails for want of its gallery.
+    var screenshots = [];
+    try {
+        screenshots = parseScreenshots(Jsoup.parse(request(titlePage(id), { headers: { "User-Agent": DESKTOP_USER_AGENT } }), BASE_URL));
+    } catch (error) {
+        screenshots = [];
+    }
+    for (var i = 0; i < cards.length; i++) {
+        if (cards[i].id === id) {
+            cards[i].screenshots = screenshots;
+            return cards[i];
+        }
+    }
     var heading = document.selectFirst("article.story h1, h1");
     if (heading === null) throw new Error("AniTube title was not found: " + id);
     var name = S(heading.text()).replace(/\s+аніме українською онлайн$/i, "").trim();
@@ -168,7 +192,7 @@ function getTitle(id) {
     var description = document.selectFirst("meta[property='og:description'], meta[name='description']");
     return title({ id: id, russianName: name, englishName: null, originalName: name,
         posterUrl: poster === null ? null : S(poster.attr("content")),
-        description: description === null ? null : S(description.attr("content")), genres: [] });
+        description: description === null ? null : S(description.attr("content")), genres: [], screenshots: screenshots });
 }
 
 function browserPlaylist(pageUrl, targetUrl, headers) {

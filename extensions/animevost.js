@@ -307,6 +307,32 @@ function latestInternal(offset, limit, sort) {
     return result;
 }
 
+// The site's API lists a title's stills as paths on the site itself. Best effort: a title page must not
+// fail because its gallery could not be fetched.
+function screenshots(path) {
+    var match = /\/(\d+)-/.exec("/" + path);
+    if (match === null) return [];
+    try {
+        var response = fetch(API_BASE_URL.replace(/\/$/, "") + "/v1/info", {
+            method: "POST",
+            headers: { "User-Agent": BROWSER_USER_AGENT, "Referer": BASE_URL.replace(/\/$/, "") + "/" },
+            form: { id: match[1] },
+        });
+        if (!response.ok) return [];
+        var payload = JSON.parse(S(response.body));
+        var item = payload && payload.data && payload.data[0];
+        var raw = item && Array.isArray(item.screenImage) ? item.screenImage : [];
+        var urls = [];
+        for (var i = 0; i < raw.length; i++) {
+            var url = raw[i] ? String(raw[i]).trim() : "";
+            if (url.length > 0) urls.push(S(Jsoup.resolve(BASE_URL, url)));
+        }
+        return urls;
+    } catch (error) {
+        return [];
+    }
+}
+
 function playlist(titleId) {
     var match = TITLE_ID.exec(titleId);
     if (match === null) throw new Error("AnimeVost title id is invalid: " + titleId);
@@ -518,10 +544,14 @@ var Provider = {
         var html = getHtml("/" + path);
         var cards = parseCards(html);
         for (var i = 0; i < cards.length; i++) {
-            if (cards[i].id === path) return cards[i];
+            if (cards[i].id === path) {
+                cards[i].screenshots = screenshots(path);
+                return cards[i];
+            }
         }
         var details = parseDetails(path, html);
         if (details === null) throw new Error("AnimeVost title was not found: " + id);
+        details.screenshots = screenshots(path);
         return details;
     },
 
