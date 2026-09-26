@@ -10,7 +10,6 @@
         "LATEST_RELEASES",
         "PLAYBACK"
     ],
-    "useExternalMetadata": true,
     "resolverDependencies": [
         "dailymotion"
     ],

@@ -10,6 +10,5 @@
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK"
-    ],
-    "useExternalMetadata": true
+    ]
 }

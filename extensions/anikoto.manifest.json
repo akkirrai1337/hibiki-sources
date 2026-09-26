@@ -6,7 +6,6 @@
     "website": "https://anikototv.to",
     "iconUrl": "https://anikototv.to/AnikotoTheme/assets/images/favicon.png",
     "lang": "en",
-    "useExternalMetadata": true,
     "resolverDependencies": ["animepahe-player"],
     "capabilities": [
         "LATEST_RELEASES",
