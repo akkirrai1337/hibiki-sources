@@ -11,7 +11,8 @@
       "lang": "ru",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES"
       ],
       "resolverDependencies": [],
       "isNsfw": false,
@@ -28,7 +29,9 @@
       "lang": "en",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES",
+        "SIMILAR_TITLES"
       ],
       "resolverDependencies": [
         "animepahe-player"
@@ -67,7 +70,9 @@
       "lang": "en",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES",
+        "SIMILAR_TITLES"
       ],
       "resolverDependencies": [
         "animepahe-player"
@@ -205,7 +210,8 @@
       "lang": "en",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "SIMILAR_TITLES"
       ],
       "resolverDependencies": [
         "dailymotion"
@@ -364,7 +370,8 @@
       "lang": "en",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "SIMILAR_TITLES"
       ],
       "resolverDependencies": [],
       "isNsfw": true,
@@ -400,7 +407,8 @@
       "lang": "uk",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "SIMILAR_TITLES"
       ],
       "resolverDependencies": [
         "anitube-ashdi",
