@@ -506,7 +506,7 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: siteFilters() };
+        return { sortOptions: [{ id: "latest", title: "Latest updates" }], filters: siteFilters() };
     },
 
     getPlaybackGroups: function (titleId) {

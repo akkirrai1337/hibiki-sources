@@ -1,20 +1,13 @@
 {
     "id": "ani-liberty",
     "name": "AniLiberty",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "author": "Hibiki",
     "website": "https://anilibria.top",
     "iconUrl": "https://anilibria.top/favicon.ico",
     "lang": "ru",
-    "customFilters": true,
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK"
-    ],
-    "supportedSorts": [
-        "RELEVANCE",
-        "RATING",
-        "YEAR"
-    ],
-    "fallbackSort": "RELEVANCE"
+    ]
 }

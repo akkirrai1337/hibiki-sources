@@ -36,6 +36,7 @@ var FILTER_FIELDS = [
     { id: "source", param: "source[]", title: "Source" },
 ];
 var cachedFilterDefs = null;
+var cachedSorts = null;
 
 function formOptions(document, param) {
     var inputs = document.select("form.filters input[name='" + param + "']");
@@ -57,7 +58,7 @@ function siteFilters() {
     try {
         var document = Jsoup.parse(request("/filter"), BASE_URL);
         var sorts = formOptions(document, "sort");
-        if (sorts.length > 0) defs.push({ id: "sort", title: "Sort", type: "select", options: sorts });
+        if (sorts.length > 0) cachedSorts = sorts;
         FILTER_FIELDS.forEach(function (field) {
             var options = formOptions(document, field.param);
             if (options.length > 0) defs.push({ id: field.id, title: field.title, type: "multi", options: options });
@@ -71,8 +72,8 @@ function siteFilters() {
 }
 
 /** "&genre[]=1&sort=score" for the picked filters, or "" when none is set. */
-function siteFilterQuery(filters) {
-    if (!filters) return "";
+function siteFilterQuery(filters, sort) {
+    filters = filters || {};
     var parts = [];
     FILTER_FIELDS.forEach(function (field) {
         var values = filters[field.id];
@@ -81,7 +82,8 @@ function siteFilterQuery(filters) {
             parts.push(encodeURIComponent(field.param) + "=" + encodeURIComponent(value));
         });
     });
-    if (typeof filters.sort === "string" && filters.sort) parts.push("sort=" + encodeURIComponent(filters.sort));
+    // The site's own sort values; its "default" needs no parameter.
+    if (sort && sort !== "default") parts.push("sort=" + encodeURIComponent(sort));
     return parts.length > 0 ? "&" + parts.join("&") : "";
 }
 
@@ -299,7 +301,7 @@ var Provider = {
         var query = S(requestData.query).trim();
         var offset = Math.max(requestData.offset || 0, 0);
         var limit = Math.min(Math.max(requestData.limit || 20, 1), MAX_RESULTS);
-        var filterQuery = siteFilterQuery(requestData.filters);
+        var filterQuery = siteFilterQuery(requestData.filters, requestData.sort);
         var path = query || filterQuery ? "/filter?keyword=" + encodeURIComponent(query) + filterQuery : "/home";
         return loadCatalog(path).slice(offset, offset + limit);
     },
@@ -315,7 +317,8 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: siteFilters() };
+        var filters = siteFilters();
+        return { sortOptions: cachedSorts || [{ id: "default", title: "Default" }], filters: filters };
     },
 
     getPlaybackGroups: function (titleId) {

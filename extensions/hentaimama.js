@@ -146,8 +146,21 @@ function advanceFilters() {
     return defs;
 }
 
-function advanceSearchQuery(filters) {
-    if (!filters) return null;
+// The catalog's orders are the advance-search page's own `filter` values ("recent" is the plain listing).
+var SORT_OPTIONS = [
+    { id: "recent", title: "Latest" },
+    { id: "weekly", title: "Weekly views" },
+    { id: "monthly", title: "Monthly views" },
+    { id: "alltime", title: "All-time views" },
+    { id: "alphabet", title: "A-Z" },
+    { id: "rating", title: "Rating" },
+];
+
+// The query string of the site's advance-search page for the picked filters and the catalog's sort,
+// or null when neither asks for anything (the plain /tvshows/ listing then answers).
+function advanceSearchQuery(filters, sort) {
+    filters = filters || {};
+    var order = sort && sort !== "recent" ? sort : null;
     var parts = [];
     FILTER_FIELDS.forEach(function (field) {
         var values = filters[field.id];
@@ -156,7 +169,8 @@ function advanceSearchQuery(filters) {
             parts.push(encodeURIComponent(field.param) + "=" + encodeURIComponent(value));
         });
     });
-    return parts.length > 0 ? parts.join("&") + "&submit=Submit" : null;
+    if (parts.length === 0 && !order) return null;
+    return parts.join("&") + (parts.length ? "&" : "") + "submit=Submit" + (order ? "&filter=" + order : "");
 }
 
 function advanceSearch(queryString, offset, wanted) {
@@ -307,7 +321,7 @@ var Provider = {
         var start = Math.max(requestData.offset || 0, 0);
         var wanted = Math.min(Math.max(requestData.limit || 20, 1), MAX_RESULTS);
         if (query.length === 0) {
-            var advanced = advanceSearchQuery(requestData.filters);
+            var advanced = advanceSearchQuery(requestData.filters, requestData.sort);
             if (advanced !== null) return advanceSearch(advanced, start, wanted);
             return latestInternal(start, wanted);
         }
@@ -328,7 +342,7 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: advanceFilters() };
+        return { sortOptions: SORT_OPTIONS, filters: advanceFilters() };
     },
 
     getPlaybackGroups: function (titleId) {

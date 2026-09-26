@@ -284,12 +284,12 @@ function typeFilterValue(alias) {
 }
 
 function sortFilterValue(sort) {
-    switch (S(sort).trim().toUpperCase()) {
-        case "TITLE": return "title";
-        case "YEAR": return "year";
-        case "RATING": return "rating";
-        case "COMMENTS": return "comm_num";
-        case "VIEWS": return "news_read";
+    switch (S(sort).trim()) {
+        case "title": return "title";
+        case "year": return "year";
+        case "rating": return "rating";
+        case "comments": return "comm_num";
+        case "views": return "news_read";
         default: return "date";
     }
 }
@@ -361,7 +361,7 @@ var Provider = {
         if ((picked(requestJsonObject.filters, "type") || []).length ||
             (picked(requestJsonObject.filters, "genres") || []).length ||
             span(requestJsonObject.filters, "year").from || span(requestJsonObject.filters, "year").to ||
-            S(requestJsonObject.sort).trim().toUpperCase() !== "RELEVANCE") {
+            S(requestJsonObject.sort).trim() !== "" && S(requestJsonObject.sort).trim() !== "date") {
             return filteredWindow(requestJsonObject);
         }
         if (!query) return latestWindow(offset, limit);
@@ -373,10 +373,12 @@ var Provider = {
         var document = Jsoup.parse(html, BASE_URL);
         return {
             sortOptions: [
-                { id: "relevance", title: "Датою додавання" },
+                { id: "date", title: "Датою додавання" },
                 { id: "title", title: "Абеткою" },
                 { id: "rating", title: "Рейтингом" },
-                { id: "year", title: "Роком" }
+                { id: "year", title: "Роком" },
+                { id: "views", title: "Переглядами" },
+                { id: "comments", title: "Коментарями" }
             ],
             filters: [
                 { id: "type", title: "Type", type: "select", options: [

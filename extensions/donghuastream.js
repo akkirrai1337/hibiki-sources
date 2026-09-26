@@ -171,8 +171,8 @@ function parseDetails(id, html) {
     });
 }
 
-function fetchCatalogPage(page, filters) {
-    return parseCardList(getHtml("/anime/page/" + page + "/?" + catalogQuery(filters)));
+function fetchCatalogPage(page, filters, sortEnum) {
+    return parseCardList(getHtml("/anime/page/" + page + "/?" + catalogQuery(filters, sortEnum)));
 }
 
 function fetchSearchPage(query, page) {
@@ -247,9 +247,9 @@ var RADIO_FIELDS = [
     { id: "status", param: "status", title: "Status" },
     { id: "type", param: "type", title: "Type" },
     { id: "sub", param: "sub", title: "Language" },
-    { id: "order", param: "order", title: "Order" },
 ];
 var cachedFilterDefs = null;
+var cachedSorts = null;
 
 function formOptions(document, param) {
     var inputs = document.select("form.filters input[name='" + param + "']");
@@ -270,6 +270,9 @@ function siteFilters() {
     var defs = [];
     try {
         var document = Jsoup.parse(getHtml("/anime/"), BASE_URL);
+        // The order radios are the catalog's sort orders, not filters; "update" (latest update) is
+        // the default and goes first.
+        cachedSorts = formOptions(document, "order").sort(function (a, b) { return (b.id === "update") - (a.id === "update"); });
         RADIO_FIELDS.forEach(function (field) {
             var options = formOptions(document, field.param);
             if (options.length > 0) defs.push({ id: field.id, title: field.title, type: "select", options: options });
@@ -287,7 +290,7 @@ function siteFilters() {
 }
 
 /** The catalog query string for the picked filters; the default keeps the previous "latest update" order. */
-function catalogQuery(filters) {
+function catalogQuery(filters, sort) {
     var parts = [];
     CHECK_FIELDS.forEach(function (field) {
         picked(filters, field.id).forEach(function (value) {
@@ -296,7 +299,7 @@ function catalogQuery(filters) {
     });
     var radios = {};
     RADIO_FIELDS.forEach(function (field) { radios[field.param] = picked(filters, field.id)[0] || ""; });
-    if (!radios.order) radios.order = "update";
+    radios.order = sort || "update";
     for (var key in radios) parts.push(key + "=" + encodeURIComponent(radios[key]));
     return parts.join("&");
 }
@@ -310,7 +313,7 @@ var Provider = {
 
         var results = query.length > 0
             ? collectResults(function (page) { return fetchSearchPage(query, page); }, offset + limit)
-            : collectResults(function (page) { return fetchCatalogPage(page, request.filters); }, offset + limit);
+            : collectResults(function (page) { return fetchCatalogPage(page, request.filters, request.sort); }, offset + limit);
         return results.slice(offset, offset + limit);
     },
 
@@ -320,7 +323,8 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: siteFilters() };
+        var filters = siteFilters();
+        return { sortOptions: cachedSorts || [{ id: "update", title: "Latest update" }], filters: filters };
     },
 
     getById: function (id) {

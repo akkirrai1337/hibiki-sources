@@ -269,11 +269,11 @@ function fetchLatestPage(page) {
 function sortForm(sort) {
     var field = "date";
     var direction = "desc";
-    switch (String(sort || "RELEVANCE").trim().toUpperCase()) {
-        case "TITLE": field = "title"; direction = "asc"; break;
-        case "RATING": field = "rating"; break;
-        case "VIEWS": field = "news_read"; break;
-        case "COMMENTS": field = "comm_num"; break;
+    switch (String(sort || "date").trim()) {
+        case "title": field = "title"; direction = "asc"; break;
+        case "rating": field = "rating"; break;
+        case "views": field = "news_read"; break;
+        case "comments": field = "comm_num"; break;
     }
     return {
         dlenewssortby: field,
@@ -370,14 +370,6 @@ var GENRE_OPTIONS = [
     ["shkola", "Школа"], ["etti", "Этти"],
 ].map(function (pair) { return { id: pair[0], title: pair[1] }; });
 
-var SORT_FILTER_OPTIONS = [
-    { id: "date", title: "По дате" },
-    { id: "rating", title: "По популярности" },
-    { id: "title", title: "По алфавиту" },
-    { id: "views", title: "По просмотрам" },
-    { id: "comments", title: "По комментариям" },
-];
-var SORT_FILTER_TO_ENUM = { date: "RELEVANCE", rating: "RATING", title: "TITLE", views: "VIEWS", comments: "COMMENTS" };
 var MAX_FILTER_YEARS = 10;
 
 var cachedGenreOptions = null;
@@ -403,7 +395,6 @@ function liveGenreOptions() {
 
 function siteFilters() {
     return [
-        { id: "sort", title: "Sort", type: "select", options: SORT_FILTER_OPTIONS },
         { id: "genres", title: "Genres", type: "select", options: liveGenreOptions() },
         { id: "type", title: "Type", type: "select", options: [{ id: "tv", title: "ТВ" }, { id: "ova", title: "OVA" }, { id: "ona", title: "ONA" }] },
         { id: "status", title: "Status", type: "select", options: [{ id: "ongoing", title: "Онгоинг" }] },
@@ -418,10 +409,6 @@ function hasSiteFilters(filters) {
         !!year.from || !!year.to;
 }
 
-function sortEnumFor(request) {
-    var chosen = picked(request.filters, "sort")[0];
-    return chosen ? SORT_FILTER_TO_ENUM[chosen] : request.sort;
-}
 
 function filterPaths(filters) {
     var genre = picked(filters, "genres")[0];
@@ -462,7 +449,7 @@ function filteredInternal(request) {
     var offset = Math.max(request.offset || 0, 0);
     var wanted = offset + Math.min(Math.max(request.limit || 20, 1), MAX_RESULTS);
     // The chosen order lives in the PHP session (see latestInternal), so set it before paging.
-    getHtml("/", { method: "POST", form: sortForm(sortEnumFor(request)) });
+    getHtml("/", { method: "POST", form: sortForm(request.sort) });
     var results = [];
     var seen = {};
     var paths = filterPaths(filters);
@@ -496,10 +483,10 @@ var Provider = {
         var filtered = hasSiteFilters(request.filters);
         if (trimmed.length === 0) {
             if (filtered) return filteredInternal(request);
-            return latestInternal(request.offset || 0, request.limit || 20, sortEnumFor(request));
+            return latestInternal(request.offset || 0, request.limit || 20, request.sort);
         }
         // Keep full-text results in the same order selected by the catalog controls.
-        getHtml("/", { method: "POST", form: sortForm(sortEnumFor(request)) });
+        getHtml("/", { method: "POST", form: sortForm(request.sort) });
         var results = parseCards(getHtml("/xfsearch/" + encodeURIComponent(trimmed) + "/"));
         // Text search cannot be restricted to a category page, so filters narrow its results instead.
         if (filtered) results = results.filter(function (card) { return cardMatches(card, request.filters); });
@@ -515,9 +502,11 @@ var Provider = {
     getSettings: function () {
         return {
             sortOptions: [
-                { id: "relevance", title: "По дате" },
+                { id: "date", title: "По дате" },
                 { id: "rating", title: "По популярности" },
-                { id: "title", title: "По алфавиту" }
+                { id: "title", title: "По алфавиту" },
+                { id: "views", title: "По просмотрам" },
+                { id: "comments", title: "По комментариям" }
             ],
             filters: siteFilters()
         };

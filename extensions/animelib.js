@@ -219,11 +219,9 @@ function toAnimeTitle(payload) {
 
 function sortParams(sort) {
     switch (sort) {
-        case "RATING": return [["sort_by", "rating_score"], ["sort_type", "desc"]];
-        case "YEAR": return [["sort_by", "releaseDate"], ["sort_type", "desc"]];
-        case "VIEWS": return [["sort_by", "views"], ["sort_type", "desc"]];
-        // The catalog already defaults to rating_score desc, which is the closest thing it has to
-        // a relevance ordering for an empty query.
+        case "rating_score": return [["sort_by", "rating_score"], ["sort_type", "desc"]];
+        case "releaseDate": return [["sort_by", "releaseDate"], ["sort_type", "desc"]];
+        case "views": return [["sort_by", "views"], ["sort_type", "desc"]];
         default: return [];
     }
 }
@@ -299,7 +297,7 @@ var Provider = {
         var offset = searchRequest.offset || 0;
         var query = (searchRequest.query || "").trim();
 
-        var params = sortParams(searchRequest.sort || "RELEVANCE");
+        var params = sortParams(searchRequest.sort);
         if (query.length > 0) params = params.concat([["q", query]]);
         params = params
             .concat(idParams("genres", picked(searchRequest.filters, "genres")))

@@ -1,7 +1,7 @@
 {
     "id": "yummy-anime",
     "name": "YummyAnime",
-    "version": "1.3.12",
+    "version": "1.3.13",
     "author": "Hibiki",
     "website": "https://ru.yummyani.me",
     "iconUrl": "https://yummyani.me/favicon.ico",
@@ -13,7 +13,6 @@
         "kodik",
         "vk"
     ],
-    "customFilters": true,
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK",
@@ -25,15 +24,6 @@
         "LIBRARY_SYNC",
         "ACTIVITY_SYNC"
     ],
-    "supportedSorts": [
-        "RELEVANCE",
-        "RATING",
-        "TITLE",
-        "YEAR",
-        "VOTES",
-        "VIEWS"
-    ],
-    "fallbackSort": "RELEVANCE",
     "settings": [
         {
             "key": "account",

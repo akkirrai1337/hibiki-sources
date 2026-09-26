@@ -131,10 +131,9 @@ function toTitle(value) {
 
 function toAniLibertySorting(sort) {
     switch (sort) {
-        case "RELEVANCE": return "FRESH_AT_DESC";
-        case "RATING": return "RATING_DESC";
-        case "YEAR": return "YEAR_DESC";
-        default: throw new Error("AniLiberty does not support this sort");
+        case "rating": return "RATING_DESC";
+        case "year": return "YEAR_DESC";
+        default: return "FRESH_AT_DESC";
     }
 }
 
@@ -206,7 +205,7 @@ var Provider = {
         if (genres) params["f[genres]"] = genres;
         if (span(request.filters, "year").from) params["f[years][from_year]"] = span(request.filters, "year").from;
         if (span(request.filters, "year").to) params["f[years][to_year]"] = span(request.filters, "year").to;
-        params["f[sorting]"] = toAniLibertySorting(request.sort || "RELEVANCE");
+        params["f[sorting]"] = toAniLibertySorting(request.sort);
 
         var json = mirrorRequest("/anime/catalog/releases", params);
         var items = releaseArray(json);
@@ -241,7 +240,7 @@ var Provider = {
     getSettings: function () {
         return {
             sortOptions: [
-                { id: "relevance", title: "Relevance" },
+                { id: "fresh", title: "Latest updates" },
                 { id: "rating", title: "Rating" },
                 { id: "year", title: "Year" },
             ],

@@ -88,7 +88,8 @@ function fetchPage(query, sort, page, variant) {
         if (!filtered.ok) throw new Error("KickAssAnime returned HTTP " + filtered.status);
         return JSON.parse(S(filtered.body)).result || [];
     }
-    if (sort === "RATING") return apiGet("/trending?page=" + page).result || [];
+    if (sort === "popular") return apiGet("/popular?page=" + page).result || [];
+    if (sort === "trending") return apiGet("/trending?page=" + page).result || [];
     return (JSON.parse(S(fetch(BASE_URL + "/api/anime?page=" + page, { headers: { "Accept": "application/json" } }).body)).result) || [];
 }
 
@@ -179,7 +180,7 @@ var Provider = {
         var offset = Math.max(request.offset || 0, 0);
         var limit = Math.min(Math.max(request.limit || 20, 1), MAX_RESULTS);
         var query = (request.query || "").trim();
-        var sort = request.sort || "RELEVANCE";
+        var sort = request.sort || "default";
 
         var results = collectResults(query, sort, offset + limit, filterVariants(request.filters));
         return results.slice(offset, offset + limit).map(toAnimeTitle);
@@ -196,7 +197,7 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }, { id: "rating", title: "Trending" }], filters: siteFilters() };
+        return { sortOptions: [{ id: "default", title: "Catalog" }, { id: "popular", title: "Most popular" }, { id: "trending", title: "Trending" }], filters: siteFilters() };
     },
 
     getPlaybackGroups: function (titleId) {

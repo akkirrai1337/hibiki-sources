@@ -81,18 +81,20 @@ Field notes:
   network/parse HTML/read host state. See `extensions/animevost.js` for a complete, real example,
   and the `hibiki` repo's `RhinoExtensionRuntime`/`ScriptedAnimeSource` for exactly how each
   method is invoked.
-- `customFilters` — `true` when the source describes its own search filters. **The host knows no
-  filter vocabulary (no "genre", no "year"); the source declares what it has.** `getSettings()`
-  returns `filters: [{ id, title, type, options?, min?, max? }]` and `search()` receives the picked
-  values as `request.filters[id]`; an unset filter is absent. Types and their value shape:
+- **Filters** are always the source's own (no manifest flag). The host knows no filter vocabulary
+  (no "genre", no "year"); the source declares what it has. `getSettings()` returns
+  `filters: [{ id, title, type, options?, min?, max? }]` and `search()` receives the picked values
+  as `request.filters[id]`; an unset filter is absent. Types and their value shape:
   `select` -> `"id"`, `multi` -> `["id", ...]`, `tristate` -> `{ include: [...], exclude: [...] }`,
   `text` -> `"typed"`, `range` -> `{ from?, to? }`. Options can be read off the live site so new
-  genres/studios appear without an update — see `hentaimama.js`. Verify with `npm run probe -- <id>`
+  genres/studios appear without an update - see `hentaimama.js`. Verify with `npm run probe -- <id>`
   in `hibiki-desktop`: every filter is sent as a real search and compared with an unfiltered one.
-- `supportedFilters` / `typeOptions` / `statusOptions` / `genreOptions` and the
-  `typeAliases`/`includedGenreAliases`/`yearFrom`... request fields are the **legacy** contract, still
-  honoured for sources that have not migrated (the host translates it, see `legacyFilters.ts`). Don't
-  use it for new sources. `supportedSorts` is separate and still current.
+- **Sort orders** are always the source's own (no manifest flag): `getSettings()` returns
+  `sortOptions: [{ id, title }]`, the first one being the source's default, and `search()` receives
+  the chosen `id` as `request.sort` (absent = the default). The host shows exactly this list in the
+  catalog's sort menu and adds only its own "recent" entry (the `latest()` feed) - it never asks for
+  an order the source did not offer. Ids and titles are the source's to choose ("popular", "az",
+  "rating_score"...), as is what they mean on its site. A source with a single listing returns none.
 - `getPlayerLinks()` may return direct `DIRECT_HLS`/`DIRECT_MP4` links with optional `audioUrl`,
   `audioHeaders`, and `subtitles`. Each subtitle is `{ url, label?, language?, headers? }`. The host
   preserves the separate headers for video, audio, and subtitle requests and carries all of them

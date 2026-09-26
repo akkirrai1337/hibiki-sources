@@ -96,10 +96,10 @@ function toTitle(item) {
 function queryValue(value) { return encodeURIComponent(S(value)); }
 
 function sortParams(sort) {
-    switch (S(sort).toUpperCase()) {
-        case "TITLE": return "sort=name&order=asc";
-        case "RATING": return "sort=mal_rating&order=desc";
-        case "YEAR": return "sort=year&order=desc";
+    switch (S(sort)) {
+        case "title": return "sort=name&order=asc";
+        case "rating": return "sort=mal_rating&order=desc";
+        case "year": return "sort=year&order=desc";
         default: return "sort=updated&order=desc";
     }
 }
@@ -168,14 +168,14 @@ var Provider = {
     },
 
     latest: function (limit) {
-        return list({ offset: 0, limit: limit || 20, sort: "RELEVANCE" }).map(toTitle);
+        return list({ offset: 0, limit: limit || 20, sort: "updated" }).map(toTitle);
     },
 
     getSettings: function () {
         var genres = api("/genres");
         return {
             sortOptions: [
-                { id: "relevance", title: "Оновленнями" },
+                { id: "updated", title: "Оновленнями" },
                 { id: "title", title: "Абеткою" },
                 { id: "rating", title: "Рейтингом" },
                 { id: "year", title: "Роком" }

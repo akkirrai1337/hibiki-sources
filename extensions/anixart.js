@@ -214,8 +214,8 @@ function toAnimeTitle(payload) {
 
 function sortValue(sort) {
     switch (sort) {
-        case "RATING": return SORT_GRADE;
-        case "YEAR": return SORT_YEAR;
+        case "grade": return SORT_GRADE;
+        case "year": return SORT_YEAR;
         default: return SORT_POPULAR;
     }
 }
@@ -296,7 +296,7 @@ var Provider = {
             // by relevance alone; filters only narrow the browsable catalog below.
             items = pagedFetch("/search/releases/", { query: query, searchBy: 0 }, offset, limit);
         } else {
-            var body = { sort: sortValue(searchRequest.sort || "RELEVANCE") };
+            var body = { sort: sortValue(searchRequest.sort) };
             var genres = (picked(searchRequest.filters, "genres") || [])
                 .map(normalize).filter(function (value) { return value !== null; });
             if (genres.length > 0) body.genres = genres;
@@ -327,7 +327,7 @@ var Provider = {
     getSettings: function () {
         return {
             sortOptions: [
-                { id: "relevance", title: "По популярности" },
+                { id: "popular", title: "По популярности" },
                 { id: "grade", title: "По оценке" },
                 { id: "year", title: "По году" },
             ],

@@ -266,8 +266,8 @@ function toFilterPath(request) {
 }
 
 function toAnimeGoSort(sort) {
-    if (sort === "YEAR") return { sort: "startDate", direction: "desc" };
-    if (sort === "RATING") return { sort: "rating", direction: "desc" };
+    if (sort === "year") return { sort: "startDate", direction: "desc" };
+    if (sort === "rating") return { sort: "rating", direction: "desc" };
     return { sort: "createdAt", direction: "asc" };
 }
 
@@ -333,9 +333,9 @@ var Provider = {
         var document = Jsoup.parse(getHtml("/anime", null), BASE_URL);
         return {
             sortOptions: [
-                { id: "relevance", title: "date added" },
-                { id: "year", title: "newest" },
-                { id: "rating", title: "rating" },
+                { id: "added", title: "Date added" },
+                { id: "year", title: "Newest" },
+                { id: "rating", title: "Rating" },
             ],
             filters: [
                 { id: "type", title: "Type", type: "multi", options: filterOptions(document, "type_") },

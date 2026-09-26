@@ -381,17 +381,12 @@ function toAnimeTitle(payload, language) {
     });
 }
 
+// The sort orders offered are the API's own values, so they go through as they are; only the
+// default ("relevance", or nothing asked) needs a decision: browsing wants the top list, while a
+// text search is already ordered by relevance by the API.
 function sortParam(sort, query) {
-    switch (sort) {
-        case "RELEVANCE": return (query || "").trim().length === 0 ? "top" : null;
-        case "RATING": return "top";
-        case "TITLE": return "title";
-        case "YEAR": return "year";
-        // The API answers HTTP 400 to sort=votes; its vote-count sort is called rating_counters.
-        case "VOTES": return "rating_counters";
-        case "VIEWS": return "views";
-        default: return null;
-    }
+    if (!sort || sort === "relevance") return (query || "").trim().length === 0 ? "top" : null;
+    return SORT_ALIASES.indexOf(sort) >= 0 ? sort : null;
 }
 
 function csv(list) {
@@ -494,7 +489,7 @@ var Provider = {
         var params = { limit: request.limit || 20, offset: request.offset || 0 };
         var query = (request.query || "").trim();
         if (query.length > 0) params.q = query;
-        var sort = sortParam(request.sort || "RELEVANCE", query);
+        var sort = sortParam(request.sort, query);
         if (sort !== null) params.sort = sort;
         var types = csv(picked(request.filters, "type"));
         if (types) params.types = types;
