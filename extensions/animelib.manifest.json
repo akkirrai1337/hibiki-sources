@@ -1,13 +1,14 @@
 {
     "id": "animelib",
     "name": "AnimeLib",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Russian anime catalog of the Lib family with per-team dubbing and subtitle tracks on Kodik.",
     "author": "Hibiki",
     "website": "https://anilib.me",
     "iconUrl": "https://anilib.me/favicon.ico",
     "lang": "ru",
     "resolverDependencies": ["kodik"],
+    "customFilters": true,
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK",
@@ -19,12 +20,6 @@
         "RATING",
         "YEAR",
         "VIEWS"
-    ],
-    "supportedFilters": [
-        "TYPE",
-        "STATUS",
-        "INCLUDED_GENRES",
-        "YEAR_RANGE"
     ],
     "fallbackSort": "RELEVANCE"
 }

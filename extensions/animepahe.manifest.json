@@ -1,12 +1,13 @@
 {
     "id": "animepahe",
     "name": "AnimePahe",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "author": "Hibiki",
     "website": "https://animepahetv.to",
     "iconUrl": "https://animepahetv.to/favicon.ico",
     "lang": "en",
     "resolverDependencies": ["animepahe-player"],
+    "customFilters": true,
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK"
@@ -15,6 +16,5 @@
     "supportedSorts": [
         "RELEVANCE"
     ],
-    "supportedFilters": [],
     "fallbackSort": "RELEVANCE"
 }

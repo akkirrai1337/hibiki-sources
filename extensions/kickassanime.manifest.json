@@ -1,7 +1,7 @@
 {
     "id": "kickassanime",
     "name": "KickAssAnime",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "description": "English-language catalog from kaa.lt with per-locale dub/sub playback groups.",
     "author": "Hibiki",
     "website": "https://kaa.lt",
@@ -9,9 +9,9 @@
     "lang": "en",
     "resolverDependencies": ["kickassanime-player"],
     "payload": "",
+    "customFilters": true,
     "capabilities": ["LATEST_RELEASES", "PLAYBACK"],
     "useExternalMetadata": true,
     "supportedSorts": ["RELEVANCE", "RATING"],
-    "supportedFilters": [],
     "fallbackSort": "RELEVANCE"
 }

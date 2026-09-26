@@ -334,14 +334,175 @@ function playlist(titleId) {
     return result;
 }
 
+
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
+/* ---------------------------------------------------------------- filters -------------------- */
+
+// The site has no filter form: its filters are category pages (/zhanr/<genre>/, /tip/<type>/,
+// /god/<year>/, /ongoing/), and a page can only be one of them. So one filter picks the page to
+// read - genre first, then type, ongoing, then year - and every other selected filter is applied to
+// the cards that page returns. Genre slugs were checked against the live site (senen-ay is a 404
+// there and is left out).
+var GENRE_OPTIONS = [
+    ["boyevyye-iskusstva", "Боевые искусства"], ["voyna", "Война"], ["drama", "Драма"], ["detektiv", "Детектив"],
+    ["istoriya", "История"], ["komediya", "Комедия"], ["mistika", "Мистика"], ["mekha", "Меха"],
+    ["makho-sedze", "Махо-сёдзё"], ["muzykalnyy", "Музыкальный"], ["povsednevnost", "Повседневность"],
+    ["priklyucheniya", "Приключения"], ["parodiya", "Пародия"], ["romantika", "Романтика"], ["senen", "Сёнэн"],
+    ["sedze", "Сёдзё"], ["sport", "Спорт"], ["skazka", "Сказка"], ["sedze-ay", "Сёдзё-ай"], ["samurai", "Самураи"],
+    ["triller", "Триллер"], ["uzhasy", "Ужасы"], ["fantastika", "Фантастика"], ["fentezi", "Фэнтези"],
+    ["shkola", "Школа"], ["etti", "Этти"],
+].map(function (pair) { return { id: pair[0], title: pair[1] }; });
+
+var SORT_FILTER_OPTIONS = [
+    { id: "date", title: "По дате" },
+    { id: "rating", title: "По популярности" },
+    { id: "title", title: "По алфавиту" },
+    { id: "views", title: "По просмотрам" },
+    { id: "comments", title: "По комментариям" },
+];
+var SORT_FILTER_TO_ENUM = { date: "RELEVANCE", rating: "RATING", title: "TITLE", views: "VIEWS", comments: "COMMENTS" };
+var MAX_FILTER_YEARS = 10;
+
+var cachedGenreOptions = null;
+
+// /zhanr/ lists every genre the site has; the built-in list above is the fallback if it can't be read.
+function liveGenreOptions() {
+    if (cachedGenreOptions !== null) return cachedGenreOptions;
+    try {
+        var links = Jsoup.parse(getHtml("/zhanr/"), BASE_URL).select("a[href*='/zhanr/']");
+        var options = [];
+        var seen = {};
+        for (var i = 0; i < links.size(); i++) {
+            var match = /\/zhanr\/([^/?#]+)\/?$/.exec(S(links.get(i).attr("href")));
+            var label = S(links.get(i).text()).trim();
+            if (!match || !label || seen[match[1]]) continue;
+            seen[match[1]] = true;
+            options.push({ id: match[1], title: label });
+        }
+        if (options.length > 0) return (cachedGenreOptions = options);
+    } catch (ignored) { /* fall back below */ }
+    return GENRE_OPTIONS;
+}
+
+function siteFilters() {
+    return [
+        { id: "sort", title: "Sort", type: "select", options: SORT_FILTER_OPTIONS },
+        { id: "genres", title: "Genres", type: "select", options: liveGenreOptions() },
+        { id: "type", title: "Type", type: "select", options: [{ id: "tv", title: "ТВ" }, { id: "ova", title: "OVA" }, { id: "ona", title: "ONA" }] },
+        { id: "status", title: "Status", type: "select", options: [{ id: "ongoing", title: "Онгоинг" }] },
+        { id: "year", title: "Year", type: "range", min: 1990, max: new Date().getFullYear() },
+    ];
+}
+
+function hasSiteFilters(filters) {
+    if (!filters) return false;
+    var year = span(filters, "year");
+    return picked(filters, "genres").length + picked(filters, "type").length + picked(filters, "status").length > 0 ||
+        !!year.from || !!year.to;
+}
+
+function sortEnumFor(request) {
+    var chosen = picked(request.filters, "sort")[0];
+    return chosen ? SORT_FILTER_TO_ENUM[chosen] : request.sort;
+}
+
+function filterPaths(filters) {
+    var genre = picked(filters, "genres")[0];
+    if (genre) return ["/zhanr/" + encodeURIComponent(genre) + "/"];
+    var type = picked(filters, "type")[0];
+    if (type) return ["/tip/" + encodeURIComponent(type) + "/"];
+    if (picked(filters, "status")[0] === "ongoing") return ["/ongoing/"];
+    var year = span(filters, "year");
+    if (year.from || year.to) {
+        var to = year.to || year.from;
+        var from = year.from || year.to;
+        var paths = [];
+        for (var y = Math.max(from, to - MAX_FILTER_YEARS + 1); y <= to; y++) paths.unshift("/god/" + y + "/");
+        return paths;
+    }
+    return ["/"];
+}
+
+// What the page itself could not narrow. Genre is always the page when set, so it is only checked
+// here for text-search results, which are not restricted to any page.
+function cardMatches(card, filters) {
+    var type = picked(filters, "type")[0];
+    if (type && card.type !== type) return false;
+    if (picked(filters, "status")[0] === "ongoing" && card.status !== "ongoing") return false;
+    var year = span(filters, "year");
+    if (year.from && (card.year === null || card.year < year.from)) return false;
+    if (year.to && (card.year === null || card.year > year.to)) return false;
+    var genre = picked(filters, "genres")[0];
+    if (genre) {
+        var wanted = liveGenreOptions().filter(function (option) { return option.id === genre; })[0];
+        if (wanted && card.genres.indexOf(wanted.title) < 0) return false;
+    }
+    return true;
+}
+
+function filteredInternal(request) {
+    var filters = request.filters;
+    var offset = Math.max(request.offset || 0, 0);
+    var wanted = offset + Math.min(Math.max(request.limit || 20, 1), MAX_RESULTS);
+    // The chosen order lives in the PHP session (see latestInternal), so set it before paging.
+    getHtml("/", { method: "POST", form: sortForm(sortEnumFor(request)) });
+    var results = [];
+    var seen = {};
+    var paths = filterPaths(filters);
+    for (var p = 0; p < paths.length && results.length < wanted; p++) {
+        for (var page = 1; page <= 30 && results.length < wanted; page++) {
+            var cards;
+            try {
+                cards = parseCards(getHtml(page === 1 ? paths[p] : paths[p] + "page/" + page + "/"));
+            } catch (e) {
+                // A category with N full pages answers HTTP 404 for page N+1 (and an empty one for page 1): that is its end.
+                if (String(e && e.message).indexOf("HTTP 404") < 0) throw e;
+                break;
+            }
+            if (cards.length === 0) break;
+            for (var i = 0; i < cards.length && results.length < wanted; i++) {
+                var card = cards[i];
+                if (seen[card.id] || !cardMatches(card, filters)) continue;
+                seen[card.id] = true;
+                results.push(card);
+            }
+            if (cards.length < LISTING_PAGE_SIZE) break;
+        }
+    }
+    return results.slice(offset, wanted);
+}
+
 var Provider = {
     search: function (requestJson) {
         var request = JSON.parse(requestJson);
         var trimmed = (request.query || "").trim();
-        if (trimmed.length === 0) return latestInternal(request.offset || 0, request.limit || 20, request.sort);
+        var filtered = hasSiteFilters(request.filters);
+        if (trimmed.length === 0) {
+            if (filtered) return filteredInternal(request);
+            return latestInternal(request.offset || 0, request.limit || 20, sortEnumFor(request));
+        }
         // Keep full-text results in the same order selected by the catalog controls.
-        getHtml("/", { method: "POST", form: sortForm(request.sort) });
+        getHtml("/", { method: "POST", form: sortForm(sortEnumFor(request)) });
         var results = parseCards(getHtml("/xfsearch/" + encodeURIComponent(trimmed) + "/"));
+        // Text search cannot be restricted to a category page, so filters narrow its results instead.
+        if (filtered) results = results.filter(function (card) { return cardMatches(card, request.filters); });
         var start = Math.max(request.offset || 0, 0);
         var end = start + Math.min(Math.max(request.limit || 20, 1), MAX_RESULTS);
         return results.slice(start, end);
@@ -357,7 +518,8 @@ var Provider = {
                 { id: "relevance", title: "По дате" },
                 { id: "rating", title: "По популярности" },
                 { id: "title", title: "По алфавиту" }
-            ]
+            ],
+            filters: siteFilters()
         };
     },
 

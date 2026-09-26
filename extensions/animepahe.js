@@ -403,15 +403,92 @@ function loadHtmlPages(path, queryPrefix, wanted) {
     return list;
 }
 
+
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
+/* ---------------------------------------------------------------- filters -------------------- */
+
+// The site has no filter form, only listing pages: /genre/<slug> and /type/<slug>, both paged with
+// ?page=N. Their slugs are read off the site's own navigation, so a genre added later appears
+// without an extension update. A page can be one or the other, so a picked genre is the page and a
+// picked type then narrows its cards (falling back to the type page when there is no genre).
+var cachedFilterDefs = null;
+
+function navOptions(document, prefix) {
+    var links = document.select("a[href^='" + prefix + "']");
+    var options = [];
+    var seen = {};
+    for (var i = 0; i < links.size(); i++) {
+        var slug = S(links.get(i).attr("href")).substring(prefix.length).replace(/\/+$/, "");
+        var label = S(links.get(i).attr("title")).trim() || S(links.get(i).text()).trim();
+        if (!slug || slug.indexOf("/") >= 0 || seen[slug]) continue;
+        seen[slug] = true;
+        options.push({ id: slug, title: label || slug });
+    }
+    return options;
+}
+
+function siteFilters() {
+    if (cachedFilterDefs !== null) return cachedFilterDefs;
+    var defs = [];
+    try {
+        var document = Jsoup.parse(get("/", null), BASE_URL);
+        var types = navOptions(document, "/type/");
+        var genres = navOptions(document, "/genre/");
+        if (types.length > 0) defs.push({ id: "type", title: "Type", type: "select", options: types });
+        if (genres.length > 0) defs.push({ id: "genres", title: "Genres", type: "select", options: genres });
+    } catch (e) {
+        console.warn("Filters unavailable: " + e);
+        return [];
+    }
+    cachedFilterDefs = defs;
+    return defs;
+}
+
+function normalizeTypeName(raw) { return S(raw).toLowerCase().replace(/[^a-z0-9]/g, ""); }
+
+function listingPath(filters) {
+    var genre = picked(filters, "genres")[0];
+    if (genre) return "/genre/" + encodeURIComponent(genre);
+    var type = picked(filters, "type")[0];
+    return type ? "/type/" + encodeURIComponent(type) : null;
+}
+
+function matchesFilters(card, filters) {
+    var type = picked(filters, "type")[0];
+    return !type || card.type === null || normalizeTypeName(card.type) === normalizeTypeName(type);
+}
+
 var Provider = {
     search: function (requestJson) {
         var request = JSON.parse(requestJson);
         var offset = Math.max(request.offset || 0, 0);
         var limit = Math.min(Math.max(request.limit || 20, 1), MAX_RESULTS);
         var query = (request.query || "").trim();
-        var path = query.length === 0 ? "/latest-updated" : "/search";
+        var listing = query.length === 0 ? listingPath(request.filters) : null;
+        var path = listing || (query.length === 0 ? "/latest-updated" : "/search");
         var queryPrefix = query.length === 0 ? "" : ("q=" + encodeURIComponent(query));
-        var titles = loadHtmlPages(path, queryPrefix, offset + limit);
+        var narrowed = picked(request.filters, "type").length > 0;
+        // A type picked on top of a genre page (or on a text search) is applied to the cards, which
+        // drops some of each page - so read more of them to still fill the request.
+        var titles = loadHtmlPages(path, queryPrefix, (offset + limit) * (narrowed && path.indexOf("/type/") !== 0 ? 3 : 1));
+        if (narrowed) titles = titles.filter(function (card) { return matchesFilters(card, request.filters); });
         return titles.slice(offset, offset + limit);
     },
 
@@ -429,7 +506,7 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }] };
+        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: siteFilters() };
     },
 
     getPlaybackGroups: function (titleId) {

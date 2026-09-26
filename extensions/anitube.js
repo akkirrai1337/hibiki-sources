@@ -2,6 +2,24 @@
 // page: the AJAX response is tied to that fresh page session and contains all player alternatives.
 function S(value) { return value === null || value === undefined ? "" : String(value); }
 
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
 var BASE_URL = "https://anitube.in.ua";
 var USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36";
 var DESKTOP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36";
@@ -278,20 +296,20 @@ function sortFilterValue(sort) {
 
 function filteredPath(request, page) {
     var segments = [];
-    var types = request.typeAliases || [];
+    var types = picked(request.filters, "type") || [];
     var type = types.length ? typeFilterValue(types[0]) : null;
     if (type) segments.push("b.type=" + encodeURIComponent(type));
 
-    var genres = request.includedGenreAliases || [];
+    var genres = picked(request.filters, "genres") || [];
     if (genres.length) {
         var encodedGenres = [];
         for (var i = 0; i < genres.length; i++) encodedGenres.push(encodeURIComponent(S(genres[i])));
         segments.push("cat=" + encodedGenres.join(","));
     }
 
-    var yearFrom = request.yearFrom || FILTER_MIN_YEAR;
-    var yearTo = request.yearTo || FILTER_MAX_YEAR;
-    if (request.yearFrom || request.yearTo) {
+    var yearFrom = span(request.filters, "year").from || FILTER_MIN_YEAR;
+    var yearTo = span(request.filters, "year").to || FILTER_MAX_YEAR;
+    if (span(request.filters, "year").from || span(request.filters, "year").to) {
         segments.push("r.year=" + Math.min(yearFrom, yearTo) + ";" + Math.max(yearFrom, yearTo));
     }
 
@@ -340,9 +358,9 @@ var Provider = {
         var query = S(requestJsonObject.query).trim();
         var offset = Math.max(requestJsonObject.offset || 0, 0);
         var limit = requestJsonObject.limit || 20;
-        if ((requestJsonObject.typeAliases || []).length ||
-            (requestJsonObject.includedGenreAliases || []).length ||
-            requestJsonObject.yearFrom || requestJsonObject.yearTo ||
+        if ((picked(requestJsonObject.filters, "type") || []).length ||
+            (picked(requestJsonObject.filters, "genres") || []).length ||
+            span(requestJsonObject.filters, "year").from || span(requestJsonObject.filters, "year").to ||
             S(requestJsonObject.sort).trim().toUpperCase() !== "RELEVANCE") {
             return filteredWindow(requestJsonObject);
         }
@@ -360,13 +378,16 @@ var Provider = {
                 { id: "rating", title: "Рейтингом" },
                 { id: "year", title: "Роком" }
             ],
-            typeOptions: [
-                { id: "tv", title: "ТБ-серіал" },
-                { id: "movie", title: "Повнометражне" },
-                { id: "ova", title: "OVA" },
-                { id: "ona", title: "ONA" }
-            ],
-            genreOptions: filterOptions(document, "select[name='cat'] option")
+            filters: [
+                { id: "type", title: "Type", type: "select", options: [
+                    { id: "tv", title: "ТБ-серіал" },
+                    { id: "movie", title: "Повнометражне" },
+                    { id: "ova", title: "OVA" },
+                    { id: "ona", title: "ONA" }
+                ] },
+                { id: "genres", title: "Genres", type: "multi", options: filterOptions(document, "select[name='cat'] option") },
+                { id: "year", title: "Year", type: "range", min: 1940, max: new Date().getFullYear() + 1 }
+            ]
         };
     },
     getById: function (id) { return getTitle(id); },

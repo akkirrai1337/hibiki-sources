@@ -171,8 +171,8 @@ function parseDetails(id, html) {
     });
 }
 
-function fetchCatalogPage(page) {
-    return parseCardList(getHtml("/anime/page/" + page + "/?status=&type=&order=update"));
+function fetchCatalogPage(page, filters) {
+    return parseCardList(getHtml("/anime/page/" + page + "/?" + catalogQuery(filters)));
 }
 
 function fetchSearchPage(query, page) {
@@ -214,6 +214,93 @@ function parsePlayerLinks(html) {
     return links;
 }
 
+
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
+/* ---------------------------------------------------------------- filters -------------------- */
+
+// The catalog page (GET /anime) has a filter form: checkbox groups (genre[], season[], studio[]) and
+// radio groups (status, type, sub, order). It is read off the live page, so a new genre or studio
+// shows up without an update; one fetch per session, and a failed read only means no filters.
+var CHECK_FIELDS = [
+    { id: "genres", param: "genre[]", title: "Genres" },
+    { id: "season", param: "season[]", title: "Year" },
+    { id: "studios", param: "studio[]", title: "Studios" },
+];
+var RADIO_FIELDS = [
+    { id: "status", param: "status", title: "Status" },
+    { id: "type", param: "type", title: "Type" },
+    { id: "sub", param: "sub", title: "Language" },
+    { id: "order", param: "order", title: "Order" },
+];
+var cachedFilterDefs = null;
+
+function formOptions(document, param) {
+    var inputs = document.select("form.filters input[name='" + param + "']");
+    var options = [];
+    for (var i = 0; i < inputs.size(); i++) {
+        var input = inputs.get(i);
+        var value = S(input.attr("value")).trim();
+        if (!value) continue; // the radio groups' "All"/"Default" row: unset is expressed by absence
+        var label = input.parent() === null ? null : input.parent().selectFirst("label");
+        var text = label === null ? "" : S(label.text()).trim();
+        options.push({ id: value, title: text || value });
+    }
+    return options;
+}
+
+function siteFilters() {
+    if (cachedFilterDefs !== null) return cachedFilterDefs;
+    var defs = [];
+    try {
+        var document = Jsoup.parse(getHtml("/anime/"), BASE_URL);
+        RADIO_FIELDS.forEach(function (field) {
+            var options = formOptions(document, field.param);
+            if (options.length > 0) defs.push({ id: field.id, title: field.title, type: "select", options: options });
+        });
+        CHECK_FIELDS.forEach(function (field) {
+            var options = formOptions(document, field.param);
+            if (options.length > 0) defs.push({ id: field.id, title: field.title, type: "multi", options: options });
+        });
+    } catch (e) {
+        console.warn("Filters unavailable: " + e);
+        return [];
+    }
+    cachedFilterDefs = defs;
+    return defs;
+}
+
+/** The catalog query string for the picked filters; the default keeps the previous "latest update" order. */
+function catalogQuery(filters) {
+    var parts = [];
+    CHECK_FIELDS.forEach(function (field) {
+        picked(filters, field.id).forEach(function (value) {
+            parts.push(encodeURIComponent(field.param) + "=" + encodeURIComponent(value));
+        });
+    });
+    var radios = {};
+    RADIO_FIELDS.forEach(function (field) { radios[field.param] = picked(filters, field.id)[0] || ""; });
+    if (!radios.order) radios.order = "update";
+    for (var key in radios) parts.push(key + "=" + encodeURIComponent(radios[key]));
+    return parts.join("&");
+}
+
 var Provider = {
     search: function (requestJson) {
         var request = JSON.parse(requestJson);
@@ -223,7 +310,7 @@ var Provider = {
 
         var results = query.length > 0
             ? collectResults(function (page) { return fetchSearchPage(query, page); }, offset + limit)
-            : collectResults(fetchCatalogPage, offset + limit);
+            : collectResults(function (page) { return fetchCatalogPage(page, request.filters); }, offset + limit);
         return results.slice(offset, offset + limit);
     },
 
@@ -233,7 +320,7 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }] };
+        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: siteFilters() };
     },
 
     getById: function (id) {

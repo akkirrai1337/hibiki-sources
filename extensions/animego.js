@@ -9,6 +9,24 @@
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
 var BASE_URL = "https://animego.me";
 var MAX_RESULTS = 50;
 var PAGE_SIZE = 20;
@@ -228,20 +246,20 @@ function pathAliases(list) {
 
 function toFilterPath(request) {
     var segments = [];
-    if (request.yearFrom && request.yearTo) segments.push("year-from-" + request.yearFrom + "-to-" + request.yearTo);
-    else if (request.yearFrom) segments.push("year-from-" + request.yearFrom);
-    else if (request.yearTo) segments.push("year-to-" + request.yearTo);
+    if (span(request.filters, "year").from && span(request.filters, "year").to) segments.push("year-from-" + span(request.filters, "year").from + "-to-" + span(request.filters, "year").to);
+    else if (span(request.filters, "year").from) segments.push("year-from-" + span(request.filters, "year").from);
+    else if (span(request.filters, "year").to) segments.push("year-to-" + span(request.filters, "year").to);
 
-    var genreList = (request.includedGenreAliases || []).concat((request.excludedGenreAliases || []).map(function (g) {
+    var genreList = (picked(request.filters, "genres") || []).concat((dropped(request.filters, "genres") || []).map(function (g) {
         return "!" + String(g).replace(/^!/, "");
     }));
     var genres = pathAliases(genreList);
     if (genres.length > 0) segments.push("genres-is-" + genres.join("-or-"));
 
-    var types = pathAliases(request.typeAliases);
+    var types = pathAliases(picked(request.filters, "type"));
     if (types.length > 0) segments.push("type-is-" + types.join("-or-"));
 
-    var statuses = pathAliases(request.statusAliases);
+    var statuses = pathAliases(picked(request.filters, "status"));
     if (statuses.length > 0) segments.push("status-is-" + statuses.join("-or-"));
 
     return segments.length === 0 ? "/anime" : "/anime/filter/" + segments.join("/") + "/apply";
@@ -319,9 +337,15 @@ var Provider = {
                 { id: "year", title: "newest" },
                 { id: "rating", title: "rating" },
             ],
-            typeOptions: filterOptions(document, "type_"),
-            statusOptions: filterOptions(document, "status_"),
-            genreOptions: filterOptions(document, "genres_").filter(function (o) { return o.id.indexOf("!") !== 0; }),
+            filters: [
+                { id: "type", title: "Type", type: "multi", options: filterOptions(document, "type_") },
+                { id: "status", title: "Status", type: "multi", options: filterOptions(document, "status_") },
+                { id: "genres", title: "Genres", type: "tristate", options: filterOptions(document, "genres_").filter(function (o) {
+                    // "1" is the site's "strict match" switch, which lives among the genre inputs but is not a genre.
+                    return o.id.indexOf("!") !== 0 && o.id !== "1";
+                }) },
+                { id: "year", title: "Year", type: "range", min: 1940, max: new Date().getFullYear() + 1 },
+            ],
         };
     },
 

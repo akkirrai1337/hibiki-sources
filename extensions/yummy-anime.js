@@ -68,6 +68,24 @@ var GENRE_ALIASES = [
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
 function requestLanguage() {
     var lang = String(preferredLanguage || "ru").trim().toLowerCase();
     return (lang === "en" || lang === "eng" || lang === "english") ? "en" : "ru";
@@ -369,9 +387,9 @@ function sortParam(sort, query) {
         case "RATING": return "top";
         case "TITLE": return "title";
         case "YEAR": return "year";
-        case "VOTES": return "votes";
+        // The API answers HTTP 400 to sort=votes; its vote-count sort is called rating_counters.
+        case "VOTES": return "rating_counters";
         case "VIEWS": return "views";
-        case "COMMENTS": return "comments";
         default: return null;
     }
 }
@@ -428,11 +446,16 @@ function buildSettings(sortAliases, typeAliases, statusAliases, genreOptions) {
     var sortOptions = distinct(["relevance"].concat(sortAliases)).map(aliasOption);
     return {
         sortOptions: sortOptions,
-        typeOptions: typeAliases.map(aliasOption),
-        statusOptions: statusAliases.map(aliasOption),
-        genreOptions: genreOptions.map(function (option) {
-            return typeof option === "string" ? aliasOption(option) : option;
-        }),
+        filters: [
+            // The API answers HTTP 400 to these two, so they are simply not offered.
+            { id: "type", title: "Type", type: "multi", options: typeAliases.filter(function (t) { return t !== "short_movie" && t !== "short_serial"; }).map(aliasOption) },
+            { id: "status", title: "Status", type: "multi", options: statusAliases.map(aliasOption) },
+            {
+                id: "genres", title: "Genres", type: "tristate",
+                options: genreOptions.map(function (option) { return typeof option === "string" ? aliasOption(option) : option; }),
+            },
+            { id: "year", title: "Year", type: "range", min: 1940, max: new Date().getFullYear() + 1 },
+        ],
     };
 }
 
@@ -473,19 +496,39 @@ var Provider = {
         if (query.length > 0) params.q = query;
         var sort = sortParam(request.sort || "RELEVANCE", query);
         if (sort !== null) params.sort = sort;
-        var types = csv(request.typeAliases);
+        var types = csv(picked(request.filters, "type"));
         if (types) params.types = types;
-        var statuses = csv(request.statusAliases);
-        if (statuses) params.statuses = statuses;
-        var genres = csv(request.includedGenreAliases);
+        // The API's `status` takes ONE value: `statuses=` (what this used to send) and a comma list
+        // are both silently ignored, so the filter looked applied and did nothing. Several selected
+        // statuses therefore become several requests, merged below.
+        var statusList = (picked(request.filters, "status") || []).map(function (v) { return String(v).trim(); }).filter(function (v) { return v.length > 0; });
+        var genres = csv(picked(request.filters, "genres"));
         if (genres) params.genres = genres;
-        var excludedGenres = csv(request.excludedGenreAliases);
+        var excludedGenres = csv(dropped(request.filters, "genres"));
         if (excludedGenres) params.genres_exclude = excludedGenres;
-        if (request.yearFrom) params.year_from = request.yearFrom;
-        if (request.yearTo) params.year_to = request.yearTo;
+        // Verified against the live API: from_year / to_year filter, year_from / year_to are ignored.
+        if (span(request.filters, "year").from) params.from_year = span(request.filters, "year").from;
+        if (span(request.filters, "year").to) params.to_year = span(request.filters, "year").to;
 
         var language = requestLanguage();
-        var items = get("/anime", params);
+        var items;
+        if (statusList.length <= 1) {
+            if (statusList.length === 1) params.status = statusList[0];
+            items = get("/anime", params);
+        } else {
+            var seen = {};
+            items = [];
+            statusList.forEach(function (status) {
+                var byStatus = {};
+                for (var key in params) byStatus[key] = params[key];
+                byStatus.status = status;
+                get("/anime", byStatus).forEach(function (item) {
+                    if (seen[item.anime_id]) return;
+                    seen[item.anime_id] = true;
+                    items.push(item);
+                });
+            });
+        }
         return items.map(function (item) { return toAnimeTitle(item, language); });
     },
 

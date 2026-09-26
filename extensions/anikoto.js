@@ -22,6 +22,69 @@ function request(path, referer) {
     return S(response.body);
 }
 
+// The site's own filter form (GET /filter) is the whole filter surface, so it is read off the live
+// page instead of being hard-coded: a genre, source or sort the site adds later shows up without an
+// extension update. One fetch per session; a failed read just means no filters, never a broken search.
+var FILTER_FIELDS = [
+    { id: "genres", param: "genre[]", title: "Genres" },
+    { id: "season", param: "season[]", title: "Season" },
+    { id: "year", param: "year[]", title: "Year" },
+    { id: "type", param: "term_type[]", title: "Type" },
+    { id: "status", param: "status[]", title: "Status" },
+    { id: "language", param: "language[]", title: "Language" },
+    { id: "rating", param: "rating[]", title: "Rating" },
+    { id: "source", param: "source[]", title: "Source" },
+];
+var cachedFilterDefs = null;
+
+function formOptions(document, param) {
+    var inputs = document.select("form.filters input[name='" + param + "']");
+    var options = [];
+    for (var i = 0; i < inputs.size(); i++) {
+        var input = inputs.get(i);
+        var value = S(input.attr("value")).trim();
+        if (!value) continue;
+        var label = input.parent() === null ? null : input.parent().selectFirst("label");
+        var text = label === null ? "" : S(label.text()).trim();
+        options.push({ id: value, title: text || value });
+    }
+    return options;
+}
+
+function siteFilters() {
+    if (cachedFilterDefs !== null) return cachedFilterDefs;
+    var defs = [];
+    try {
+        var document = Jsoup.parse(request("/filter"), BASE_URL);
+        var sorts = formOptions(document, "sort");
+        if (sorts.length > 0) defs.push({ id: "sort", title: "Sort", type: "select", options: sorts });
+        FILTER_FIELDS.forEach(function (field) {
+            var options = formOptions(document, field.param);
+            if (options.length > 0) defs.push({ id: field.id, title: field.title, type: "multi", options: options });
+        });
+    } catch (e) {
+        console.warn("Filters unavailable: " + e);
+        return [];
+    }
+    cachedFilterDefs = defs;
+    return defs;
+}
+
+/** "&genre[]=1&sort=score" for the picked filters, or "" when none is set. */
+function siteFilterQuery(filters) {
+    if (!filters) return "";
+    var parts = [];
+    FILTER_FIELDS.forEach(function (field) {
+        var values = filters[field.id];
+        if (!values) return;
+        (Array.isArray(values) ? values : [values]).forEach(function (value) {
+            parts.push(encodeURIComponent(field.param) + "=" + encodeURIComponent(value));
+        });
+    });
+    if (typeof filters.sort === "string" && filters.sort) parts.push("sort=" + encodeURIComponent(filters.sort));
+    return parts.length > 0 ? "&" + parts.join("&") : "";
+}
+
 function title(fields) { return AnimeTitle(fields); }
 
 function normalizeType(raw) {
@@ -236,7 +299,8 @@ var Provider = {
         var query = S(requestData.query).trim();
         var offset = Math.max(requestData.offset || 0, 0);
         var limit = Math.min(Math.max(requestData.limit || 20, 1), MAX_RESULTS);
-        var path = query ? "/filter?keyword=" + encodeURIComponent(query) : "/home";
+        var filterQuery = siteFilterQuery(requestData.filters);
+        var path = query || filterQuery ? "/filter?keyword=" + encodeURIComponent(query) + filterQuery : "/home";
         return loadCatalog(path).slice(offset, offset + limit);
     },
 
@@ -251,7 +315,7 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }] };
+        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: siteFilters() };
     },
 
     getPlaybackGroups: function (titleId) {

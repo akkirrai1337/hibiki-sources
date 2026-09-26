@@ -1,11 +1,12 @@
 {
     "id": "anichi",
     "name": "Anichi",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "author": "Hibiki",
     "website": "https://anichi.to",
     "iconUrl": "https://anichi.to/favicon.ico",
     "lang": "en",
+    "customFilters": true,
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK"

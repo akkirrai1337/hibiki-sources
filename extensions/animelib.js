@@ -36,6 +36,24 @@ var STATUS_ALIASES = { "1": "ongoing", "2": "released", "3": "announcement" };
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
 function normalize(value) {
     if (value === null || value === undefined) return null;
     var trimmed = String(value).trim();
@@ -284,11 +302,11 @@ var Provider = {
         var params = sortParams(searchRequest.sort || "RELEVANCE");
         if (query.length > 0) params = params.concat([["q", query]]);
         params = params
-            .concat(idParams("genres", searchRequest.includedGenreAliases))
-            .concat(idParams("types", searchRequest.typeAliases))
-            .concat(idParams("status", searchRequest.statusAliases));
-        if (searchRequest.yearFrom) params.push(["year_min", searchRequest.yearFrom]);
-        if (searchRequest.yearTo) params.push(["year_max", searchRequest.yearTo]);
+            .concat(idParams("genres", picked(searchRequest.filters, "genres")))
+            .concat(idParams("types", picked(searchRequest.filters, "type")))
+            .concat(idParams("status", picked(searchRequest.filters, "status")));
+        if (span(searchRequest.filters, "year").from) params.push(["year_min", span(searchRequest.filters, "year").from]);
+        if (span(searchRequest.filters, "year").to) params.push(["year_max", span(searchRequest.filters, "year").to]);
 
         return pagedFetch(params, offset, limit).map(toAnimeTitle);
     },
@@ -325,9 +343,12 @@ var Provider = {
                 { id: "views", title: "По просмотрам" },
                 { id: "releaseDate", title: "По дате выхода" },
             ],
-            typeOptions: constantOptions("types", "label"),
-            statusOptions: constantOptions("status", "label"),
-            genreOptions: constantOptions("genres", "name"),
+            filters: [
+                { id: "type", title: "Type", type: "multi", options: constantOptions("types", "label") },
+                { id: "status", title: "Status", type: "multi", options: constantOptions("status", "label") },
+                { id: "genres", title: "Genres", type: "multi", options: constantOptions("genres", "name") },
+                { id: "year", title: "Year", type: "range", min: 1940, max: new Date().getFullYear() + 1 },
+            ],
         };
     },
 

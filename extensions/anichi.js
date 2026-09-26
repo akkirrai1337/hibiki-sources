@@ -89,6 +89,69 @@ function getHtml(path) {
     return S(response.body);
 }
 
+// The site's own filter form (GET /filter) is the whole filter surface, so it is read off the live
+// page instead of being hard-coded: a genre, source or sort the site adds later shows up without an
+// extension update. One fetch per session; a failed read just means no filters, never a broken search.
+var FILTER_FIELDS = [
+    { id: "genres", param: "genre[]", title: "Genres" },
+    { id: "season", param: "season[]", title: "Season" },
+    { id: "year", param: "year[]", title: "Year" },
+    { id: "type", param: "term_type[]", title: "Type" },
+    { id: "status", param: "status[]", title: "Status" },
+    { id: "language", param: "language[]", title: "Language" },
+    { id: "rating", param: "rating[]", title: "Rating" },
+    { id: "source", param: "source[]", title: "Source" },
+];
+var cachedFilterDefs = null;
+
+function formOptions(document, param) {
+    var inputs = document.select("form.filters input[name='" + param + "']");
+    var options = [];
+    for (var i = 0; i < inputs.size(); i++) {
+        var input = inputs.get(i);
+        var value = S(input.attr("value")).trim();
+        if (!value) continue;
+        var label = input.parent() === null ? null : input.parent().selectFirst("label");
+        var text = label === null ? "" : S(label.text()).trim();
+        options.push({ id: value, title: text || value });
+    }
+    return options;
+}
+
+function siteFilters() {
+    if (cachedFilterDefs !== null) return cachedFilterDefs;
+    var defs = [];
+    try {
+        var document = Jsoup.parse(getHtml("/filter"), BASE_URL);
+        var sorts = formOptions(document, "sort");
+        if (sorts.length > 0) defs.push({ id: "sort", title: "Sort", type: "select", options: sorts });
+        FILTER_FIELDS.forEach(function (field) {
+            var options = formOptions(document, field.param);
+            if (options.length > 0) defs.push({ id: field.id, title: field.title, type: "multi", options: options });
+        });
+    } catch (e) {
+        console.warn("Filters unavailable: " + e);
+        return [];
+    }
+    cachedFilterDefs = defs;
+    return defs;
+}
+
+/** "&genre[]=1&sort=score" for the picked filters, or "" when none is set. */
+function siteFilterQuery(filters) {
+    if (!filters) return "";
+    var parts = [];
+    FILTER_FIELDS.forEach(function (field) {
+        var values = filters[field.id];
+        if (!values) return;
+        (Array.isArray(values) ? values : [values]).forEach(function (value) {
+            parts.push(encodeURIComponent(field.param) + "=" + encodeURIComponent(value));
+        });
+    });
+    if (typeof filters.sort === "string" && filters.sort) parts.push("sort=" + encodeURIComponent(filters.sort));
+    return parts.length > 0 ? "&" + parts.join("&") : "";
+}
+
 function ajaxRequest(path, referer) {
     var headers = { "Referer": referer || (BASE_URL + "/") };
     for (var key in XHR_HEADERS) headers[key] = XHR_HEADERS[key];
@@ -319,7 +382,13 @@ var Provider = {
         var limit = Math.min(Math.max(request.limit || 20, 1), MAX_RESULTS);
         var query = (request.query || "").trim();
 
-        var results = query.length > 0
+        var filterQuery = siteFilterQuery(request.filters);
+        // With filters set the site's /filter page answers - text and filters together.
+        var results = filterQuery
+            ? collectResults(function (page) {
+                return parseCardList(getHtml("/filter?keyword=" + encodeURIComponent(query) + filterQuery + "&page=" + page + (query ? "&vrf=" + encodeURIComponent(query) : "")));
+            }, offset + limit)
+            : query.length > 0
             ? collectResults(function (page) { return fetchSearchPage(query, page); }, offset + limit)
             : collectResults(function (page) { return fetchCatalogPage("/most-viewed/", page); }, offset + limit);
         return results.slice(offset, offset + limit);
@@ -331,7 +400,7 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }] };
+        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: siteFilters() };
     },
 
     getById: function (id) {

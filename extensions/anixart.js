@@ -58,6 +58,24 @@ var GENRES = [
 
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
 function normalize(value) {
     if (value === null || value === undefined) return null;
     var trimmed = String(value).trim();
@@ -279,15 +297,15 @@ var Provider = {
             items = pagedFetch("/search/releases/", { query: query, searchBy: 0 }, offset, limit);
         } else {
             var body = { sort: sortValue(searchRequest.sort || "RELEVANCE") };
-            var genres = (searchRequest.includedGenreAliases || [])
+            var genres = (picked(searchRequest.filters, "genres") || [])
                 .map(normalize).filter(function (value) { return value !== null; });
             if (genres.length > 0) body.genres = genres;
-            var categoryId = firstId(searchRequest.typeAliases);
+            var categoryId = firstId(picked(searchRequest.filters, "type"));
             if (categoryId !== null) body.category_id = categoryId;
-            var statusId = firstId(searchRequest.statusAliases);
+            var statusId = firstId(picked(searchRequest.filters, "status"));
             if (statusId !== null) body.status_id = statusId;
-            if (searchRequest.yearFrom) body.start_year = searchRequest.yearFrom;
-            if (searchRequest.yearTo) body.end_year = searchRequest.yearTo;
+            if (span(searchRequest.filters, "year").from) body.start_year = span(searchRequest.filters, "year").from;
+            if (span(searchRequest.filters, "year").to) body.end_year = span(searchRequest.filters, "year").to;
             items = pagedFetch("/filter/", body, offset, limit);
         }
         return items.map(toAnimeTitle);
@@ -313,13 +331,12 @@ var Provider = {
                 { id: "grade", title: "По оценке" },
                 { id: "year", title: "По году" },
             ],
-            typeOptions: CATEGORY_OPTIONS.map(function (option) {
-                return { id: option.id, title: option.title };
-            }),
-            statusOptions: STATUS_OPTIONS.map(function (option) {
-                return { id: option.id, title: option.title };
-            }),
-            genreOptions: GENRES.map(function (genre) { return { id: genre, title: genre }; }),
+            filters: [
+                { id: "type", title: "Type", type: "select", options: CATEGORY_OPTIONS.map(function (option) { return { id: option.id, title: option.title }; }) },
+                { id: "status", title: "Status", type: "select", options: STATUS_OPTIONS.map(function (option) { return { id: option.id, title: option.title }; }) },
+                { id: "genres", title: "Genres", type: "multi", options: GENRES.map(function (genre) { return { id: genre, title: genre }; }) },
+                { id: "year", title: "Year", type: "range", min: 1940, max: new Date().getFullYear() + 1 },
+            ],
         };
     },
 

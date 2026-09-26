@@ -38,6 +38,24 @@ function S(value) {
     return value === null || value === undefined ? null : String(value);
 }
 
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
 function releaseArray(json) {
     if (Array.isArray(json)) return json;
     if (json && typeof json === "object") return json.data || json.items || json.response || [];
@@ -180,14 +198,14 @@ var Provider = {
         var page = Math.floor(Math.max(request.offset || 0, 0) / limit) + 1;
         var params = { page: page, limit: limit };
         if (request.query && request.query.trim().length > 0) params["f[search]"] = request.query.trim();
-        var types = csv(request.typeAliases, true);
+        var types = csv(picked(request.filters, "type"), true);
         if (types) params["f[types]"] = types;
-        var statuses = csv(request.statusAliases, true);
+        var statuses = csv(picked(request.filters, "status"), true);
         if (statuses) params["f[publish_statuses]"] = statuses;
-        var genres = csv(request.includedGenreAliases, false);
+        var genres = csv(picked(request.filters, "genres"), false);
         if (genres) params["f[genres]"] = genres;
-        if (request.yearFrom) params["f[years][from_year]"] = request.yearFrom;
-        if (request.yearTo) params["f[years][to_year]"] = request.yearTo;
+        if (span(request.filters, "year").from) params["f[years][from_year]"] = span(request.filters, "year").from;
+        if (span(request.filters, "year").to) params["f[years][to_year]"] = span(request.filters, "year").to;
         params["f[sorting]"] = toAniLibertySorting(request.sort || "RELEVANCE");
 
         var json = mirrorRequest("/anime/catalog/releases", params);
@@ -227,9 +245,12 @@ var Provider = {
                 { id: "rating", title: "Rating" },
                 { id: "year", title: "Year" },
             ],
-            typeOptions: referenceOptions("/anime/catalog/references/types"),
-            statusOptions: referenceOptions("/anime/catalog/references/publish-statuses"),
-            genreOptions: referenceOptions("/anime/catalog/references/genres"),
+            filters: [
+                { id: "type", title: "Type", type: "multi", options: referenceOptions("/anime/catalog/references/types") },
+                { id: "status", title: "Status", type: "multi", options: referenceOptions("/anime/catalog/references/publish-statuses") },
+                { id: "genres", title: "Genres", type: "multi", options: referenceOptions("/anime/catalog/references/genres") },
+                { id: "year", title: "Year", type: "range", min: 1940, max: new Date().getFullYear() + 1 },
+            ],
         };
     },
 

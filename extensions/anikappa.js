@@ -7,6 +7,24 @@
 // dance AnimePahe's extension uses, backed by the host's `challenge()` global.
 function S(value) { return value === null || value === undefined ? "" : String(value); }
 
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
 var BASE_URL = "https://anikappa.in.ua";
 var MAX_RESULTS = 50;
 var TITLE_PATH = /^(?:[^?#]+\/)?\d+-[^?#/]+\.html$/;
@@ -229,8 +247,8 @@ function collectGroups(titleId) {
 }
 
 function listingPath(request, page) {
-    var type = (request.typeAliases || [])[0];
-    var genre = (request.includedGenreAliases || [])[0];
+    var type = (picked(request.filters, "type") || [])[0];
+    var genre = (picked(request.filters, "genres") || [])[0];
     var root = genre ? "/zhanri/" + encodeURIComponent(genre) + "/" :
         type === "movie" ? "/filmi/" : type === "ova" ? "/ova/" : type === "ona" ? "/ona/" : type === "special" ? "/special/" : "/seriali/";
     return page > 1 ? root + "page/" + page + "/" : root;
@@ -265,7 +283,12 @@ var Provider = {
             var href = S(genres.get(i).attr("href")), match = /\/zhanri\/([^/]+)\/?$/.exec(href), label = S(genres.get(i).text()).trim();
             if (match && label && !seen[match[1]]) { seen[match[1]] = true; options.push({ id: match[1], title: label }); }
         }
-        return { typeOptions: [{ id: "tv", title: "ТБ-серіал" }, { id: "movie", title: "Фільм" }, { id: "ova", title: "OVA" }, { id: "ona", title: "ONA" }, { id: "special", title: "Спешл" }], genreOptions: options };
+        return {
+            filters: [
+                { id: "type", title: "Type", type: "select", options: [{ id: "tv", title: "ТБ-серіал" }, { id: "movie", title: "Фільм" }, { id: "ova", title: "OVA" }, { id: "ona", title: "ONA" }, { id: "special", title: "Спешл" }] },
+                { id: "genres", title: "Genres", type: "select", options: options },
+            ],
+        };
     },
     getPlaybackGroups: function (titleId) { return collectGroups(titleId); },
     getPlayerLinks: function (titleId, groupId, episodeId) {

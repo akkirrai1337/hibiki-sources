@@ -1,12 +1,13 @@
 {
     "id": "animego",
     "name": "AnimeGo",
-    "version": "1.0.9",
+    "version": "1.0.11",
     "author": "Hibiki",
     "website": "https://animego.me",
     "iconUrl": "https://animego.me/favicon.ico",
     "lang": "ru",
     "resolverDependencies": ["aniboom", "aksor", "kodik"],
+    "customFilters": true,
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK"
@@ -15,13 +16,6 @@
         "RELEVANCE",
         "YEAR",
         "RATING"
-    ],
-    "supportedFilters": [
-        "TYPE",
-        "STATUS",
-        "INCLUDED_GENRES",
-        "EXCLUDED_GENRES",
-        "YEAR_RANGE"
     ],
     "fallbackSort": "RELEVANCE"
 }

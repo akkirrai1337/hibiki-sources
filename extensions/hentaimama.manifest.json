@@ -1,12 +1,13 @@
 {
     "id": "hentaimama",
     "name": "HentaiMama",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "author": "Hibiki",
     "website": "https://hentaimama.io",
     "iconUrl": "https://hentaimama.io/wp-content/themes/dooplay/assets/img/favicon.png?v=3",
     "lang": "en",
     "isNsfw": true,
+    "customFilters": true,
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK"
@@ -14,6 +15,5 @@
     "supportedSorts": [
         "RELEVANCE"
     ],
-    "supportedFilters": [],
     "fallbackSort": "RELEVANCE"
 }

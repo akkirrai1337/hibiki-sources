@@ -3,6 +3,24 @@
 // release from one translation team, and each episode may offer ASHDI and MOON mirrors.
 function S(value) { return value === null || value === undefined ? "" : String(value); }
 
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
 var BASE_URL = "https://mikai.me";
 var API_URL = "https://api.mikai.me/public/v1";
 var MAX_RESULTS = 100;
@@ -92,12 +110,12 @@ function listPage(request, page, limit) {
     if (query) params.push("search=" + queryValue(query));
     else params.push(sortParams(request.sort));
 
-    var types = request.typeAliases || [];
+    var types = picked(request.filters, "type") || [];
     if (types.length) params.push("formats=" + queryValue(types.join(",")));
-    var genres = request.includedGenreAliases || [];
+    var genres = picked(request.filters, "genres") || [];
     if (genres.length) params.push("genres=" + queryValue(genres.join(",")));
-    if (request.yearFrom) params.push("yearFrom=" + Math.max(MIN_YEAR, request.yearFrom));
-    if (request.yearTo) params.push("yearTo=" + Math.min(MAX_YEAR, request.yearTo));
+    if (span(request.filters, "year").from) params.push("yearFrom=" + Math.max(MIN_YEAR, span(request.filters, "year").from));
+    if (span(request.filters, "year").to) params.push("yearTo=" + Math.min(MAX_YEAR, span(request.filters, "year").to));
     return api("/anime?" + params.join("&"));
 }
 
@@ -162,12 +180,15 @@ var Provider = {
                 { id: "rating", title: "Рейтингом" },
                 { id: "year", title: "Роком" }
             ],
-            typeOptions: [
-                { id: "tv", title: "ТБ-серіал" }, { id: "movie", title: "Фільм" },
-                { id: "ova", title: "OVA" }, { id: "ona", title: "ONA" },
-                { id: "special", title: "Спешл" }
-            ],
-            genreOptions: genres.map(function (genre) { return { id: genre.name, title: genre.ua || genre.name }; })
+            filters: [
+                { id: "type", title: "Type", type: "multi", options: [
+                    { id: "tv", title: "ТБ-серіал" }, { id: "movie", title: "Фільм" },
+                    { id: "ova", title: "OVA" }, { id: "ona", title: "ONA" },
+                    { id: "special", title: "Спешл" }
+                ] },
+                { id: "genres", title: "Genres", type: "multi", options: genres.map(function (genre) { return { id: genre.name, title: genre.ua || genre.name }; }) },
+                { id: "year", title: "Year", type: "range", min: 1940, max: new Date().getFullYear() + 1 }
+            ]
         };
     },
 

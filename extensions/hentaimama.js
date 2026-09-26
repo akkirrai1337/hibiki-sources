@@ -112,6 +112,71 @@ function latestInternal(offset, limit) {
     return result;
 }
 
+
+// The site's "Advance" form (GET /advance-search) is the whole filter surface: three multi-selects.
+// Their options are read off the live page rather than hard-coded, so a genre or studio the site
+// adds later shows up without an extension update. One home-page fetch per session, and a failed
+// read simply means the source offers no filters - never that search breaks.
+var FILTER_FIELDS = [
+    { id: "genres", param: "genres_filter[]", title: "Genres" },
+    { id: "years", param: "years_filter[]", title: "Years" },
+    { id: "studios", param: "studios_filter[]", title: "Studios" },
+];
+var cachedFilters = null;
+
+function advanceFilters() {
+    if (cachedFilters !== null) return cachedFilters;
+    var defs = [];
+    try {
+        var document = Jsoup.parse(request(BASE_URL + "/"), BASE_URL);
+        FILTER_FIELDS.forEach(function (field) {
+            var options = document.select("select[name='" + field.param + "'] option[value]");
+            var list = [];
+            for (var i = 0; i < options.size(); i++) {
+                var value = S(options.get(i).attr("value"));
+                if (value) list.push({ id: value, title: S(options.get(i).text()) || value });
+            }
+            if (list.length > 0) defs.push({ id: field.id, title: field.title, type: "multi", options: list });
+        });
+    } catch (e) {
+        console.warn("HentaiMama filters unavailable: " + e);
+        return [];
+    }
+    cachedFilters = defs;
+    return defs;
+}
+
+function advanceSearchQuery(filters) {
+    if (!filters) return null;
+    var parts = [];
+    FILTER_FIELDS.forEach(function (field) {
+        var values = filters[field.id];
+        if (!values) return;
+        (Array.isArray(values) ? values : [values]).forEach(function (value) {
+            parts.push(encodeURIComponent(field.param) + "=" + encodeURIComponent(value));
+        });
+    });
+    return parts.length > 0 ? parts.join("&") + "&submit=Submit" : null;
+}
+
+function advanceSearch(queryString, offset, wanted) {
+    var results = [];
+    var seen = {};
+    for (var page = 1; page <= 25 && results.length < offset + wanted; page++) {
+        var url = BASE_URL + "/advance-search/" + (page > 1 ? "page/" + page + "/" : "") + "?" + queryString;
+        var cards = parseCards(request(url));
+        var added = 0;
+        cards.forEach(function (card) {
+            if (seen[card.id]) return;
+            seen[card.id] = true;
+            results.push(card);
+            added += 1;
+        });
+        if (added === 0) break;
+    }
+    return results.slice(offset, offset + wanted);
+}
+
 function meta(document, property) {
     var element = document.selectFirst("meta[property='" + property + "'], meta[name='" + property + "']");
     if (element === null) return null;
@@ -237,12 +302,19 @@ function playerLinks(episodeId) {
 
 var Provider = {
     search: function (requestJson) {
-        var query = (JSON.parse(requestJson).query || "").trim();
         var requestData = JSON.parse(requestJson);
-        if (query.length === 0) return latestInternal(requestData.offset || 0, requestData.limit || 20);
-        var cards = parseCards(request(BASE_URL + "/?s=" + encodeURIComponent(query)));
+        var query = (requestData.query || "").trim();
         var start = Math.max(requestData.offset || 0, 0);
-        return cards.slice(start, start + Math.min(Math.max(requestData.limit || 20, 1), MAX_RESULTS));
+        var wanted = Math.min(Math.max(requestData.limit || 20, 1), MAX_RESULTS);
+        if (query.length === 0) {
+            var advanced = advanceSearchQuery(requestData.filters);
+            if (advanced !== null) return advanceSearch(advanced, start, wanted);
+            return latestInternal(start, wanted);
+        }
+        // The site's own text search has no filters (its "Advance" form is a separate page), so a
+        // query with filters set searches by text only - same as the site itself does.
+        var cards = parseCards(request(BASE_URL + "/?s=" + encodeURIComponent(query)));
+        return cards.slice(start, start + wanted);
     },
 
     latest: function (limit) { return latestInternal(0, limit || 20); },
@@ -255,7 +327,9 @@ var Provider = {
         return parsed;
     },
 
-    getSettings: function () { return { sortOptions: [{ id: "relevance", title: "Relevance" }] }; },
+    getSettings: function () {
+        return { sortOptions: [{ id: "relevance", title: "Relevance" }], filters: advanceFilters() };
+    },
 
     getPlaybackGroups: function (titleId) {
         var cleanId = pathFromUrl(titleId);

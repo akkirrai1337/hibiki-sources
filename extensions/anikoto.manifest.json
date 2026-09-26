@@ -1,13 +1,14 @@
 {
     "id": "anikoto",
     "name": "AniKoto",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "author": "Hibiki",
     "website": "https://anikototv.to",
     "iconUrl": "https://anikototv.to/AnikotoTheme/assets/images/favicon.png",
     "lang": "en",
     "useExternalMetadata": true,
     "resolverDependencies": ["animepahe-player"],
+    "customFilters": true,
     "capabilities": [
         "LATEST_RELEASES",
         "PLAYBACK"
@@ -15,6 +16,5 @@
     "supportedSorts": [
         "RELEVANCE"
     ],
-    "supportedFilters": [],
     "fallbackSort": "RELEVANCE"
 }

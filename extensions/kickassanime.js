@@ -70,15 +70,23 @@ function apiGet(path) {
     return JSON.parse(S(response.body));
 }
 
-function fetchPage(query, sort, page) {
+function fetchPage(query, sort, page, variant) {
+    var encoded = encodeFilters(variant);
     if (query.length > 0) {
+        var payload = { page: page, query: query };
+        if (encoded) payload.filters = encoded;
         var response = fetch(BASE_URL + "/api/fsearch", {
             method: "POST",
             headers: { "Accept": "application/json", "Content-Type": "application/json" },
-            body: JSON.stringify({ page: page, query: query }),
+            body: JSON.stringify(payload),
         });
         if (!response.ok) throw new Error("KickAssAnime returned HTTP " + response.status);
         return JSON.parse(S(response.body)).result || [];
+    }
+    if (encoded) {
+        var filtered = fetch(BASE_URL + "/api/anime?page=" + page + "&filters=" + encodeURIComponent(encoded), { headers: { "Accept": "application/json" } });
+        if (!filtered.ok) throw new Error("KickAssAnime returned HTTP " + filtered.status);
+        return JSON.parse(S(filtered.body)).result || [];
     }
     if (sort === "RATING") return apiGet("/trending?page=" + page).result || [];
     return (JSON.parse(S(fetch(BASE_URL + "/api/anime?page=" + page, { headers: { "Accept": "application/json" } }).body)).result) || [];
@@ -86,17 +94,84 @@ function fetchPage(query, sort, page) {
 
 // kaa.lt paginates by its own fixed page size, not by the host's arbitrary offset/limit, so pages
 // are fetched and concatenated until there's enough to satisfy the request before slicing.
-function collectResults(query, sort, wanted) {
+function collectResults(query, sort, wanted, variants) {
     var results = [];
-    var page = 1;
-    while (results.length < wanted && page <= 50) {
-        var items = fetchPage(query, sort, page);
-        if (items.length === 0) break;
-        results = results.concat(items);
-        page += 1;
+    for (var v = 0; v < variants.length && results.length < wanted; v++) {
+        var page = 1;
+        while (results.length < wanted && page <= 50) {
+            var items = fetchPage(query, sort, page, variants[v]);
+            if (items.length === 0) break;
+            results = results.concat(items);
+            page += 1;
+        }
     }
     return results;
 }
+
+
+// Search filters are this source's own (declared in getSettings().filters); their picked values
+// arrive as request.filters[id]. An unset filter is absent.
+function picked(filters, id) {
+    var v = filters && filters[id];
+    if (!v) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") return [v];
+    return Array.isArray(v.include) ? v.include : [];
+}
+function dropped(filters, id) {
+    var v = filters && filters[id];
+    return v && Array.isArray(v.exclude) ? v.exclude : [];
+}
+function span(filters, id) {
+    var v = filters && filters[id];
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+}
+
+/* ---------------------------------------------------------------- filters -------------------- */
+
+// The catalog API takes one `filters` argument: base64 of {"genres":[...],"year":N,"status":"...",
+// "type":"..."} (checked against the live API - each key narrows /api/anime on its own). It has no
+// endpoint listing the values, so the genre names are a fixed list; a name the site doesn't know
+// simply matches nothing. `year` is a single year, so a range becomes one request per year.
+var GENRE_NAMES = ["Action", "Adult Cast", "Adventure", "Anthropomorphic", "Avant Garde", "Award Winning", "Boys Love", "CGDCT", "Childcare", "Combat Sports", "Comedy", "Crossdressing", "Delinquents", "Detective", "Drama", "Ecchi", "Educational", "Erotica", "Fantasy", "Gag Humor", "Girls Love", "Gore", "Gourmet", "Harem", "High Stakes Game", "Historical", "Horror", "Idols (Female)", "Idols (Male)", "Isekai", "Iyashikei", "Josei", "Kids", "Love Polygon", "Magical Sex Shift", "Mahou Shoujo", "Martial Arts", "Mecha", "Medical", "Military", "Music", "Mystery", "Mythology", "Organized Crime", "Otaku Culture", "Parody", "Performing Arts", "Pets", "Psychological", "Racing", "Reincarnation", "Reverse Harem", "Romance", "Romantic Subtext", "Samurai", "School", "Sci-Fi", "Seinen", "Shoujo", "Shounen", "Showbiz", "Slice of Life", "Space", "Sports", "Strategy Game", "Super Power", "Supernatural", "Survival", "Suspense", "Team Sports", "Time Travel", "Urban Fantasy", "Vampire", "Video Game", "Villainess", "Visual Arts", "Workplace"];
+var MAX_FILTER_YEARS = 6;
+
+function siteFilters() {
+    return [
+        { id: "genres", title: "Genres", type: "multi", options: GENRE_NAMES.map(function (name) { return { id: name, title: name }; }) },
+        { id: "type", title: "Type", type: "select", options: [
+            { id: "tv", title: "TV" }, { id: "movie", title: "Movie" }, { id: "ona", title: "ONA" },
+            { id: "ova", title: "OVA" }, { id: "special", title: "Special" }, { id: "tv_special", title: "TV Special" },
+        ] },
+        { id: "status", title: "Status", type: "select", options: [{ id: "finished", title: "Finished Airing" }, { id: "airing", title: "Currently Airing" }] },
+        { id: "year", title: "Year", type: "range", min: 1967, max: new Date().getFullYear() },
+    ];
+}
+
+/** One filter object per year asked for (or a single one), in the API's own shape. */
+function filterVariants(filters) {
+    var base = {};
+    var genres = picked(filters, "genres");
+    if (genres.length) base.genres = genres;
+    var type = picked(filters, "type")[0];
+    if (type) base.type = type;
+    var status = picked(filters, "status")[0];
+    if (status) base.status = status;
+    var year = span(filters, "year");
+    if (!year.from && !year.to) return Object.keys(base).length ? [base] : [null];
+    var to = year.to || year.from;
+    var from = Math.max(year.from || year.to, to - MAX_FILTER_YEARS + 1);
+    var variants = [];
+    for (var y = to; y >= from; y--) {
+        var variant = {};
+        for (var key in base) variant[key] = base[key];
+        variant.year = y;
+        variants.push(variant);
+    }
+    return variants;
+}
+
+function encodeFilters(variant) { return variant ? Base64.encode(JSON.stringify(variant)) : ""; }
 
 var Provider = {
     search: function (requestJson) {
@@ -106,7 +181,7 @@ var Provider = {
         var query = (request.query || "").trim();
         var sort = request.sort || "RELEVANCE";
 
-        var results = collectResults(query, sort, offset + limit);
+        var results = collectResults(query, sort, offset + limit, filterVariants(request.filters));
         return results.slice(offset, offset + limit).map(toAnimeTitle);
     },
 
@@ -121,7 +196,7 @@ var Provider = {
     },
 
     getSettings: function () {
-        return { sortOptions: [{ id: "relevance", title: "Relevance" }, { id: "rating", title: "Trending" }] };
+        return { sortOptions: [{ id: "relevance", title: "Relevance" }, { id: "rating", title: "Trending" }], filters: siteFilters() };
     },
 
     getPlaybackGroups: function (titleId) {
