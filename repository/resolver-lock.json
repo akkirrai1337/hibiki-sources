@@ -2,30 +2,30 @@
   "schemaVersion": 1,
   "sources": {
     "ani-liberty": {
-      "version": "1.0.5",
+      "version": "1.0.6",
       "resolvers": {}
     },
     "anichi": {
-      "version": "1.0.16",
+      "version": "1.0.17",
       "resolvers": {
         "animepahe-player": "1.0.9"
       }
     },
     "anikappa": {
-      "version": "1.0.16",
+      "version": "1.0.17",
       "resolvers": {
         "anitube-ashdi": "1.0.0",
         "anitube-player": "1.0.10"
       }
     },
     "anikoto": {
-      "version": "1.0.7",
+      "version": "1.0.8",
       "resolvers": {
         "animepahe-player": "1.0.9"
       }
     },
     "animego": {
-      "version": "1.0.12",
+      "version": "1.0.13",
       "resolvers": {
         "aniboom": "1.0.1",
         "aksor": "1.0.1",
@@ -39,17 +39,17 @@
       }
     },
     "animepahe": {
-      "version": "1.0.15",
+      "version": "1.0.16",
       "resolvers": {
         "animepahe-player": "1.0.9"
       }
     },
     "animevost": {
-      "version": "1.0.7",
+      "version": "1.0.8",
       "resolvers": {}
     },
     "anitube": {
-      "version": "1.0.16",
+      "version": "1.0.17",
       "resolvers": {
         "anitube-ashdi": "1.0.0",
         "anitube-player": "1.0.10"
@@ -62,23 +62,23 @@
       }
     },
     "donghuastream": {
-      "version": "1.0.8",
+      "version": "1.0.9",
       "resolvers": {
         "dailymotion": "1.0.0"
       }
     },
     "hentaimama": {
-      "version": "1.0.8",
+      "version": "1.0.9",
       "resolvers": {}
     },
     "kickassanime": {
-      "version": "1.0.16",
+      "version": "1.0.17",
       "resolvers": {
         "kickassanime-player": "1.0.9"
       }
     },
     "mikai": {
-      "version": "1.1.5",
+      "version": "1.1.6",
       "resolvers": {
         "anitube-ashdi": "1.0.0",
         "anitube-player": "1.0.10"
