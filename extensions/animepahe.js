@@ -81,6 +81,31 @@ function sessionId(id) {
 
 function title(fields) { return AnimeTitle(fields); }
 
+// One card of the relations / recommendations tabs: a title link with its poster, type and season.
+function relatedCards(document, tab) {
+    var block = document.selectFirst(".tab-content." + tab);
+    if (block === null) return [];
+    var rows = block.select(".row.mx-n1");
+    var result = [];
+    var seen = {};
+    for (var i = 0; i < rows.size(); i++) {
+        var link = rows.get(i).selectFirst("h5 a[href*='/anime/']");
+        if (link === null) continue;
+        var id;
+        try { id = sessionId(S(link.attr("href")).replace(/^.*\/anime\//, "")); } catch (invalid) { continue; }
+        var name = S(link.attr("title") || link.text()).trim();
+        if (!name || seen[id]) continue;
+        seen[id] = true;
+        var img = rows.get(i).selectFirst("img");
+        var poster = img === null ? "" : S(img.attr("data-src") || img.attr("src")).trim();
+        var typeEl = rows.get(i).selectFirst("strong a");
+        var type = typeEl === null ? "" : S(typeEl.text()).trim().toLowerCase();
+        var yearMatch = /(19\d{2}|20\d{2})/.exec(S(rows.get(i).text()));
+        result.push({ id: id, title: name, posterUrl: poster.indexOf("http") === 0 ? poster : null, type: type && type !== "?" ? type : null, year: yearMatch === null ? null : parseInt(yearMatch[1], 10), episodeCount: null, status: null });
+    }
+    return result;
+}
+
 function merge(summary, details) {
     if (!summary) return details;
     var merged = title(details);
@@ -499,7 +524,13 @@ var Provider = {
 
     getById: function (id) {
         var session = sessionId(id);
-        var parsed = parseDetails(session, get("/anime/" + session, null));
+        var html = get("/anime/" + session, null);
+        var parsed = parseDetails(session, html);
+        var page = Jsoup.parse(html, BASE_URL);
+        var franchise = relatedCards(page, "anime-relation");
+        parsed.franchiseAnime = franchise;
+        parsed.relatedAnime = franchise;
+        parsed.similarAnime = relatedCards(page, "anime-recommendation");
         var mergedTitle = merge(summaries[session], parsed);
         summaries[session] = mergedTitle;
         return mergedTitle;

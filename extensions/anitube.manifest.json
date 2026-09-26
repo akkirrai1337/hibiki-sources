@@ -6,6 +6,6 @@
   "website": "https://anitube.in.ua",
   "iconUrl": "https://anitube.in.ua/favicon.ico",
   "lang": "uk",
-  "capabilities": ["LATEST_RELEASES", "PLAYBACK"],
+  "capabilities": ["LATEST_RELEASES", "PLAYBACK", "RELATED_TITLES"],
   "resolverDependencies": ["anitube-ashdi", "anitube-player"]
 }

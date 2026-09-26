@@ -166,6 +166,27 @@ function parseScreenshots(document) {
     return urls;
 }
 
+// The franchise block of the desktop page: each `article.fran` is wrapped in a link to that title's own story.
+function parseFranchise(document) {
+    var anchors = document.select("a:has(> article.fran)");
+    var result = [];
+    var seen = {};
+    for (var i = 0; i < anchors.size(); i++) {
+        var anchor = anchors.get(i);
+        var itemId;
+        try { itemId = normalizedTitleId(S(anchor.absUrl("href"))); } catch (invalid) { continue; }
+        var nameEl = anchor.selectFirst(".news_r_h .link");
+        var img = anchor.selectFirst("img");
+        var name = S(nameEl !== null ? nameEl.text() : (img !== null ? img.attr("alt") : "")).trim();
+        if (!name || seen[itemId]) continue;
+        seen[itemId] = true;
+        var poster = img === null ? "" : S(img.attr("data-src") || img.attr("src")).trim();
+        var yearMatch = /(19\d{2}|20\d{2})/.exec(S(anchor.text()));
+        result.push({ id: itemId, title: name, posterUrl: poster ? S(Jsoup.resolve(BASE_URL, poster)) : null, type: null, year: yearMatch === null ? null : parseInt(yearMatch[1], 10), episodeCount: null, status: null });
+    }
+    return result;
+}
+
 function getTitle(id) {
     id = normalizedTitleId(id);
     var html = request(titlePage(id));
@@ -174,14 +195,20 @@ function getTitle(id) {
     // The mobile page this source reads has no stills block; the desktop one does. Best effort, so a title
     // page never fails for want of its gallery.
     var screenshots = [];
+    var franchise = [];
     try {
-        screenshots = parseScreenshots(Jsoup.parse(request(titlePage(id), { headers: { "User-Agent": DESKTOP_USER_AGENT } }), BASE_URL));
+        var desktop = Jsoup.parse(request(titlePage(id), { headers: { "User-Agent": DESKTOP_USER_AGENT } }), BASE_URL);
+        screenshots = parseScreenshots(desktop);
+        franchise = parseFranchise(desktop);
     } catch (error) {
         screenshots = [];
+        franchise = [];
     }
     for (var i = 0; i < cards.length; i++) {
         if (cards[i].id === id) {
             cards[i].screenshots = screenshots;
+            cards[i].franchiseAnime = franchise;
+            cards[i].relatedAnime = franchise;
             return cards[i];
         }
     }
@@ -192,7 +219,7 @@ function getTitle(id) {
     var description = document.selectFirst("meta[property='og:description'], meta[name='description']");
     return title({ id: id, russianName: name, englishName: null, originalName: name,
         posterUrl: poster === null ? null : S(poster.attr("content")),
-        description: description === null ? null : S(description.attr("content")), genres: [], screenshots: screenshots });
+        description: description === null ? null : S(description.attr("content")), genres: [], screenshots: screenshots, franchiseAnime: franchise, relatedAnime: franchise });
 }
 
 function browserPlaylist(pageUrl, targetUrl, headers) {
