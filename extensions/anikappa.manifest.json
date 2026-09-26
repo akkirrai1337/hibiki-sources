@@ -7,6 +7,6 @@
   "website": "https://anikappa.in.ua",
   "iconUrl": "https://anikappa.in.ua/templates/AniKappa/images/favicon/favicon.ico",
   "lang": "uk",
-  "capabilities": ["LATEST_RELEASES", "PLAYBACK"],
+  "capabilities": ["LATEST_RELEASES", "PLAYBACK", "SIMILAR_TITLES"],
   "resolverDependencies": ["anitube-ashdi", "anitube-player"]
 }

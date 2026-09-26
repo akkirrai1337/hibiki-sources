@@ -9,6 +9,7 @@
     "resolverDependencies": ["aniboom", "aksor", "kodik"],
     "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES"
     ]
 }

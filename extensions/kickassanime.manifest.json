@@ -9,5 +9,5 @@
     "lang": "en",
     "resolverDependencies": ["kickassanime-player"],
     "payload": "",
-    "capabilities": ["LATEST_RELEASES", "PLAYBACK"]
+    "capabilities": ["LATEST_RELEASES", "PLAYBACK", "RELATED_TITLES"]
 }

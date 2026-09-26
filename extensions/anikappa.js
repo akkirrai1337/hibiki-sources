@@ -160,9 +160,15 @@ function field(document, label) {
     return null;
 }
 
+// A card as the short one the detail page lists.
+function relatedStub(card) {
+    return { id: card.id, title: card.russianName, posterUrl: card.posterUrl, type: card.type, year: card.year, episodeCount: null, status: null };
+}
+
 function details(id) {
     id = normalizedId(id);
-    var document = Jsoup.parse(request("/" + id), BASE_URL);
+    var html = request("/" + id);
+    var document = Jsoup.parse(html, BASE_URL);
     var heading = document.selectFirst(".fullstory__title, h1");
     if (heading === null) throw new Error("AniKappa title was not found: " + id);
     var name = S(heading.text()).trim();
@@ -187,7 +193,8 @@ function details(id) {
         year: yearMatch ? parseInt(yearMatch[0], 10) : null,
         type: typeOf(field(document, "Тип")), episodeCount: episodeCount ? parseInt(episodeCount, 10) : null,
         posterUrl: posterUrl, status: status.indexOf("вийш") >= 0 ? "released" : status.indexOf("онго") >= 0 ? "ongoing" : null,
-        description: description === null ? null : S(description.text()).trim(), genres: genres
+        description: description === null ? null : S(description.text()).trim(), genres: genres,
+        similarAnime: parseCards(html, ".related-news .shortstory__body").filter(function (card) { return card.id !== id; }).map(relatedStub)
     });
 }
 

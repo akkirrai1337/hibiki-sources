@@ -64,6 +64,25 @@ function toAnimeTitle(obj) {
     });
 }
 
+// A related title as the short card the detail page lists.
+function toRelatedStub(obj) {
+    var name = obj.title_en || obj.title;
+    if (!obj.slug || !name) return null;
+    return { id: obj.slug, title: name, posterUrl: posterUrl(obj.poster), type: obj.type || null, year: obj.year !== undefined ? obj.year : null, episodeCount: null, status: null };
+}
+
+// The site keeps a franchise's other entries behind their own request. Best effort: a title page must not
+// fail for want of them.
+function relatedOf(id) {
+    try {
+        var list = apiGet("/" + id + "/related");
+        if (!Array.isArray(list)) return [];
+        return list.map(toRelatedStub).filter(function (stub) { return stub !== null; });
+    } catch (error) {
+        return [];
+    }
+}
+
 function apiGet(path) {
     var response = fetch(API_URL + path, { headers: { "Accept": "application/json" } });
     if (!response.ok) throw new Error("KickAssAnime returned HTTP " + response.status + " for " + path);
@@ -193,7 +212,11 @@ var Provider = {
     },
 
     getById: function (id) {
-        return toAnimeTitle(apiGet("/" + id));
+        var result = toAnimeTitle(apiGet("/" + id));
+        var related = relatedOf(id);
+        result.franchiseAnime = related;
+        result.relatedAnime = related;
+        return result;
     },
 
     getSettings: function () {

@@ -94,6 +94,43 @@ function screenshotUrl(url) {
     return POSTER_PROXY_URL + "?url=" + encodeURIComponent(larger) + "&w=960&fit=inside&output=webp";
 }
 
+function relatedTypeOf(text) {
+    var value = S(text).trim().toLowerCase();
+    if (value.indexOf("сериал") >= 0) return "tv";
+    if (value.indexOf("фильм") >= 0) return "movie";
+    if (value.indexOf("ова") >= 0 || value === "ova") return "ova";
+    if (value.indexOf("ona") >= 0 || value.indexOf("она") >= 0) return "ona";
+    if (value.indexOf("спец") >= 0) return "special";
+    return null;
+}
+
+// The page's "Связанное" block: one item per related title (with how it relates, which is not kept).
+function parseRelated(document) {
+    var items = document.select(".seasons-item");
+    var result = [];
+    var seen = {};
+    for (var i = 0; i < items.size(); i++) {
+        var link = items.get(i).selectFirst("a.seasons__link[href]");
+        if (link === null) continue;
+        var id = animeSlugFromUrl(S(link.attr("href")));
+        var name = S(link.text()).trim();
+        if (id === null || !name || seen[id]) continue;
+        seen[id] = true;
+        var img = items.get(i).selectFirst("img");
+        // The block shows a thumbnail; the original is the same path without the size segment.
+        var full = img === null ? null : S(img.attr("src")).replace("/v/120x168/anime/", "/anime/");
+        var info = items.get(i).select(".seasons__info span");
+        var type = info.size() > 0 ? relatedTypeOf(info.get(0).text()) : null;
+        var year = null;
+        for (var k = 0; k < info.size(); k++) {
+            var yearMatch = /^(19\d{2}|20\d{2})$/.exec(S(info.get(k).text()).trim());
+            if (yearMatch !== null) year = parseInt(yearMatch[1], 10);
+        }
+        result.push({ id: id, title: name, posterUrl: full === null ? null : (toPosterProxyUrl(full) || full), type: type, year: year, episodeCount: null, status: null });
+    }
+    return result;
+}
+
 function animeSlugFromUrl(url) {
     var match = /\/anime\/([^/?]+)/.exec(url || "");
     if (match === null) return null;
@@ -215,6 +252,7 @@ function parseDetails(id, html) {
         if (!isNaN(parsedAvailable)) availableEpisodeCount = parsedAvailable;
     }
 
+    var related = parseRelated(document);
     var stillEls = document.select(".screenshots__item img");
     var screenshots = [];
     for (var k = 0; k < stillEls.size(); k++) {
@@ -239,6 +277,8 @@ function parseDetails(id, html) {
         description: description,
         genres: genres,
         screenshots: screenshots,
+        franchiseAnime: related,
+        relatedAnime: related,
         ratings: ratings,
         ageRating: schema.contentRating || null,
         sourceMaterial: fieldValue(document, "Первоисточник"),
