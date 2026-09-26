@@ -50,7 +50,8 @@
       "lang": "uk",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "SIMILAR_TITLES"
       ],
       "resolverDependencies": [
         "anitube-ashdi",
@@ -91,7 +92,8 @@
       "lang": "ru",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES"
       ],
       "resolverDependencies": [
         "aniboom",
@@ -391,7 +393,8 @@
       "lang": "en",
       "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES"
       ],
       "resolverDependencies": [
         "kickassanime-player"
