@@ -277,6 +277,41 @@ function parseCardList(html) {
     return results;
 }
 
+function relatedStubFromCard(card) {
+    if (card === null) return null;
+    return { id: card.id, title: card.englishName || card.originalName, posterUrl: card.posterUrl, type: card.type, year: null, episodeCount: null, status: null };
+}
+
+// The site's watch order (seasons, films, side stories): one request keyed by the numeric id, answering a
+// fragment of cards. Best effort - a title page must not fail for want of its franchise.
+function fetchWatchOrder(id, numericId) {
+    if (!numericId) return [];
+    try {
+        var response = fetch(BASE_URL + "/api/watch-order/" + numericId, {
+            headers: { "Referer": BASE_URL + "/anime/" + id, "User-Agent": BROWSER_USER_AGENT, "X-Requested-With": "XMLHttpRequest" },
+        });
+        if (!response.ok) return [];
+        var payload = JSON.parse(S(response.body));
+        if (!payload || payload.status !== 200 || !payload.result) return [];
+        var items = Jsoup.parseBodyFragment(S(payload.result), BASE_URL).select(".item.flexserieslist");
+        var result = [];
+        var seen = {};
+        for (var i = 0; i < items.size(); i++) {
+            var link = items.get(i).selectFirst("a.name[href], a[href*='/anime/']");
+            if (link === null) continue;
+            var itemId = idFromHref(S(link.absUrl("href")));
+            var img = items.get(i).selectFirst("img");
+            var name = S(link.text()).trim() || (img !== null ? S(img.attr("alt")).trim() : "");
+            if (itemId === null || !name || seen[itemId]) continue;
+            seen[itemId] = true;
+            result.push({ id: itemId, title: name, posterUrl: img === null ? null : S(img.absUrl("src")), type: null, year: null, episodeCount: null, status: null });
+        }
+        return result;
+    } catch (error) {
+        return [];
+    }
+}
+
 function parseDetails(id, html) {
     var document = Jsoup.parse(html, BASE_URL);
     var titleEl = document.selectFirst("h1.series-title");
@@ -325,6 +360,14 @@ function parseDetails(id, html) {
     var animeIdEl = document.selectFirst("[data-id][data-url]");
     var animeId = animeIdEl !== null ? S(animeIdEl.attr("data-id")).trim() : null;
 
+    var recommended = [];
+    var recoItems = document.select("#series-reco-grid > div.item");
+    for (var r = 0; r < recoItems.size(); r++) {
+        var stub = relatedStubFromCard(parseCard(recoItems.get(r)));
+        if (stub !== null) recommended.push(stub);
+    }
+    var franchise = fetchWatchOrder(id, animeId);
+
     return {
         titleData: title({
             id: id,
@@ -345,6 +388,9 @@ function parseDetails(id, html) {
             year: year,
             studios: studioField !== null ? [studioField] : [],
             ageRating: seriesFact(document, "Rating"),
+            franchiseAnime: franchise,
+            relatedAnime: franchise,
+            similarAnime: recommended,
         }),
         animeId: animeId,
     };

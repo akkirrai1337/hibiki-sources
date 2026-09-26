@@ -179,6 +179,64 @@ function loadCatalog(path) {
     return parseCards(request(path));
 }
 
+// A short card (the "Recommended" sidebar and the watch order share it): the title's slug, name, poster,
+// and the type / year the meta dots carry.
+function relatedStub(el) {
+    // The recommended cards are the link themselves; the watch-order ones contain it.
+    var link = S(el.attr("href")).indexOf("/watch/") >= 0 ? el : el.selectFirst("a[href*='/watch/']");
+    if (link === null) return null;
+    var id = slugFromHref(S(link.absUrl("href")));
+    if (!id) return null;
+    var img = el.selectFirst("img");
+    var nameEl = el.selectFirst(".name");
+    var name = S(nameEl !== null ? nameEl.text() : (img !== null ? img.attr("alt") : "")).trim();
+    if (!name) return null;
+    var type = null;
+    var year = null;
+    var dots = el.select(".meta .dot");
+    for (var k = 0; k < dots.size(); k++) {
+        var text = S(dots.get(k).text()).trim();
+        var yearMatch = /^(19\d{2}|20\d{2})$/.exec(text);
+        if (yearMatch !== null) year = parseInt(yearMatch[1], 10);
+        else if (type === null && /^(tv|movie|ova|ona|special)$/i.test(text)) type = normalizeType(text);
+    }
+    return { id: id, title: name, posterUrl: img === null ? null : S(img.absUrl("src")), type: type, year: year, episodeCount: null, status: null };
+}
+
+function stubsFrom(elements) {
+    var result = [];
+    var seen = {};
+    for (var i = 0; i < elements.size(); i++) {
+        var stub = relatedStub(elements.get(i));
+        if (stub === null || seen[stub.id]) continue;
+        seen[stub.id] = true;
+        result.push(stub);
+    }
+    return result;
+}
+
+function parseRecommended(document) {
+    var sections = document.select(".w-side-section");
+    for (var i = 0; i < sections.size(); i++) {
+        var head = sections.get(i).selectFirst(".head .title");
+        if (head !== null && S(head.text()).trim().toLowerCase() === "recommended") return stubsFrom(sections.get(i).select(".body a.item"));
+    }
+    return [];
+}
+
+// The site's own watch order (seasons, films, side stories), a separate request keyed by the numeric id.
+// Best effort: a title page must not fail for want of its franchise.
+function fetchWatchOrder(id, numericId) {
+    if (!numericId) return [];
+    try {
+        var payload = JSON.parse(request("/api/watch-order/" + numericId, BASE_URL + "/watch/" + id));
+        if (!payload || payload.status !== 200 || !payload.result) return [];
+        return stubsFrom(Jsoup.parseBodyFragment(S(payload.result), BASE_URL).select(".item.flexserieslist"));
+    } catch (error) {
+        return [];
+    }
+}
+
 function parseDetails(id, html) {
     var document = Jsoup.parse(html, BASE_URL);
     var heading = document.selectFirst("h1.title.d-title, h1[itemprop=name]");
@@ -205,6 +263,7 @@ function parseDetails(id, html) {
     var type = normalizeType(metaValue("Type"));
     var animeId = document.selectFirst("#watch-main[data-id]");
     if (animeId !== null) titleIds[id] = S(animeId.attr("data-id"));
+    var franchise = fetchWatchOrder(id, titleIds[id]);
     return title({
         id: id,
         englishName: name,
@@ -217,6 +276,9 @@ function parseDetails(id, html) {
         posterUrl: poster === null ? null : S(poster.absUrl("src")),
         description: synopsis === null ? null : S(synopsis.text()).trim(),
         genres: genres,
+        franchiseAnime: franchise,
+        relatedAnime: franchise,
+        similarAnime: parseRecommended(document),
     });
 }
 

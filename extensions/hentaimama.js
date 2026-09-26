@@ -198,6 +198,25 @@ function meta(document, property) {
     return value && value.trim().length > 0 ? value.trim() : null;
 }
 
+// The page's own "Similar titles" block: one card per title, linking to its show page.
+function parseSimilar(html) {
+    var document = Jsoup.parse(html, BASE_URL);
+    var cards = document.select(".ep-sim-card");
+    var result = [];
+    var seen = {};
+    for (var i = 0; i < cards.size(); i++) {
+        var card = cards.get(i);
+        var id = pathFromUrl(S(card.absUrl("href")));
+        var nameEl = card.selectFirst(".ep-sim-name");
+        var img = card.selectFirst("img");
+        var name = S(nameEl !== null ? nameEl.text() : (img !== null ? img.attr("alt") : "")).trim();
+        if (id.indexOf("tvshows/") !== 0 || !name || seen[id]) continue;
+        seen[id] = true;
+        result.push({ id: id, title: name, posterUrl: img === null ? null : S(img.absUrl("src")), type: null, year: null, episodeCount: null, status: null });
+    }
+    return result;
+}
+
 function parseDetails(id, html) {
     var document = Jsoup.parse(html, BASE_URL);
     var heading = document.selectFirst(".dtsingle h1, h1");
@@ -336,7 +355,9 @@ var Provider = {
     getById: function (id) {
         var cleanId = pathFromUrl(id);
         if (cleanId.indexOf("tvshows/") !== 0) throw new Error("HentaiMama title id is invalid: " + id);
-        var parsed = parseDetails(cleanId, request(absolute(cleanId)));
+        var html = request(absolute(cleanId));
+        var parsed = parseDetails(cleanId, html);
+        parsed.similarAnime = parseSimilar(html);
         summaries[cleanId] = parsed;
         return parsed;
     },

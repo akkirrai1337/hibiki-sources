@@ -8,7 +8,9 @@
     "lang": "en",
     "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES",
+        "SIMILAR_TITLES"
     ],
     "resolverDependencies": [
         "animepahe-player"

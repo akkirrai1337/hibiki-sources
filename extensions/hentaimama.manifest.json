@@ -9,6 +9,7 @@
     "isNsfw": true,
     "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "SIMILAR_TITLES"
     ]
 }

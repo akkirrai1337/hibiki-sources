@@ -9,6 +9,8 @@
     "resolverDependencies": ["animepahe-player"],
     "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES",
+        "SIMILAR_TITLES"
     ]
 }

@@ -110,6 +110,31 @@ function parseCardList(html) {
     return results;
 }
 
+// The "Recommended Series" box under a title: the same `article.bs` cards the catalog uses.
+function parseRecommended(html) {
+    var document = Jsoup.parse(html, BASE_URL);
+    var boxes = document.select(".bixbox");
+    var result = [];
+    var seen = {};
+    for (var b = 0; b < boxes.size(); b++) {
+        var head = boxes.get(b).selectFirst(".releases h3 span");
+        if (head === null || S(head.text()).trim().toLowerCase() !== "recommended series") continue;
+        var cards = boxes.get(b).select("article.bs a[href*='/anime/']");
+        for (var i = 0; i < cards.size(); i++) {
+            var link = cards.get(i);
+            var match = /\/anime\/([^/]+)\/?$/.exec(S(link.absUrl("href")));
+            var name = S(link.attr("title")).trim();
+            if (match === null || !name || seen[match[1]]) continue;
+            seen[match[1]] = true;
+            var img = link.selectFirst("img");
+            var poster = img === null ? "" : S(img.attr("data-src") || img.attr("src")).trim();
+            var typeEl = link.selectFirst(".typez");
+            result.push({ id: match[1], title: name, posterUrl: poster.indexOf("http") === 0 ? poster : null, type: typeEl === null ? null : S(typeEl.text()).trim().toLowerCase(), year: null, episodeCount: null, status: null });
+        }
+    }
+    return result;
+}
+
 function parseDetails(id, html) {
     var document = Jsoup.parse(html, BASE_URL);
     var heading = document.selectFirst(".infox h1.entry-title");
@@ -329,8 +354,10 @@ var Provider = {
 
     getById: function (id) {
         var path = String(id).trim();
-        var details = parseDetails(path, getHtml("/anime/" + path + "/"));
+        var html = getHtml("/anime/" + path + "/");
+        var details = parseDetails(path, html);
         if (details === null) throw new Error("DonghuaStream title was not found: " + id);
+        details.similarAnime = parseRecommended(html);
         return details;
     },
 

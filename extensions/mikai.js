@@ -93,6 +93,14 @@ function toTitle(item) {
     });
 }
 
+// A similar title as the short card the detail page lists: the catalog shape, cut down.
+function toRelatedStub(item) {
+    var card = toTitle(item);
+    var name = card.russianName || card.englishName || card.originalName;
+    if (!card.id || !name) return null;
+    return { id: card.id, title: name, posterUrl: card.posterUrl, type: card.type, year: card.year, episodeCount: card.episodeCount, status: card.status };
+}
+
 function queryValue(value) { return encodeURIComponent(S(value)); }
 
 function sortParams(sort) {
@@ -192,7 +200,12 @@ var Provider = {
         };
     },
 
-    getById: function (id) { return toTitle(api("/anime/" + queryValue(id))); },
+    getById: function (id) {
+        var item = api("/anime/" + queryValue(id));
+        var result = toTitle(item);
+        result.similarAnime = (item.similar || []).map(toRelatedStub).filter(function (stub) { return stub !== null; });
+        return result;
+    },
 
     getPlaybackGroups: function (titleId) {
         var releases = player(titleId).releases || [];

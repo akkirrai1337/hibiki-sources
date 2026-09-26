@@ -8,6 +8,7 @@
     "lang": "ru",
     "capabilities": [
         "LATEST_RELEASES",
-        "PLAYBACK"
+        "PLAYBACK",
+        "RELATED_TITLES"
     ]
 }

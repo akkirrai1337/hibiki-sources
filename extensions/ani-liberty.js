@@ -129,6 +129,26 @@ function toTitle(value) {
     });
 }
 
+// The releases of the franchise this one belongs to, in the site's own order (seasons, films, spin-offs).
+// Best effort: a release page must not fail for want of its franchise.
+function franchiseOf(releaseId) {
+    try {
+        var json = mirrorRequest("/anime/franchises/release/" + releaseId, null);
+        var franchises = Array.isArray(json) ? json : [];
+        if (franchises.length === 0) return [];
+        var entries = (franchises[0].franchise_releases || []).slice().sort(function (a, b) { return (a.sort_order || 0) - (b.sort_order || 0); });
+        var result = [];
+        for (var i = 0; i < entries.length; i++) {
+            var card = toTitle(entries[i].release);
+            if (card === null) continue;
+            result.push({ id: card.id, title: card.russianName || card.englishName || card.originalName, posterUrl: card.posterUrl, type: card.type, year: card.year, episodeCount: card.episodeCount, status: card.status });
+        }
+        return result;
+    } catch (error) {
+        return [];
+    }
+}
+
 function toAniLibertySorting(sort) {
     switch (sort) {
         case "rating": return "RATING_DESC";
@@ -234,6 +254,9 @@ var Provider = {
         var json = mirrorRequest("/anime/releases/" + releaseId, null);
         var t = toTitle(releaseObject(json));
         if (t === null) throw new Error("AniLiberty returned an invalid release: " + id);
+        var franchise = franchiseOf(releaseId);
+        t.franchiseAnime = franchise;
+        t.relatedAnime = franchise;
         return t;
     },
 

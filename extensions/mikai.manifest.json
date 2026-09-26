@@ -7,6 +7,6 @@
   "website": "https://mikai.me",
   "iconUrl": "https://mikai.me/favicon.ico",
   "lang": "uk",
-  "capabilities": ["LATEST_RELEASES", "PLAYBACK"],
+  "capabilities": ["LATEST_RELEASES", "PLAYBACK", "SIMILAR_TITLES"],
   "resolverDependencies": ["anitube-ashdi", "anitube-player"]
 }
