@@ -4,7 +4,7 @@
     {
       "id": "ani-liberty",
       "name": "AniLiberty",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Hibiki",
       "website": "https://anilibria.top",
       "iconUrl": "https://anilibria.top/favicon.ico",
@@ -21,7 +21,7 @@
     {
       "id": "anichi",
       "name": "Anichi",
-      "version": "1.0.14",
+      "version": "1.0.16",
       "author": "Hibiki",
       "website": "https://anichi.to",
       "iconUrl": "https://anichi.to/favicon.ico",
@@ -40,7 +40,7 @@
     {
       "id": "anikappa",
       "name": "AniKappa",
-      "version": "1.0.15",
+      "version": "1.0.16",
       "author": "Hibiki",
       "website": "https://anikappa.in.ua",
       "iconUrl": "https://anikappa.in.ua/templates/AniKappa/images/favicon/favicon.ico",
@@ -60,7 +60,7 @@
     {
       "id": "anikoto",
       "name": "AniKoto",
-      "version": "1.0.5",
+      "version": "1.0.7",
       "author": "Hibiki",
       "website": "https://anikototv.to",
       "iconUrl": "https://anikototv.to/AnikotoTheme/assets/images/favicon.png",
@@ -79,7 +79,7 @@
     {
       "id": "animego",
       "name": "AnimeGo",
-      "version": "1.0.11",
+      "version": "1.0.12",
       "author": "Hibiki",
       "website": "https://animego.me",
       "iconUrl": "https://animego.me/favicon.ico",
@@ -100,7 +100,7 @@
     {
       "id": "animelib",
       "name": "AnimeLib",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "Hibiki",
       "website": "https://anilib.me",
       "iconUrl": "https://anilib.me/favicon.ico",
@@ -121,7 +121,7 @@
     {
       "id": "animepahe",
       "name": "AnimePahe",
-      "version": "1.0.14",
+      "version": "1.0.15",
       "author": "Hibiki",
       "website": "https://animepahetv.to",
       "iconUrl": "https://animepahetv.to/favicon.ico",
@@ -140,7 +140,7 @@
     {
       "id": "animevost",
       "name": "AnimeVost",
-      "version": "1.0.5",
+      "version": "1.0.7",
       "author": "Hibiki",
       "website": "https://animevost.org",
       "iconUrl": "https://animevost.org/favicon.ico",
@@ -157,7 +157,7 @@
     {
       "id": "anitube",
       "name": "AniTube",
-      "version": "1.0.15",
+      "version": "1.0.16",
       "author": "Hibiki",
       "website": "https://anitube.in.ua",
       "iconUrl": "https://anitube.in.ua/favicon.ico",
@@ -177,7 +177,7 @@
     {
       "id": "anixart",
       "name": "Anixart",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "Hibiki",
       "website": "https://anixart.tv",
       "iconUrl": "https://anixart.tv/favicon.ico",
@@ -198,7 +198,7 @@
     {
       "id": "donghuastream",
       "name": "DonghuaStream",
-      "version": "1.0.6",
+      "version": "1.0.8",
       "author": "Hibiki",
       "website": "https://donghuastream.org",
       "iconUrl": "https://donghuastream.org/favicon.ico",
@@ -357,7 +357,7 @@
     {
       "id": "hentaimama",
       "name": "HentaiMama",
-      "version": "1.0.6",
+      "version": "1.0.8",
       "author": "Hibiki",
       "website": "https://hentaimama.io",
       "iconUrl": "https://hentaimama.io/wp-content/themes/dooplay/assets/img/favicon.png?v=3",
@@ -374,7 +374,7 @@
     {
       "id": "kickassanime",
       "name": "KickAssAnime",
-      "version": "1.0.14",
+      "version": "1.0.16",
       "author": "Hibiki",
       "website": "https://kaa.lt",
       "iconUrl": "https://kaa.lt/favicon.ico",
@@ -393,7 +393,7 @@
     {
       "id": "mikai",
       "name": "Mikai",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "author": "Hibiki",
       "website": "https://mikai.me",
       "iconUrl": "https://mikai.me/favicon.ico",
@@ -413,7 +413,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.3.12",
+      "version": "1.3.13",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",
