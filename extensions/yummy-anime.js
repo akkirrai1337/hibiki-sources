@@ -231,6 +231,22 @@ function toAccount(profile) {
     };
 }
 
+// Shared tail of both login paths (password and web) - store the token, make sure it actually
+// works by reading the profile back, and roll back cleanly if it doesn't. A token that cannot
+// fetch its own profile is not a session worth keeping.
+function adoptToken(token) {
+    storage.set(TOKEN_KEY, String(token));
+    try {
+        var account = toAccount(callApi("GET", "/profile", null));
+        if (account) return account;
+    } catch (e) {
+        storage.remove(TOKEN_KEY);
+        throw e;
+    }
+    storage.remove(TOKEN_KEY);
+    throw new Error("YummyAnime returned an unexpected profile");
+}
+
 function normalize(value) {
     if (value === null || value === undefined) return null;
     var trimmed = String(value).trim();
@@ -689,19 +705,28 @@ var Provider = {
         var parsed = JSON.parse(S(response.body));
         var token = parsed && parsed.response ? parsed.response.token : null;
         if (!token) throw new Error("YummyAnime did not return a session token");
-        storage.set(TOKEN_KEY, String(token));
+        return adoptToken(token);
+    },
 
-        // Read the profile back, so a caller gets a name and an avatar rather than just "it
-        // worked". A token that cannot fetch its own profile is not a session worth keeping.
-        try {
-            var account = toAccount(callApi("GET", "/profile", null));
-            if (account) return account;
-        } catch (e) {
-            storage.remove(TOKEN_KEY);
-            throw e;
+    /**
+     * Account, the web-login way: a real sign-in window on this site's own login page (VK,
+     * Telegram, Discord, Shikimori, a passkey - whatever it actually offers, none of which a
+     * login+password pair above could ever reach) instead of collecting a password here at all.
+     *
+     * The window hands back every cookie its partition holds once `yummy_token` shows up among
+     * them (see the ACCOUNT setting's webLoginSuccessCookie in the manifest) - that cookie's value
+     * is the exact same JWT `login()` above gets back as `response.token` in the ordinary
+     * login+password flow, so from here on both paths converge on the one adoptToken() below.
+     */
+    loginWeb: function (json) {
+        if (!hasStorage()) throw new Error("This app cannot store a session for YummyAnime");
+        var cookies = JSON.parse(json) || [];
+        var token = null;
+        for (var i = 0; i < cookies.length; i++) {
+            if (cookies[i] && cookies[i].name === "yummy_token") { token = cookies[i].value; break; }
         }
-        storage.remove(TOKEN_KEY);
-        throw new Error("YummyAnime returned an unexpected profile");
+        if (!token) throw new Error("YummyAnime did not set its session cookie");
+        return adoptToken(token);
     },
 
     logout: function () {
