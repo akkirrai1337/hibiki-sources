@@ -750,9 +750,18 @@ var Provider = {
                 var href = state && state.list ? String(state.list.href || "") : "";
                 // A title can be favourited and also sit in a list; this app has one category per
                 // row, and being marked a favourite is the more specific of the two.
+                //
+                // A list this app doesn't recognize (the site's own "saved" - see the comment by
+                // LIST_ID_BY_CATEGORY above) still means the title is sitting in the account's
+                // library, just not one of the five states this app draws distinct columns for.
+                // Falling back to "planned" keeps it visible as *something* to work with instead
+                // of silently vanishing from what looks, from here, like a complete list - only a
+                // title in no list at all (href empty) is genuinely not part of the library.
                 var category = (state && state.is_fav)
                     ? "favorite"
-                    : (CATEGORY_BY_LIST_HREF[href] || null);
+                    : href
+                        ? (CATEGORY_BY_LIST_HREF[href] || "planned")
+                        : null;
                 if (!category) continue;
                 out.push({
                     animeId: String(item.anime_id),
