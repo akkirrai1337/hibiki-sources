@@ -1,6 +1,7 @@
 // Alloha still owns the short-lived Borth signature, so let its browser context create one.
 // Unlike the legacy extractor, this reads the HLS URLs directly from the API response already
-// held in the player config. It does not toggle quality, play video, or wait for segment requests.
+// held in the player config - every audio track and mirror it lists. It does not toggle quality,
+// play video, or wait for segment requests.
 var ALLOHA_DIRECT_SCRIPT = [
     "(function () {",
     "    function findPlayer() {",
@@ -16,18 +17,36 @@ var ALLOHA_DIRECT_SCRIPT = [
     "    var player = findPlayer();",
     "    var sources = player && player.config && player.config.hlsSource;",
     "    if (!sources || !sources.length) return 'no-player';",
-    "    var selected = null;",
-    "    for (var i = 0; i < sources.length; i++) { if (sources[i] && sources[i].default === true) { selected = sources[i]; break; } }",
-    "    if (!selected) selected = sources[0];",
-    "    var qualities = selected && selected.quality;",
-    "    if (!qualities || typeof qualities !== 'object') return 'no-player';",
+    // Some episodes carry several entries here: the same video with different sound (Alloha's
+    // audio tracks). Each becomes its own set of streams, labelled through HibikiResolver.track;
+    // an app without that call gets only the default one, as before.
+    "    var canLabel = typeof HibikiResolver.track === 'function';",
+    "    var ordered = [];",
+    "    for (var i = 0; i < sources.length; i++) { if (sources[i] && sources[i].default === true) { ordered.push(sources[i]); break; } }",
+    "    for (var j = 0; j < sources.length; j++) { if (sources[j] && ordered.indexOf(sources[j]) < 0) ordered.push(sources[j]); }",
+    "    if (!canLabel) ordered = ordered.slice(0, 1);",
+    "    var labelled = canLabel && ordered.length > 1;",
+    "    var usedLabels = {};",
     "    var emitted = 0;",
-    "    Object.keys(qualities).sort(function (a, b) { return Number(b) - Number(a); }).forEach(function (quality) {",
-    "        var url = String(qualities[quality] || '').trim();",
-    "        if (!/^https?:\\/\\//i.test(url) || !/\\.m3u8(?:[?#]|$)/i.test(url)) return;",
-    "        HibikiResolver.quality(String(quality) + 'p');",
-    "        HibikiResolver.master(url);",
-    "        emitted++;",
+    "    ordered.forEach(function (source, index) {",
+    "        var qualities = source.quality;",
+    "        if (!qualities || typeof qualities !== 'object') return;",
+    "        if (labelled) {",
+    "            var label = String(source.label || '').trim() || ('Audio ' + (index + 1));",
+    "            if (usedLabels[label]) label = label + ' (' + (index + 1) + ')';",
+    "            usedLabels[label] = true;",
+    "            HibikiResolver.track(label);",
+    "        }",
+    "        Object.keys(qualities).sort(function (a, b) { return Number(b) - Number(a); }).forEach(function (quality) {",
+    // A quality may list a mirror as "<url> or <url>": the first is the stream, the rest stand by.
+    "            String(qualities[quality] || '').split(/\\s+or\\s+/).forEach(function (part) {",
+    "                var url = part.trim();",
+    "                if (!/^https?:\\/\\//i.test(url) || !/\\.m3u8(?:[?#]|$)/i.test(url)) return;",
+    "                HibikiResolver.quality(String(quality) + 'p');",
+    "                HibikiResolver.master(url);",
+    "                emitted++;",
+    "            });",
+    "        });",
     "    });",
     "    if (!emitted) return 'no-player';",
     "    HibikiResolver.done();",

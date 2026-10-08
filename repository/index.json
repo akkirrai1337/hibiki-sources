@@ -242,7 +242,7 @@
     {
       "id": "alloha",
       "name": "Alloha browser resolver",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": null,
       "website": null,
       "iconUrl": null,
@@ -427,7 +427,7 @@
     {
       "id": "yummy-anime",
       "name": "YummyAnime",
-      "version": "1.3.16",
+      "version": "1.3.17",
       "author": "Hibiki",
       "website": "https://ru.yummyani.me",
       "iconUrl": "https://yummyani.me/favicon.ico",
