@@ -54,6 +54,21 @@ var ALLOHA_DIRECT_SCRIPT = [
     "})();",
 ].join("\n");
 
+// Third-party ads and trackers the player page pulls in (Google's IMA SDK and ad servers, analytics,
+// its own play logger). The links come from Alloha's own API call, which none of these take part
+// in; blocked, they are neither downloaded nor run in the hidden browser. The player's own scripts
+// (alloha.yani.tv) and the video CDN are not on the list.
+var BLOCK_HOSTS = [
+    "imasdk.googleapis.com",
+    "doubleclick.net",
+    "googlesyndication.com",
+    "googleadservices.com",
+    "google-analytics.com",
+    "googletagmanager.com",
+    "mc.yandex.ru",
+    "ipchanger.live"
+];
+
 var Provider = {
     browserScript: function (linkJson) {
         // This player needs its embed to be a real child frame of an origin-local page.
@@ -65,7 +80,8 @@ var Provider = {
             if (!origin) return ALLOHA_DIRECT_SCRIPT;
             return "hibiki-browser-resolver:v1:" + JSON.stringify({
                 script: ALLOHA_DIRECT_SCRIPT,
-                parentUrl: origin[0] + "/"
+                parentUrl: origin[0] + "/",
+                blockHosts: BLOCK_HOSTS
             });
         } catch (e) {
             return ALLOHA_DIRECT_SCRIPT;
