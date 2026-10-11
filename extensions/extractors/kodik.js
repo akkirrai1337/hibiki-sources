@@ -171,12 +171,191 @@ function formEncode(params) {
     return parts.join("&");
 }
 
+// POSTs one episode's form to /ftor and turns the answer into streams. `html` is the player page
+// the form came from, for finding a moved /ftor alias; null when there was none (data saver).
+function requestStreams(pageOrigin, pageUrl, pageHeaders, formParams, cookieHeader, html, segments) {
+    var postHeaders = mergeHeaders(pageHeaders, {
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Origin": pageOrigin,
+        "Referer": pageUrl,
+        "X-Requested-With": "XMLHttpRequest",
+        "Content-Type": "application/x-www-form-urlencoded",
+    });
+    if (cookieHeader) postHeaders.Cookie = cookieHeader;
+
+    var requestBody = formEncode(formParams);
+    function postTo(endpointUrl) {
+        var response = fetch(endpointUrl, { method: "POST", headers: postHeaders, body: requestBody });
+        if (!response.ok) return null;
+        // A 200 that isn't the payload counts as a miss too, not as success: if Kodik ever
+        // leaves /ftor answering with something else after moving the real endpoint, that has
+        // to send us looking for the alias rather than throwing out of the whole resolve.
+        var parsed;
+        try { parsed = JSON.parse(S(response.body)); } catch (e) { return null; }
+        return parsed && parsed.links ? parsed : null;
+    }
+
+    var defaultEndpoint = pageOrigin + "/ftor";
+    var ftor = postTo(defaultEndpoint);
+    if (ftor === null) {
+        // Only now is the player script worth its download - see resolveEndpointUrl above. With no
+        // player page at hand (the data-saver path) there is nothing to find it in: the caller
+        // falls back to the full resolve, which has one.
+        if (html === null) throw new Error("Kodik rejected " + defaultEndpoint);
+        var aliasEndpoint = resolveEndpointUrl(html, pageUrl, pageOrigin, pageHeaders);
+        if (aliasEndpoint === defaultEndpoint) throw new Error("Kodik rejected " + defaultEndpoint);
+        ftor = postTo(aliasEndpoint);
+        if (ftor === null) throw new Error("Kodik rejected both " + defaultEndpoint + " and " + aliasEndpoint);
+    }
+    var links = ftor.links || {};
+    var candidates = [];
+    var seen = {};
+    for (var quality in links) {
+        var numericQuality = qualityValue(quality);
+        if (numericQuality === null) continue;
+        var items = links[quality] || [];
+        for (var idx = 0; idx < items.length; idx++) {
+            var item = items[idx];
+            if (!item.src) continue;
+            var url = Url.decodeShifted(item.src);
+            var actualQuality = manifestQuality(url);
+            var qualityLabel = (actualQuality === null ? numericQuality : actualQuality) + "p";
+            var key = qualityLabel + "|" + url;
+            if (seen[key]) continue;
+            seen[key] = true;
+            candidates.push({
+                url: url, type: streamTypeFor(item.type, url), quality: qualityLabel,
+                headers: buildPlaybackHeaders(pageHeaders, pageUrl), segments: segments,
+            });
+        }
+    }
+    candidates.sort(function (a, b) { return (qualityValue(b.quality) || 0) - (qualityValue(a.quality) || 0); });
+    if (candidates.length === 0) throw new Error("Kodik returned no playable qualities");
+    return candidates;
+}
+
+// Data saver: Kodik without its per-episode player page.
+//
+// /ftor only needs two things the page holds: the referrer's signed urlParams (d_sign and the rest,
+// valid for about two days - the ":YYMMDDhhmm" at their end) and the episode's own id/hash. The
+// season page (the same URL without only_episode/episode) lists the id/hash of every episode at
+// once, so it is read once per season and kept; every episode after that costs one POST (~7KB)
+// instead of a page (~18KB) and a POST. What is lost is the skip-opening timecodes, which only the
+// per-episode page carries - a source's own (YummyAnime's) still come through on the link.
+var SEASON_CACHE_PREFIX = "season:";
+var SEASON_CACHE_MAX_MS = 24 * 60 * 60 * 1000;
+// The signatures' expiry is read without knowing Kodik's time zone; stop trusting them well before.
+var SIGN_EXPIRY_MARGIN_MS = 4 * 60 * 60 * 1000;
+
+function hasStorage() {
+    return typeof storage === "object" && storage !== null && typeof storage.get === "function";
+}
+
+function signExpiry(sign) {
+    var match = /:(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(String(sign || ""));
+    if (match === null) return null;
+    return Date.UTC(2000 + Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5]));
+}
+
+function parseSeasonEpisodes(html) {
+    var episodes = {};
+    var pattern = /<option[^>]*?value="([^"]+)"[^>]*?data-id="(\d+)"[^>]*?data-hash="([0-9a-f]+)"/g;
+    var match;
+    while ((match = pattern.exec(html)) !== null) episodes[match[1]] = { id: match[2], hash: match[3] };
+    return episodes;
+}
+
+function readSeason(key) {
+    if (!hasStorage()) return null;
+    var raw = storage.get(key);
+    if (!raw) return null;
+    var entry;
+    try { entry = JSON.parse(raw); } catch (e) { return null; }
+    return entry && entry.expiresAt > Date.now() ? entry : null;
+}
+
+function loadSeason(seasonUrl, pageHeaders, key) {
+    var response = fetch(seasonUrl, {
+        headers: mergeHeaders(pageHeaders, { "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" }),
+    });
+    if (!response.ok) return null;
+    var html = S(response.body);
+    var paramsMatch = /\burlParams\s*=\s*'([^']+)'/.exec(html);
+    if (paramsMatch === null) return null;
+    var rawParams = JSON.parse(paramsMatch[1]);
+    var urlParams = {};
+    for (var i = 0; i < REQUIRED_URL_PARAM_KEYS.length; i++) {
+        var name = REQUIRED_URL_PARAM_KEYS[i];
+        if (!(name in rawParams)) return null;
+        var value = S(rawParams[name]);
+        urlParams[name] = name === "ref" ? decodeUrlParamIfNeeded(value) : value;
+    }
+    var expiry = signExpiry(urlParams.d_sign);
+    var expiresAt = Math.min(
+        Date.now() + SEASON_CACHE_MAX_MS,
+        expiry === null ? Date.now() + 60 * 60 * 1000 : expiry - SIGN_EXPIRY_MARGIN_MS
+    );
+    var entry = { urlParams: urlParams, episodes: parseSeasonEpisodes(html), expiresAt: expiresAt };
+    if (hasStorage() && expiresAt > Date.now()) storage.set(key, JSON.stringify(entry));
+    return entry;
+}
+
+// Streams for a /season/... link, or null when this link can't take the light path (the caller
+// then resolves it the full way).
+function resolveLite(pageUrl, pageOrigin, pageHeaders) {
+    var match = /\/season\/(\d+)\/([0-9a-f]+)(\/[^?#]*)?(?:\?([^#]*))?/.exec(pageUrl);
+    if (match === null) return null;
+    var query = match[4] || "";
+    var episodeMatch = /(?:^|&)episode=([^&]+)/.exec(query);
+    if (episodeMatch === null) return null;
+    var episode = decodeURIComponent(episodeMatch[1]);
+    var seasonQuery = query.split("&").filter(function (part) {
+        return part.length > 0 && !/^(episode|only_episode)=/.test(part);
+    }).join("&");
+    var seasonUrl = pageOrigin + "/season/" + match[1] + "/" + match[2] + (match[3] || "") + (seasonQuery ? "?" + seasonQuery : "");
+    // The signatures belong to the site embedding the player, so one season is kept per referrer.
+    var key = SEASON_CACHE_PREFIX + match[1] + ":" + match[2] + ":" + (pageHeaders["Referer"] || "");
+
+    var season = readSeason(key);
+    // Not cached yet, or cached before this episode came out.
+    if (season === null || !season.episodes[episode]) season = loadSeason(seasonUrl, pageHeaders, key);
+    if (season === null || !season.episodes[episode]) return null;
+
+    var target = season.episodes[episode];
+    var formParams = {};
+    for (var i = 0; i < REQUIRED_URL_PARAM_KEYS.length; i++) {
+        formParams[REQUIRED_URL_PARAM_KEYS[i]] = season.urlParams[REQUIRED_URL_PARAM_KEYS[i]];
+    }
+    formParams.bad_user = "false";
+    formParams.cdn_is_working = "false";
+    formParams.type = "seria";
+    formParams.hash = target.hash;
+    formParams.id = target.id;
+    formParams.info = "{}";
+    try {
+        return requestStreams(pageOrigin, pageUrl, pageHeaders, formParams, null, null, []);
+    } catch (error) {
+        // Signatures Kodik no longer takes: forget them, so the next episode reads them anew.
+        if (hasStorage()) storage.remove(key);
+        throw error;
+    }
+}
+
 var Provider = {
     resolve: function (linkJson) {
         var link = JSON.parse(linkJson);
         var pageUrl = Url.normalize(link.url);
         var pageOrigin = Url.origin(pageUrl);
         var pageHeaders = link.headers || {};
+
+        if (link.dataSaver) {
+            try {
+                var lite = resolveLite(pageUrl, pageOrigin, pageHeaders);
+                if (lite !== null) return lite;
+            } catch (ignored) {
+                // The full resolve below still works whenever the light one doesn't.
+            }
+        }
 
         var pageResponse = fetch(pageUrl, {
             headers: mergeHeaders(pageHeaders, { "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" }),
@@ -208,60 +387,6 @@ var Provider = {
         formParams.id = pageInfo.videoId;
         formParams.info = "{}";
 
-        var postHeaders = mergeHeaders(pageHeaders, {
-            "Accept": "application/json, text/javascript, */*; q=0.01",
-            "Origin": pageOrigin,
-            "Referer": pageUrl,
-            "X-Requested-With": "XMLHttpRequest",
-            "Content-Type": "application/x-www-form-urlencoded",
-        });
-        if (cookieHeader) postHeaders.Cookie = cookieHeader;
-
-        var requestBody = formEncode(formParams);
-        function postTo(endpointUrl) {
-            var response = fetch(endpointUrl, { method: "POST", headers: postHeaders, body: requestBody });
-            if (!response.ok) return null;
-            // A 200 that isn't the payload counts as a miss too, not as success: if Kodik ever
-            // leaves /ftor answering with something else after moving the real endpoint, that has
-            // to send us looking for the alias rather than throwing out of the whole resolve.
-            var parsed;
-            try { parsed = JSON.parse(S(response.body)); } catch (e) { return null; }
-            return parsed && parsed.links ? parsed : null;
-        }
-
-        var defaultEndpoint = pageOrigin + "/ftor";
-        var ftor = postTo(defaultEndpoint);
-        if (ftor === null) {
-            // Only now is the player script worth its download - see resolveEndpointUrl above.
-            var aliasEndpoint = resolveEndpointUrl(html, pageUrl, pageOrigin, pageHeaders);
-            if (aliasEndpoint === defaultEndpoint) throw new Error("Kodik rejected " + defaultEndpoint);
-            ftor = postTo(aliasEndpoint);
-            if (ftor === null) throw new Error("Kodik rejected both " + defaultEndpoint + " and " + aliasEndpoint);
-        }
-        var links = ftor.links || {};
-        var candidates = [];
-        var seen = {};
-        for (var quality in links) {
-            var numericQuality = qualityValue(quality);
-            if (numericQuality === null) continue;
-            var items = links[quality] || [];
-            for (var idx = 0; idx < items.length; idx++) {
-                var item = items[idx];
-                if (!item.src) continue;
-                var url = Url.decodeShifted(item.src);
-                var actualQuality = manifestQuality(url);
-                var qualityLabel = (actualQuality === null ? numericQuality : actualQuality) + "p";
-                var key = qualityLabel + "|" + url;
-                if (seen[key]) continue;
-                seen[key] = true;
-                candidates.push({
-                    url: url, type: streamTypeFor(item.type, url), quality: qualityLabel,
-                    headers: buildPlaybackHeaders(pageHeaders, pageUrl), segments: segments,
-                });
-            }
-        }
-        candidates.sort(function (a, b) { return (qualityValue(b.quality) || 0) - (qualityValue(a.quality) || 0); });
-        if (candidates.length === 0) throw new Error("Kodik returned no playable qualities");
-        return candidates;
+        return requestStreams(pageOrigin, pageUrl, pageHeaders, formParams, cookieHeader, html, segments);
     },
 };

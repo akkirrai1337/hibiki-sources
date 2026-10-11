@@ -1,7 +1,7 @@
 {
     "id": "kodik",
     "name": "Kodik player resolver",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "type": "player-resolver",
     "hosts": ["kodik.cc", "kodikplayer.com", "kodikapi.com", "kodik.info", "kodik.biz"]
 }
