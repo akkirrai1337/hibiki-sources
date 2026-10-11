@@ -37,6 +37,46 @@ REQUIRED_FIELDS = ["id", "name", "version"]
 REQUIRED_CAPABILITIES = {"LATEST_RELEASES", "PLAYBACK"}
 MANIFEST_SUFFIX = ".manifest.json"
 
+# What the app gives extension scripts, by the `hostApi` level that introduced it - the app's
+# HOST_API (hibiki-desktop src/shared/hostApi.ts). A manifest may declare `"hostApi": N`; an app
+# whose HOST_API is lower then keeps the version it has instead of installing one that would break.
+# A manifest without it is never checked by the app, so this refuses to publish a script that uses
+# anything above level 1 without declaring at least that level.
+#
+# When the app gets something new for scripts: raise LATEST_HOST_API and HOST_API together, and add
+# a pattern for it here at the new level.
+LATEST_HOST_API = 1
+HOST_API_FEATURES: list[tuple[int, str, re.Pattern[str]]] = [
+    # Level 1: everything scripts had when hostApi was introduced. Listed so the table is complete;
+    # nothing at this level ever needs a declaration.
+    (1, "fetch", re.compile(r"\bfetch\s*\(")),
+    (1, "fetchAll", re.compile(r"\bfetchAll\s*\(")),
+    (1, "storage", re.compile(r"\bstorage\.(?:get|set|remove)\b")),
+    (1, "challenge", re.compile(r"\bchallenge\s*\(")),
+    (1, "browserFetch", re.compile(r"\bbrowserFetch\s*\(")),
+    (1, "Jsoup", re.compile(r"\bJsoup\.")),
+    (1, "Gzip", re.compile(r"\bGzip\.")),
+    (1, "Url", re.compile(r"\bUrl\.")),
+    (1, "AnimeTitle", re.compile(r"\bAnimeTitle\b")),
+    (1, "link.dataSaver", re.compile(r"\.dataSaver\b")),
+]
+
+
+def check_host_api(path: Path, manifest: dict, payload: str) -> None:
+    declared = manifest.get("hostApi")
+    if declared is not None and (not isinstance(declared, int) or isinstance(declared, bool) or declared < 1):
+        raise ManifestError(f"{path.name}: hostApi must be a positive integer")
+    if declared is not None and declared > LATEST_HOST_API:
+        raise ManifestError(f"{path.name}: hostApi {declared} is newer than any app ({LATEST_HOST_API})")
+    used = [(level, name) for level, name, pattern in HOST_API_FEATURES if pattern.search(payload)]
+    needed = max((level for level, _ in used), default=1)
+    if needed > 1 and (declared is None or declared < needed):
+        names = ", ".join(name for level, name in used if level == needed)
+        raise ManifestError(
+            f"{path.name}: uses {names} (hostApi {needed}) but declares "
+            f"{'no hostApi' if declared is None else f'hostApi {declared}'} - older apps would install it and break"
+        )
+
 
 class ManifestError(ValueError):
     pass
@@ -80,8 +120,10 @@ def load_manifest(path: Path) -> dict:
     payload_path = path.with_name(f"{stem}.js")
     if not payload_path.is_file():
         raise ManifestError(f"{path.name}: missing sibling payload file {payload_path.name}")
-    if not payload_path.read_text(encoding="utf-8").strip():
+    payload = payload_path.read_text(encoding="utf-8")
+    if not payload.strip():
         raise ManifestError(f"{payload_path.name}: payload must not be blank")
+    check_host_api(path, manifest, payload)
 
     return manifest
 
@@ -109,6 +151,8 @@ def build_index() -> dict:
                 "isNsfw": manifest.get("isNsfw", False),
                 "type": manifest.get("type", "source"),
                 "manifestUrl": f"{RAW_BASE_URL}/{path.relative_to(EXTENSIONS_DIR).as_posix()}",
+                # Only when declared: an app reads a missing one as "don't check".
+                **({"hostApi": manifest["hostApi"]} if "hostApi" in manifest else {}),
             }
         )
 
