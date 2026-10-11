@@ -2,9 +2,7 @@
 // page; the host supplies browser-session headers to ExoPlayer. MegaPlay can insert WebVTT
 // tracks after playback starts, so keep observing the player until the host's settle window
 // closes instead of completing immediately after the HLS manifest is discovered.
-var Provider = {
-    browserScript: function (linkJson) {
-        return "" +
+var START_SCRIPT = "" +
             "(function(){" +
             "try {" +
             "if(window.__hibikiMegaPlayResolverStarted)return 'waiting';window.__hibikiMegaPlayResolverStarted=true;" +
@@ -21,5 +19,28 @@ var Provider = {
             "return video?'starting':'no-player';" +
             "}catch(e){return 'no-player';}" +
             "})();";
+
+// The page hosting the embed is the source site's root, not the episode's own get-servers URL the
+// link names as its Referer. MegaPlay answers both the same; the root is one page for every
+// episode, so the hidden browser keeps it loaded between resolves instead of loading a new one
+// each time (~340 ms, measured live). Its analytics script is not loaded at all.
+var BLOCK_HOSTS = ["statlytic.net"];
+
+var Provider = {
+    browserScript: function (linkJson) {
+        try {
+            var link = JSON.parse(linkJson || "{}");
+            var headers = link.headers || {};
+            var referer = String(headers.Referer || headers.referer || "");
+            var origin = referer.match(/^https?:\/\/[^/]+/i);
+            if (!origin) return START_SCRIPT;
+            return "hibiki-browser-resolver:v1:" + JSON.stringify({
+                script: START_SCRIPT,
+                parentUrl: origin[0] + "/",
+                blockHosts: BLOCK_HOSTS
+            });
+        } catch (e) {
+            return START_SCRIPT;
+        }
     }
 };
