@@ -2,6 +2,16 @@
 // The site uses normal HTML for catalog/details and an XHR endpoint for episodes. Server links
 // are opaque per-episode tokens; they are intentionally passed to /ajax/server unchanged.
 
+// Posters on this site run to 530KB (PNGs); images.weserv.nl serves the same picture resized to the
+// 400px the app shows at most, as WebP - a few times smaller. The app falls back to the original
+// when the proxy fails, and opens the original when the poster is shown full screen.
+var POSTER_RESIZE_URL = "https://images.weserv.nl/";
+
+function resizedPoster(url) {
+    if (!url || url.indexOf("http") !== 0) return url || null;
+    return POSTER_RESIZE_URL + "?url=" + encodeURIComponent(url) + "&w=400&h=600&fit=inside&we&output=webp&q=75";
+}
+
 function S(value) { return value === null || value === undefined ? "" : String(value); }
 
 var BASE_URL = "https://anikototv.to";
@@ -152,7 +162,7 @@ function parseCard(card) {
         type: type,
         availableEpisodeCount: cardEpisodeCount(card),
         episodeCount: null,
-        posterUrl: poster === null ? null : S(poster.absUrl("src")),
+        posterUrl: poster === null ? null : resizedPoster(S(poster.absUrl("src"))),
         genres: genres,
     });
 }
@@ -200,7 +210,7 @@ function relatedStub(el) {
         if (yearMatch !== null) year = parseInt(yearMatch[1], 10);
         else if (type === null && /^(tv|movie|ova|ona|special)$/i.test(text)) type = normalizeType(text);
     }
-    return { id: id, title: name, posterUrl: img === null ? null : S(img.absUrl("src")), type: type, year: year, episodeCount: null, status: null };
+    return { id: id, title: name, posterUrl: img === null ? null : resizedPoster(S(img.absUrl("src"))), type: type, year: year, episodeCount: null, status: null };
 }
 
 function stubsFrom(elements) {
@@ -273,7 +283,7 @@ function parseDetails(id, html) {
         type: type,
         status: statusText.indexOf("airing") >= 0 ? "ongoing" : (statusText ? "released" : null),
         episodeCount: isNaN(episodeCount) ? null : episodeCount,
-        posterUrl: poster === null ? null : S(poster.absUrl("src")),
+        posterUrl: poster === null ? null : resizedPoster(S(poster.absUrl("src"))),
         description: synopsis === null ? null : S(synopsis.text()).trim(),
         genres: genres,
         franchiseAnime: franchise,

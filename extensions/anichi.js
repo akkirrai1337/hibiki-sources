@@ -11,6 +11,16 @@
 // that same resolver as a dependency instead of writing a new one; a server that resolves to some
 // other, not-yet-supported host just won't play until a resolver for it exists, same as any source.
 
+// Posters on this site run to 120KB; images.weserv.nl serves the same picture resized to the
+// 400px the app shows at most, as WebP - a few times smaller. The app falls back to the original
+// when the proxy fails, and opens the original when the poster is shown full screen.
+var POSTER_RESIZE_URL = "https://images.weserv.nl/";
+
+function resizedPoster(url) {
+    if (!url || url.indexOf("http") !== 0) return url || null;
+    return POSTER_RESIZE_URL + "?url=" + encodeURIComponent(url) + "&w=400&h=600&fit=inside&we&output=webp&q=75";
+}
+
 function S(value) { return value === null || value === undefined ? null : String(value); }
 
 /** A definite non-2xx (dead file, gone mirror, ...) means skip it; a network hiccup on this
@@ -260,7 +270,7 @@ function parseCard(item) {
     var right = item.selectFirst(".meta .right");
     if (right !== null) type = toType(S(right.text()));
 
-    return title({ id: id, englishName: name, originalName: name, posterUrl: posterUrl, type: type });
+    return title({ id: id, englishName: name, originalName: name, posterUrl: resizedPoster(posterUrl), type: type });
 }
 
 function parseCardList(html) {
@@ -304,7 +314,7 @@ function fetchWatchOrder(id, numericId) {
             var name = S(link.text()).trim() || (img !== null ? S(img.attr("alt")).trim() : "");
             if (itemId === null || !name || seen[itemId]) continue;
             seen[itemId] = true;
-            result.push({ id: itemId, title: name, posterUrl: img === null ? null : S(img.absUrl("src")), type: null, year: null, episodeCount: null, status: null });
+            result.push({ id: itemId, title: name, posterUrl: img === null ? null : resizedPoster(S(img.absUrl("src"))), type: null, year: null, episodeCount: null, status: null });
         }
         return result;
     } catch (error) {
@@ -378,7 +388,7 @@ function parseDetails(id, html) {
             originalName: name,
             japaneseName: japaneseName.length > 0 ? japaneseName : null,
             synonyms: synonyms,
-            posterUrl: posterUrl,
+            posterUrl: resizedPoster(posterUrl),
             description: descriptionText,
             genres: genres,
             ratings: ratings,

@@ -32,6 +32,16 @@ function idFromHref(href) {
 
 /** Lazy-loaded cards/poster images serve a placeholder SVG as `src` and the real URL in
  * `data-src` - prefer the latter whenever it's present. */
+// Posters on this site run to 1739x2560 / 260KB; images.weserv.nl serves the same picture resized to the
+// 400px the app shows at most, as WebP - a few times smaller. The app falls back to the original
+// when the proxy fails, and opens the original when the poster is shown full screen.
+var POSTER_RESIZE_URL = "https://images.weserv.nl/";
+
+function resizedPoster(url) {
+    if (!url || url.indexOf("http") !== 0) return url || null;
+    return POSTER_RESIZE_URL + "?url=" + encodeURIComponent(url) + "&w=400&h=600&fit=inside&we&output=webp&q=75";
+}
+
 function imageUrl(img) {
     if (img === null) return null;
     var lazy = S(img.attr("data-src")).trim();
@@ -90,7 +100,7 @@ function parseCard(article) {
         id: id,
         englishName: name,
         originalName: name,
-        posterUrl: posterUrl,
+        posterUrl: resizedPoster(posterUrl),
         type: type,
         status: status,
     });
@@ -129,7 +139,7 @@ function parseRecommended(html) {
             var img = link.selectFirst("img");
             var poster = img === null ? "" : S(img.attr("data-src") || img.attr("src")).trim();
             var typeEl = link.selectFirst(".typez");
-            result.push({ id: match[1], title: name, posterUrl: poster.indexOf("http") === 0 ? poster : null, type: typeEl === null ? null : S(typeEl.text()).trim().toLowerCase(), year: null, episodeCount: null, status: null });
+            result.push({ id: match[1], title: name, posterUrl: poster.indexOf("http") === 0 ? resizedPoster(poster) : null, type: typeEl === null ? null : S(typeEl.text()).trim().toLowerCase(), year: null, episodeCount: null, status: null });
         }
     }
     return result;
@@ -184,7 +194,7 @@ function parseDetails(id, html) {
         englishName: name,
         originalName: name,
         synonyms: synonyms,
-        posterUrl: posterUrl,
+        posterUrl: resizedPoster(posterUrl),
         description: descriptionText,
         genres: genres,
         ratings: ratings,

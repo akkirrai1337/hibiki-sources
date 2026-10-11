@@ -101,7 +101,7 @@ function relatedCards(document, tab) {
         var typeEl = rows.get(i).selectFirst("strong a");
         var type = typeEl === null ? "" : S(typeEl.text()).trim().toLowerCase();
         var yearMatch = /(19\d{2}|20\d{2})/.exec(S(rows.get(i).text()));
-        result.push({ id: id, title: name, posterUrl: poster.indexOf("http") === 0 ? poster : null, type: type && type !== "?" ? type : null, year: yearMatch === null ? null : parseInt(yearMatch[1], 10), episodeCount: null, status: null });
+        result.push({ id: id, title: name, posterUrl: poster.indexOf("http") === 0 ? resizedPoster(poster) : null, type: type && type !== "?" ? type : null, year: yearMatch === null ? null : parseInt(yearMatch[1], 10), episodeCount: null, status: null });
     }
     return result;
 }
@@ -118,6 +118,16 @@ function merge(summary, details) {
     merged.description = details.description || summary.description;
     merged.ratings = (details.ratings && details.ratings.length > 0) ? details.ratings : (summary.ratings || []);
     return merged;
+}
+
+// Posters on this site run to 530KB (PNGs); images.weserv.nl serves the same picture resized to the
+// 400px the app shows at most, as WebP - a few times smaller. The app falls back to the original
+// when the proxy fails, and opens the original when the poster is shown full screen.
+var POSTER_RESIZE_URL = "https://images.weserv.nl/";
+
+function resizedPoster(url) {
+    if (!url || url.indexOf("http") !== 0) return url || null;
+    return POSTER_RESIZE_URL + "?url=" + encodeURIComponent(url) + "&w=400&h=600&fit=inside&we&output=webp&q=75";
 }
 
 function imageUrl(el) {
@@ -192,7 +202,7 @@ function parseCards(html) {
             // releaseStatus is RELEASED, so every ongoing AnimePahe title showed "episodes
             // unknown" even when the total was right there on the page.
             availableEpisodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
-            posterUrl: imageUrl(item.selectFirst(".anime-poster img")),
+            posterUrl: resizedPoster(imageUrl(item.selectFirst(".anime-poster img"))),
             status: statusEl !== null ? S(statusEl.text()).trim() : null,
             ratings: isNaN(score) ? [] : [{ source: "AnimePahe", value: score, votes: null }],
         }));
@@ -285,7 +295,7 @@ function parseDetails(id, html) {
         type: fieldValue(info, "Type"),
         episodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : null,
         availableEpisodeCount: episodeMatch !== null ? parseInt(episodeMatch[0], 10) : availableCount,
-        posterUrl: posterUrl,
+        posterUrl: resizedPoster(posterUrl),
         status: fieldValue(info, "Status"),
         description: description,
         genres: genres,

@@ -16,6 +16,16 @@
 // (`<p><strong>Описание: </strong>...</p>`). This version reads it the same way it reads every
 // other labeled field (Год выхода, Тип, Жанр, ...): by matching the <strong> label text.
 
+// Posters on this site run to 700KB (PNGs); images.weserv.nl serves the same picture resized to the
+// 400px the app shows at most, as WebP - a few times smaller. The app falls back to the original
+// when the proxy fails, and opens the original when the poster is shown full screen.
+var POSTER_RESIZE_URL = "https://images.weserv.nl/";
+
+function resizedPoster(url) {
+    if (!url || url.indexOf("http") !== 0) return url || null;
+    return POSTER_RESIZE_URL + "?url=" + encodeURIComponent(url) + "&w=400&h=600&fit=inside&we&output=webp&q=75";
+}
+
 function S(value) {
     return value === null || value === undefined ? null : String(value);
 }
@@ -184,7 +194,7 @@ function parseCards(html) {
             year: year,
             type: type,
             episodeCount: episodeCount,
-            posterUrl: posterUrl,
+            posterUrl: resizedPoster(posterUrl),
             status: status,
             description: description,
             genres: genres,
@@ -254,7 +264,7 @@ function parseDetails(path, html) {
         originalName: names.length > 1 ? names[1] : russianName,
         type: type,
         episodeCount: totalEpisodes,
-        posterUrl: posterUrl,
+        posterUrl: resizedPoster(posterUrl),
         status: status,
         description: description,
         nextEpisodeAt: nextEpisodeAt,

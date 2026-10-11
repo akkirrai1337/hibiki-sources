@@ -5,6 +5,16 @@
 // AniTube's Cloudflare zone, which doesn't) - every request needs to be able to survive it, so
 // `request` routes through `fetchChallenged`, the same try-bare / solve-via-WebView / retry-once
 // dance AnimePahe's extension uses, backed by the host's `challenge()` global.
+// Posters on this site run to 115KB; images.weserv.nl serves the same picture resized to the
+// 400px the app shows at most, as WebP - a few times smaller. The app falls back to the original
+// when the proxy fails, and opens the original when the poster is shown full screen.
+var POSTER_RESIZE_URL = "https://images.weserv.nl/";
+
+function resizedPoster(url) {
+    if (!url || url.indexOf("http") !== 0) return url || null;
+    return POSTER_RESIZE_URL + "?url=" + encodeURIComponent(url) + "&w=400&h=600&fit=inside&we&output=webp&q=75";
+}
+
 function S(value) { return value === null || value === undefined ? "" : String(value); }
 
 // Search filters are this source's own (declared in getSettings().filters); their picked values
@@ -142,7 +152,7 @@ function parseCards(html, selector) {
         result.push(title({
             id: id, russianName: name, englishName: null, originalName: name,
             year: year, type: type, episodeCount: episodes, availableEpisodeCount: episodes,
-            posterUrl: poster, status: null, description: null, genres: []
+            posterUrl: resizedPoster(poster), status: null, description: null, genres: []
         }));
     }
     return result;
@@ -192,7 +202,7 @@ function details(id) {
         originalName: field(document, "Назва японською") || name,
         year: yearMatch ? parseInt(yearMatch[0], 10) : null,
         type: typeOf(field(document, "Тип")), episodeCount: episodeCount ? parseInt(episodeCount, 10) : null,
-        posterUrl: posterUrl, status: status.indexOf("вийш") >= 0 ? "released" : status.indexOf("онго") >= 0 ? "ongoing" : null,
+        posterUrl: resizedPoster(posterUrl), status: status.indexOf("вийш") >= 0 ? "released" : status.indexOf("онго") >= 0 ? "ongoing" : null,
         description: description === null ? null : S(description.text()).trim(), genres: genres,
         similarAnime: parseCards(html, ".related-news .shortstory__body").filter(function (card) { return card.id !== id; }).map(relatedStub)
     });
