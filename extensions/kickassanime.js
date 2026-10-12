@@ -268,7 +268,9 @@ var Provider = {
             return {
                 url: server.src, type: "EMBED", quality: null,
                 headers: { "Referer": BASE_URL + "/" },
-                playerName: server.name || null, translation: null, segments: [], videoId: null,
+                // One stream often carries every dub as audio tracks ("English", "Japanese"); the
+                // language this group is for tells the app which of them to play.
+                playerName: server.name || null, translation: localeName(groupId), segments: [], videoId: null,
             };
         });
     },
