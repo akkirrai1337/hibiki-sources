@@ -89,6 +89,14 @@ Field notes:
   catalog's sort menu and adds only its own "recent" entry (the `latest()` feed) - it never asks for
   an order the source did not offer. Ids and titles are the source's to choose ("popular", "az",
   "rating_score"...), as is what they mean on its site. A source with a single listing returns none.
+- **Titles in two parts (optional).** A title's page needs the title itself at once, but a source
+  may also fetch things that only decorate it (yummy-anime: the similar titles, a request of their
+  own). `getById(id, part)` gets `part === "core"` from a host that wants to draw the title first:
+  answer with the title alone and set `extrasPending: true` on it. The host then calls
+  `getTitleExtras(id)`, which returns `{ similarAnime: [...] }` (the same shape `getById` puts in
+  `similarAnime`; a failure should throw, so the host asks again next time). Without `part` -
+  an older host, or one that wants everything - `getById` answers in full, as always, so the same
+  file keeps working on both. A source that does not do this ignores `part` and needs nothing else.
 - `getPlayerLinks()` may return direct `DIRECT_HLS`/`DIRECT_MP4` links with optional `audioUrl`,
   `audioHeaders`, and `subtitles`. Each subtitle is `{ url, label?, language?, headers? }`. The host
   preserves the separate headers for video, audio, and subtitle requests and carries all of them

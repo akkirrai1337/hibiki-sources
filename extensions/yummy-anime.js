@@ -281,6 +281,30 @@ function bestImageUrl(image) {
     return null;
 }
 
+// Every size Yummy serves a poster in, with its width (always these - measured), so the host can
+// take the smallest that is sharp where it shows the poster: a phone's catalog card needs `big`
+// (250px WebP, ~25KB on average), not `mega` (570px AVIF, ~55KB). posterUrl stays bestImageUrl's
+// pick, for the title page and the hero.
+var POSTER_WIDTHS = { mega: 570, huge: 400, big: 250, medium: 184 };
+
+function posterVariants(image) {
+    if (!image) return [];
+    var variants = [];
+    for (var key in POSTER_WIDTHS) {
+        var url = normalizeUrl(image[key]);
+        if (url !== null) variants.push({ url: url, width: POSTER_WIDTHS[key] });
+    }
+    return variants;
+}
+
+// The "similar titles" the recommendations request carries, as the host's RelatedAnimeTitle list.
+function toSimilarAnime(recommendations, language) {
+    return (recommendations || []).map(function (r) {
+        var t2 = toAnimeTitle(r, language);
+        return { id: t2.id, title: t2.russianName || t2.englishName || t2.originalName, posterUrl: t2.posterUrl, type: t2.type, year: t2.year, episodeCount: t2.episodeCount, status: t2.status };
+    });
+}
+
 function extractEpisodeCount(episodes, preferTotal) {
     if (episodes === null || episodes === undefined) return null;
     if (typeof episodes === "number") return episodes;
@@ -378,6 +402,7 @@ function toAnimeTitle(payload, language) {
         type: normalize(payload.type ? payload.type.alias : null),
         episodeCount: totalEpisodeCount !== null ? totalEpisodeCount : availableEpisodeCount,
         posterUrl: bestImageUrl(payload.poster) || bestImageUrl(payload.image),
+        posterVariants: posterVariants(payload.poster),
         status: normalize(payload.anime_status ? payload.anime_status.alias : null)
             || normalize(payload.anime_status ? payload.anime_status.title : null)
             || normalize(payload.status),
@@ -421,6 +446,7 @@ function scheduleToTitle(item) {
         id: String(item.anime_id), russianName: normalizedTitle, originalName: normalizedTitle,
         type: "TV", episodeCount: aired !== null ? aired : total,
         posterUrl: bestImageUrl(item.poster),
+        posterVariants: posterVariants(item.poster),
         status: isAnnouncement ? "announcement" : "ongoing",
         nextEpisodeAt: nextDate, availableEpisodeCount: aired,
     });
@@ -566,8 +592,20 @@ var Provider = {
         return result;
     },
 
-    getById: function (id) {
+    // part === "core": the title alone, one request - what a page needs to draw. The similar titles
+    // are left out (extrasPending says so) and come from getTitleExtras, which the host asks for
+    // after the title is on screen, so a slow second request never holds the page back. Nor are the
+    // trailers asked for: no host shows them. Without `part` - an older host, or one that wants
+    // everything - the answer is the whole title, as it always was.
+    getById: function (id, part) {
         var language = requestLanguage();
+        if (part === "core") {
+            var corePayload = get("/anime/" + id, null);
+            if (!corePayload) throw new Error("YummyAnime could not load this title");
+            var coreTitle = toAnimeTitle(corePayload, language);
+            coreTitle.extrasPending = true;
+            return coreTitle;
+        }
         // All three at once - they don't depend on each other, and the title alone is no use
         // without the page's other two sections anyway. The title is the only one that matters:
         // if it failed there is nothing to return, so that one still throws the way it always did.
@@ -590,13 +628,16 @@ var Provider = {
             }
         } catch (ignored) { /* trailers are best-effort */ }
         try {
-            var recommendations = fetched[2];
-            result.similarAnime = (recommendations || []).map(function (r) {
-                var t2 = toAnimeTitle(r, language);
-                return { id: t2.id, title: t2.russianName || t2.englishName || t2.originalName, posterUrl: t2.posterUrl, type: t2.type, year: t2.year, episodeCount: t2.episodeCount, status: t2.status };
-            });
+            result.similarAnime = toSimilarAnime(fetched[2], language);
         } catch (ignored) { /* recommendations are best-effort */ }
         return result;
+    },
+
+    // What getById(id, "core") left out: the similar titles, one request. A failure throws, so the
+    // host knows it never got them (it asks again on the next visit) rather than taking none for an
+    // answer.
+    getTitleExtras: function (id) {
+        return { similarAnime: toSimilarAnime(get("/anime/" + id + "/recommendations", null), requestLanguage()) };
     },
 
     getSettings: function () {
