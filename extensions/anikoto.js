@@ -340,6 +340,43 @@ function collectEpisodes(titleId) {
 // server of an episode, so it is read once per episode and sound, not once per link.
 var MEGAPLAY_EMBED = /^(https?:\/\/(?:megaplay|vidwish)\.[a-z]+)\/(?:videojs\/)?stream\/([^?#]+)/i;
 
+// MegaPlay names a track by whatever the release said, which ends up as "English (CR English)",
+// "Spanish (Spanish (Spain))" or a bare "baq". The picker should say the language, and what sets one
+// track of it apart from another (Forced, SDH, a region), once. Codes are the 3-letter ones in the
+// track's file name (..._eng.vtt): [language name, 2-letter code].
+var SUBTITLE_LANGUAGES = {
+    ara: ["Arabic", "ar"], baq: ["Basque", "eu"], ben: ["Bengali", "bn"], bul: ["Bulgarian", "bg"], cat: ["Catalan", "ca"],
+    chi: ["Chinese", "zh"], zho: ["Chinese", "zh"], cze: ["Czech", "cs"], ces: ["Czech", "cs"], dan: ["Danish", "da"],
+    dut: ["Dutch", "nl"], nld: ["Dutch", "nl"], eng: ["English", "en"], fil: ["Filipino", "fil"], fin: ["Finnish", "fi"],
+    fre: ["French", "fr"], fra: ["French", "fr"], ger: ["German", "de"], deu: ["German", "de"], glg: ["Galician", "gl"],
+    gre: ["Greek", "el"], ell: ["Greek", "el"], heb: ["Hebrew", "he"], hin: ["Hindi", "hi"], hrv: ["Croatian", "hr"],
+    hun: ["Hungarian", "hu"], ind: ["Indonesian", "id"], ita: ["Italian", "it"], jpn: ["Japanese", "ja"], kor: ["Korean", "ko"],
+    may: ["Malay", "ms"], msa: ["Malay", "ms"], nob: ["Norwegian", "nb"], nor: ["Norwegian", "no"], pol: ["Polish", "pl"],
+    por: ["Portuguese", "pt"], rum: ["Romanian", "ro"], ron: ["Romanian", "ro"], rus: ["Russian", "ru"], slo: ["Slovak", "sk"],
+    slk: ["Slovak", "sk"], spa: ["Spanish", "es"], swe: ["Swedish", "sv"], tam: ["Tamil", "ta"], tel: ["Telugu", "te"],
+    tha: ["Thai", "th"], tur: ["Turkish", "tr"], ukr: ["Ukrainian", "uk"], vie: ["Vietnamese", "vi"],
+};
+
+function subtitleCode(file) {
+    var match = /_([a-z]{3})\.vtt(?:[?#]|$)/i.exec(file);
+    return match === null ? null : match[1].toLowerCase();
+}
+
+function cleanSubtitleLabel(label, code) {
+    var known = code !== null ? SUBTITLE_LANGUAGES[code] : undefined;
+    // A bare code ("baq") is the language's name written the way the file was named.
+    if (known && label.toLowerCase() === code) return known[0];
+    var match = /^([^()]+?)\s*\((.*)\)$/.exec(label);
+    if (match === null) return label;
+    var base = match[1].trim();
+    // "CR" marks the release group's own copy; it says nothing to the person choosing.
+    var inner = match[2].trim().replace(/^CR\s+/i, "");
+    if (inner.toLowerCase().indexOf(base.toLowerCase()) !== 0) return base + " (" + inner + ")";
+    // The detail repeats the language ("English", "Spanish (Spain)", "Portuguese(Brazil)"): keep only what is added.
+    var rest = inner.substring(base.length).trim().replace(/^\((.*)\)$/, "$1").trim();
+    return rest ? base + " (" + rest + ")" : base;
+}
+
 function megaPlaySubtitles(embedUrl, cache) {
     var match = MEGAPLAY_EMBED.exec(embedUrl);
     if (match === null) return [];
@@ -358,14 +395,20 @@ function megaPlaySubtitles(embedUrl, cache) {
         if (!response.ok) return cache[key];
         var tracks = JSON.parse(S(response.body)).tracks || [];
         var files = {};
+        var labels = {};
         for (var i = 0; i < tracks.length; i++) {
             var file = S(tracks[i] && tracks[i].file).trim();
-            var label = S(tracks[i] && tracks[i].label).trim();
+            var rawLabel = S(tracks[i] && tracks[i].label).trim();
             // The seek-bar preview sprites come in the same list; they have no label and are not text.
-            if (!file || !label || files[file] || /thumbnail/i.test(S(tracks[i].kind)) || /thumbnails?\.vtt/i.test(file)) continue;
+            if (!file || !rawLabel || files[file] || /thumbnail/i.test(S(tracks[i].kind)) || /thumbnails?\.vtt/i.test(file)) continue;
             files[file] = true;
+            var code = subtitleCode(file);
+            var label = cleanSubtitleLabel(rawLabel, code);
+            // Two tracks that clean down to the same words stay tellable apart.
+            labels[label] = (labels[label] || 0) + 1;
+            if (labels[label] > 1) label = label + " " + labels[label];
             // The subtitle CDN answers 403 to a Referer that is the embed page itself; the host root is what it takes.
-            cache[key].push({ url: file, label: label, language: null, headers: { "Referer": origin + "/", "Origin": origin } });
+            cache[key].push({ url: file, label: label, language: code !== null && SUBTITLE_LANGUAGES[code] ? SUBTITLE_LANGUAGES[code][1] : null, headers: { "Referer": origin + "/", "Origin": origin } });
         }
     } catch (error) {
         // No subtitles is a worse answer than none-yet, never a reason to lose the episode's links.
