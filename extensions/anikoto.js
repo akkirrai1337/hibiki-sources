@@ -333,6 +333,46 @@ function collectEpisodes(titleId) {
     return groups;
 }
 
+// MegaPlay, the host behind most of this site's servers, lists an episode's subtitle tracks in its own
+// /stream/getSources answer. The hidden browser that resolves the stream only reports the <track>
+// elements it finds on the page, and this player does not put them there - so asking MegaPlay for
+// the list is what gets the subtitles (the Aniyomi extension does the same). One list serves every
+// server of an episode, so it is read once per episode and sound, not once per link.
+var MEGAPLAY_EMBED = /^(https?:\/\/(?:megaplay|vidwish)\.[a-z]+)\/(?:videojs\/)?stream\/([^?#]+)/i;
+
+function megaPlaySubtitles(embedUrl, cache) {
+    var match = MEGAPLAY_EMBED.exec(embedUrl);
+    if (match === null) return [];
+    var key = match[1] + "/" + match[2];
+    if (cache[key] !== undefined) return cache[key];
+    cache[key] = [];
+    try {
+        var origin = match[1];
+        var page = S(fetch(embedUrl, { headers: { "User-Agent": USER_AGENT, "Referer": BASE_URL + "/", "X-Requested-With": "XMLHttpRequest" } }).body);
+        var id = /data-id=["']([^"']+)["']/i.exec(page) || /File\s+(\d+)/i.exec(page);
+        if (id === null) return cache[key];
+        var server = /[?&]s=([^&#]+)/.exec(embedUrl);
+        var response = fetch(origin + "/stream/getSources?id=" + encodeURIComponent(id[1]) + (server === null ? "" : "&s=" + server[1]), {
+            headers: { "User-Agent": USER_AGENT, "Accept": "application/json,*/*", "Referer": embedUrl, "X-Requested-With": "XMLHttpRequest" }
+        });
+        if (!response.ok) return cache[key];
+        var tracks = JSON.parse(S(response.body)).tracks || [];
+        var files = {};
+        for (var i = 0; i < tracks.length; i++) {
+            var file = S(tracks[i] && tracks[i].file).trim();
+            var label = S(tracks[i] && tracks[i].label).trim();
+            // The seek-bar preview sprites come in the same list; they have no label and are not text.
+            if (!file || !label || files[file] || /thumbnail/i.test(S(tracks[i].kind)) || /thumbnails?\.vtt/i.test(file)) continue;
+            files[file] = true;
+            // The subtitle CDN answers 403 to a Referer that is the embed page itself; the host root is what it takes.
+            cache[key].push({ url: file, label: label, language: null, headers: { "Referer": origin + "/", "Origin": origin } });
+        }
+    } catch (error) {
+        // No subtitles is a worse answer than none-yet, never a reason to lose the episode's links.
+    }
+    return cache[key];
+}
+
 function loadLinks(titleId, groupId, episodeId) {
     var type = groupId.indexOf("|dub") >= 0 ? "dub" : "sub";
     var epId = episodeId.substring(episodeId.lastIndexOf("|") + 1);
@@ -349,6 +389,7 @@ function loadLinks(titleId, groupId, episodeId) {
     var items = servers.select(".type[data-type='" + type + "'] li[data-link-id]");
     var links = [];
     var seen = {};
+    var subtitleCache = {};
     for (var i = 0; i < items.size(); i++) {
         var item = items.get(i);
         var token = S(item.attr("data-link-id"));
@@ -356,12 +397,14 @@ function loadLinks(titleId, groupId, episodeId) {
         seen[token] = true;
         var response = JSON.parse(request("/ajax/server?get=" + encodeURIComponent(token), referer));
         if (!response || response.status !== 200 || !response.result || !response.result.url) continue;
+        var embedUrl = S(response.result.url);
         links.push({
-            url: S(response.result.url), type: "EMBED", quality: null,
+            url: embedUrl, type: "EMBED", quality: null,
             headers: { "Referer": referer },
             playerName: S(item.text()).trim(),
             translation: type === "dub" ? "English dub" : "English sub",
             segments: [], videoId: null,
+            subtitles: megaPlaySubtitles(embedUrl, subtitleCache),
         });
     }
     return links;
