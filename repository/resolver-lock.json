@@ -19,7 +19,7 @@
       }
     },
     "anikoto": {
-      "version": "1.0.9",
+      "version": "1.0.10",
       "resolvers": {
         "animepahe-player": "1.0.10"
       }
