@@ -25,17 +25,17 @@
       }
     },
     "animego": {
-      "version": "1.0.14",
+      "version": "1.0.15",
       "resolvers": {
         "aniboom": "1.0.1",
         "aksor": "1.0.1",
-        "kodik": "1.0.5"
+        "kodik": "1.0.6"
       }
     },
     "animelib": {
-      "version": "1.0.5",
+      "version": "1.0.6",
       "resolvers": {
-        "kodik": "1.0.5"
+        "kodik": "1.0.6"
       }
     },
     "animepahe": {
@@ -56,9 +56,9 @@
       }
     },
     "anixart": {
-      "version": "1.0.6",
+      "version": "1.0.7",
       "resolvers": {
-        "kodik": "1.0.5"
+        "kodik": "1.0.6"
       }
     },
     "donghuastream": {
@@ -85,12 +85,12 @@
       }
     },
     "yummy-anime": {
-      "version": "1.3.19",
+      "version": "1.3.20",
       "resolvers": {
         "aniboom": "1.0.1",
         "alloha": "1.0.6",
         "aksor": "1.0.1",
-        "kodik": "1.0.5",
+        "kodik": "1.0.6",
         "vk": "1.0.1"
       }
     }
