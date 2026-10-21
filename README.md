@@ -112,6 +112,12 @@ manifest has `"type": "player-resolver"` and a `hosts` list. Its JS exposes
 quality, headers, segments }` objects. Resolver code must use only the portable `fetch`, `Jsoup`,
 and `console` APIs, so the same payload can be reused by a future desktop host.
 
+The streams a provider hands out stop working once their CDN token runs out, and only the provider
+knows when that is. Declare it in the manifest as `"streamLifetimeMs"` (Kodik: `3600000`, an hour):
+the host plays a stream picked again within that time as it is, and asks the player page for a new
+one after. A single stream may also carry its own `tokenLifetimeMs`. Without either the host assumes
+a few minutes, which is safe but resolves more often than a long-lived provider needs.
+
 For interactive players, use `"runtime": "BROWSER"` and expose
 `Provider.browserScript(linkJson)`. The host runs that returned page script in its browser engine;
 the script may call `HibikiResolver.quality(label)` before changing quality and
